@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOCKUP — Cotizar v2 · AROLUZ</title>
+  <style>
+    :root {
+      --azul: #1a3a5c;
+      --azul-claro: #2563a8;
+      --gris-bg: #f4f6f9;
+      --gris-borde: #d1d9e6;
+      --blanco: #ffffff;
+      --texto: #1f2937;
+      --texto-suave: #6b7280;
+      --verde: #16a34a;
+      --naranja: #d97706;
+      --sombra: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06);
+      --sombra-md: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+      --navbar-h: 56px;
+      --tipobar-h: 48px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gris-bg);
+      color: var(--texto);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: var(--azul);
+      color: white;
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      height: var(--navbar-h);
+      gap: 1rem;
+      box-shadow: var(--sombra-md);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .navbar-brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.5px;
+    }
+    .navbar-nav {
+      display: flex;
+      gap: 0.25rem;
+      margin-left: auto;
+      align-items: center;
+    }
+    .nav-link {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .nav-link.active, .nav-link:hover {
+      background: rgba(255,255,255,0.15);
+      color: white;
+    }
+    .nav-badge {
+      background: var(--naranja);
+      color: white;
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    /* ── Barra de tipo de producto (sticky) ── */
+    .tipo-bar {
+      background: var(--blanco);
+      border-bottom: 2px solid var(--gris-borde);
+      box-shadow: var(--sombra);
+      position: sticky;
+      top: var(--navbar-h);
+      z-index: 90;
+      height: var(--tipobar-h);
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      gap: 0.3rem;
+      justify-content: center;
+    }
+    .tipo-btn {
+      background: none;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 6px;
+      padding: 0.28rem 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--texto-suave);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      position: relative;
+    }
+    .tipo-btn:hover {
+      border-color: var(--azul-claro);
+      color: var(--azul-claro);
+      background: #f0f5ff;
+    }
+    .tipo-btn.active {
+      background: var(--azul-claro);
+      border-color: var(--azul-claro);
+      color: white;
+      font-weight: 600;
+    }
+    /* Badge puntito en tipo-btn cuando tiene medidas guardadas */
+    .tipo-btn.tiene-record::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 8px;
+      height: 8px;
+      background: #f59e0b;
+      border-radius: 50%;
+      border: 1.5px solid white;
+    }
+
+    /* ── Indicador "Recordar medidas" en tipo-bar ── */
+    #indicador-recordar {
+      position: absolute;
+      right: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .btn-recordar-bar {
+      background: none;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 7px;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.75rem;
+      color: var(--texto-suave);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-recordar-bar:hover {
+      border-color: var(--azul-claro);
+      color: var(--azul-claro);
+      background: #f0f5ff;
+    }
+    .chip-recordar {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #eff6ff;
+      border: 1.5px solid #93c5fd;
+      border-radius: 20px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.75rem;
+      color: var(--azul-claro);
+      white-space: nowrap;
+    }
+    .chip-recordar-x {
+      background: none;
+      border: none;
+      padding: 0 0.1rem;
+      font-size: 0.95rem;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--azul-claro);
+      display: flex;
+      align-items: center;
+    }
+    .chip-recordar-x:hover { color: #dc2626; }
+
+    /* ── Layout principal ── */
+    .cotizar-layout {
+      display: flex;
+      align-items: flex-start;
+      min-height: calc(100vh - var(--navbar-h) - var(--tipobar-h));
+    }
+
+    /* ── Sidebar config ── */
+    .config-panel {
+      width: 230px;
+      min-width: 230px;
+      background: var(--blanco);
+      border-right: 1px solid var(--gris-borde);
+      position: sticky;
+      top: calc(var(--navbar-h) + var(--tipobar-h));
+      height: calc(100vh - var(--navbar-h) - var(--tipobar-h));
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.25s ease, min-width 0.25s ease;
+      flex-shrink: 0;
+    }
+    .config-panel.collapsed {
+      width: 38px;
+      min-width: 38px;
+    }
+    .config-panel.collapsed .config-content {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .config-toggle {
+      width: 100%;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--gris-borde);
+      padding: 0.65rem 0.75rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--texto-suave);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .config-toggle:hover { background: var(--gris-bg); color: var(--texto); }
+    .toggle-icon {
+      font-size: 0.9rem;
+      transition: transform 0.25s;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    /* tuerca: sin rotación al colapsar */
+    .toggle-label {
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity 0.2s;
+    }
+    .config-panel.collapsed .toggle-label { opacity: 0; }
+
+    .config-content {
+      padding: 1rem 0.9rem;
+      transition: opacity 0.2s;
+    }
+    .config-section { margin-bottom: 1.1rem; }
+    .config-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--texto-suave);
+      margin-bottom: 0.4rem;
+      display: block;
+    }
+
+    /* Chips de radio */
+    .chip-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .chip-group.row { flex-direction: row; }
+    .chip-group.row .chip-label { flex: 1; justify-content: center; }
+
+    .chip-label {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.32rem 0.6rem;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.12s;
+      font-size: 0.82rem;
+      user-select: none;
+    }
+    .chip-label:hover { border-color: var(--azul-claro); background: #f0f5ff; }
+    .chip-label.selected {
+      border-color: var(--azul-claro);
+      background: #eff6ff;
+      color: var(--azul-claro);
+      font-weight: 600;
+    }
+    .chip-label input[type=radio] { accent-color: var(--azul-claro); }
+
+    .form-select-sm {
+      width: 100%;
+      padding: 0.32rem 0.5rem;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      color: var(--texto);
+      background: white;
+    }
+    .form-select-sm:focus { outline: none; border-color: var(--azul-claro); }
+
+    /* ── Panel del formulario ── */
+    .form-panel {
+      flex: 1;
+      padding: 1.5rem;
+      min-width: 0;
+    }
+    .form-card {
+      background: var(--blanco);
+      border: 1px solid var(--gris-borde);
+      border-radius: 10px;
+      box-shadow: var(--sombra);
+      padding: 1.4rem;
+      max-width: 620px;
+    }
+    .form-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.1rem;
+      padding-bottom: 0.7rem;
+      border-bottom: 1px solid var(--gris-borde);
+    }
+    .form-card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--azul);
+    }
+    .btn-recordar {
+      background: none;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 7px;
+      padding: 0.28rem 0.65rem;
+      font-size: 0.78rem;
+      color: var(--texto-suave);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-recordar:hover { border-color: var(--azul-claro); color: var(--azul-claro); background: #f0f5ff; }
+    .btn-recordar.ok    { border-color: var(--verde); color: var(--verde); background: #f0fdf4; }
+    .resultado-item { padding: 0.65rem 0; }
+    .resultado-item + .resultado-item {
+      border-top: 1px dashed var(--gris-borde);
+      margin-top: 0.1rem;
+    }
+    .resultado-item-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--texto-suave);
+      margin-bottom: 0.3rem;
+    }
+    .form-row { display: grid; gap: 0.7rem; margin-bottom: 0.7rem; }
+    .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
+    .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    .form-group label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--texto-suave);
+      margin-bottom: 0.28rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 0.48rem 0.65rem;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 7px;
+      font-size: 0.95rem;
+      color: var(--texto);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--azul-claro);
+      box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+    }
+    .check-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      padding: 0.2rem 0;
+    }
+    .check-label input { accent-color: var(--azul-claro); }
+
+    .alert-info {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.8rem;
+      color: #1d4ed8;
+      margin-bottom: 0.7rem;
+    }
+
+    /* ── Resultado integrado ── */
+    .resultado-box {
+      margin-top: 1.1rem;
+      background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 100%);
+      border: 1.5px solid var(--azul-claro);
+      border-radius: 9px;
+      padding: 1rem 1.1rem;
+      display: none;
+    }
+    .resultado-box.visible { display: block; }
+
+    .resultado-desc {
+      font-size: 0.8rem;
+      color: var(--texto-suave);
+      margin-bottom: 0.7rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .resultado-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .resultado-precio-big {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: var(--azul);
+      letter-spacing: -0.5px;
+    }
+    .resultado-peso {
+      font-size: 0.77rem;
+      color: var(--texto-suave);
+      margin-top: 0.1rem;
+    }
+    .resultado-acciones {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .cant-ctrl {
+      display: flex;
+      align-items: center;
+      border: 1.5px solid var(--gris-borde);
+      border-radius: 7px;
+      overflow: hidden;
+      background: white;
+    }
+    .cant-ctrl button {
+      background: none;
+      border: none;
+      padding: 0.3rem 0.6rem;
+      font-size: 1.1rem;
+      cursor: pointer;
+      color: var(--azul-claro);
+      line-height: 1;
+    }
+    .cant-ctrl button:hover { background: #f0f5ff; }
+    .cant-ctrl input {
+      border: none;
+      border-left: 1px solid var(--gris-borde);
+      border-right: 1px solid var(--gris-borde);
+      width: 44px;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.3rem 0;
+    }
+    .cant-ctrl input:focus { outline: none; background: #f0f5ff; }
+
+    .btn-agregar {
+      background: var(--verde);
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 0.45rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-agregar:hover { background: #15803d; }
+    .btn-agregar.ok { background: #15803d; }
+
+    .resultado-hint {
+      font-size: 0.73rem;
+      color: var(--texto-suave);
+      margin-top: 0.4rem;
+    }
+    .enter-hint {
+      font-size: 0.72rem;
+      color: #9ca3af;
+      margin-top: 0.35rem;
+      text-align: right;
+    }
+    .resultado-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.75rem;
+      padding-top: 0.65rem;
+      border-top: 1px solid var(--gris-borde);
+    }
+
+    /* ── Mini carrito en vivo (panel derecho) ── */
+    .carrito-live-panel {
+      width: 260px;
+      min-width: 260px;
+      background: var(--blanco);
+      border-left: 1px solid var(--gris-borde);
+      position: sticky;
+      top: calc(var(--navbar-h) + var(--tipobar-h));
+      height: calc(100vh - var(--navbar-h) - var(--tipobar-h));
+      overflow-y: auto;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .carrito-live-header {
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--texto-suave);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      border-bottom: 1px solid var(--gris-borde);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-shrink: 0;
+    }
+    .carrito-live-header .nav-badge {
+      margin-left: auto;
+    }
+    #carrito-live-items {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem 0;
+    }
+    .carrito-live-empty {
+      font-size: 0.8rem;
+      color: var(--texto-suave);
+      text-align: center;
+      padding: 1.5rem 1rem;
+      line-height: 1.5;
+    }
+    .cli-grupo { border-bottom: 1px solid var(--gris-borde); }
+    .cli-grupo:last-child { border-bottom: none; }
+
+    .cli-row {
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.55rem 0.75rem;
+      cursor: pointer; user-select: none;
+      transition: background 0.12s;
+    }
+    .cli-row:hover { background: var(--gris-bg); }
+
+    .cli-arrow {
+      font-size: 0.6rem; color: var(--texto-suave);
+      width: 10px; flex-shrink: 0; transition: transform 0.15s;
+    }
+    .cli-arrow.open { transform: rotate(90deg); }
+
+    .cli-label {
+      flex: 1; font-size: 0.78rem; color: var(--texto);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .cli-tag {
+      font-size: 0.65rem; font-weight: 700; border-radius: 4px;
+      padding: 0.1rem 0.35rem; flex-shrink: 0;
+    }
+    .cli-tag.ct   { background: #eff6ff; color: var(--azul-claro); }
+    .cli-tag.st   { background: var(--gris-bg); color: var(--texto-suave); }
+    .cli-tag.tapa { background: #fff7ed; color: var(--naranja); }
+
+    .cli-qty {
+      font-size: 0.75rem; font-weight: 600; color: var(--texto-suave);
+      flex-shrink: 0;
+    }
+    .cli-sub {
+      font-size: 0.75rem; font-weight: 700; color: var(--azul);
+      flex-shrink: 0; text-align: right; min-width: 60px;
+    }
+
+    .cli-del {
+      background: none; border: none; padding: 0 0.2rem;
+      font-size: 1rem; line-height: 1; color: var(--texto-suave);
+      cursor: pointer; flex-shrink: 0;
+      opacity: 0; transition: opacity 0.12s;
+    }
+    .cli-row:hover .cli-del { opacity: 1; }
+    .cli-del:hover { color: #dc2626; }
+
+    .cli-detail {
+      padding: 0.3rem 0.75rem 0.55rem 1.35rem;
+      display: none;
+      border-top: 1px dashed var(--gris-borde);
+      background: #fafbfd;
+    }
+    .cli-detail.open { display: block; }
+
+    .cli-detail-line {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 0.73rem; color: var(--texto-suave);
+      padding: 0.18rem 0;
+    }
+    .cli-detail-line strong { color: var(--texto); font-weight: 600; }
+
+    .carrito-live-footer {
+      padding: 0.75rem 1rem;
+      border-top: 2px solid var(--gris-borde);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      font-size: 0.82rem;
+      color: var(--texto-suave);
+    }
+    .carrito-live-footer strong {
+      font-size: 1rem;
+      color: var(--azul);
+    }
+
+    /* ── Badge mockup ── */
+    .mockup-badge {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: var(--naranja);
+      color: white;
+      border-radius: 20px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      box-shadow: var(--sombra-md);
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <span class="navbar-brand">AROLUZ</span>
+  <div class="navbar-nav">
+    <span class="nav-link active">Cotizar</span>
+    <span class="nav-link">Carrito <span class="nav-badge" id="carrito-badge">3</span></span>
+    <span class="nav-link">Historial</span>
+    <span class="nav-link">Catálogo</span>
+    <span class="nav-link">Config.</span>
+  </div>
+</nav>
+
+<!-- BARRA TIPO DE PRODUCTO (sticky) -->
+<div class="tipo-bar">
+  <button class="tipo-btn active" data-tipo="bandeja">Bandeja</button>
+  <button class="tipo-btn" data-tipo="curva_horizontal">C. Horizontal</button>
+  <button class="tipo-btn" data-tipo="curva_vertical">C. Vertical</button>
+  <button class="tipo-btn" data-tipo="tee">TEE</button>
+  <button class="tipo-btn" data-tipo="cruz">Cruz</button>
+  <button class="tipo-btn" data-tipo="reduccion">Reducción</button>
+  <button class="tipo-btn" data-tipo="caja_pase">Caja de Pase</button>
+
+  <div id="indicador-recordar">
+    <button class="btn-recordar-bar" id="btn-recordar-bar" onclick="recordarMedidas()">
+      📌 Recordar medidas
+    </button>
+    <span class="chip-recordar" id="chip-recordar" style="display:none">
+      📌 Recordando: <strong id="chip-recordar-nombre"></strong>
+      <button class="chip-recordar-x" onclick="limpiarRecordar()">×</button>
+    </span>
+  </div>
+</div>
+
+<!-- LAYOUT PRINCIPAL -->
+<div class="cotizar-layout">
+
+  <!-- SIDEBAR CONFIG -->
+  <aside class="config-panel" id="config-panel">
+    <button class="config-toggle" id="config-toggle" title="Mostrar/ocultar configuración">
+      <span class="toggle-icon">⚙</span>
+      <span class="toggle-label">Configuración</span>
+    </button>
+    <div class="config-content">
+
+      <div class="config-section">
+        <span class="config-label">Galvanizado</span>
+        <div class="chip-group" id="grupo-galv">
+          <label class="chip-label selected">
+            <input type="radio" name="galv" value="GO" checked> GO — Origen
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="galv" value="GC"> GC — Caliente
+          </label>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <span class="config-label">Ganancia</span>
+        <div class="chip-group" id="grupo-ganancia">
+          <label class="chip-label selected">
+            <input type="radio" name="ganancia" value="30" checked> 30% (×0.70)
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="ganancia" value="35"> 35% (×0.65)
+          </label>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <span class="config-label">Superficie</span>
+        <div class="chip-group" id="grupo-sup">
+          <label class="chip-label selected">
+            <input type="radio" name="sup" value="RANURADA" checked> Ranurada
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="sup" value="ESCALERILLA"> Escalerilla
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="sup" value="LISA"> Lisa
+          </label>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <span class="config-label">Espesor Producto</span>
+        <select class="form-select-sm" id="esp-prod">
+          <option value="1.2">1.2 mm</option>
+          <option value="1.5" selected>1.5 mm</option>
+          <option value="2.0">2.0 mm</option>
+        </select>
+      </div>
+
+      <div class="config-section">
+        <span class="config-label">Espesor Tapa</span>
+        <select class="form-select-sm" id="esp-tapa">
+          <option value="1.2" selected>1.2 mm</option>
+          <option value="1.5">1.5 mm</option>
+          <option value="2.0">2.0 mm</option>
+        </select>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- PANEL FORMULARIO + RESULTADO -->
+  <main class="form-panel">
+    <div class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title" id="form-titulo">Bandeja</div>
+      </div>
+      <p id="msg-medidas" style="font-size:0.82rem; color:var(--texto-suave); margin-bottom:1rem;">
+        Ingresá las medidas para ver el precio al instante.
+      </p>
+
+      <!-- BANDEJA -->
+      <div class="form-producto" id="form-bandeja">
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label>Ancho (mm)</label>
+            <input type="number" class="form-input" id="b-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" class="form-input" id="b-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+          <label class="check-label">
+            <input type="checkbox" id="b-ml"> Por metro lineal
+          </label>
+          <label class="check-label">
+            <input type="checkbox" class="check-contapa" checked> Producto con tapa
+          </label>
+        </div>
+      </div>
+
+      <!-- CURVA HORIZONTAL -->
+      <div class="form-producto" id="form-curva_horizontal" style="display:none">
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label>Ancho (mm)</label>
+            <input type="number" class="form-input" id="ch-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" class="form-input" id="ch-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Producto con tapa
+        </label>
+      </div>
+
+      <!-- CURVA VERTICAL -->
+      <div class="form-producto" id="form-curva_vertical" style="display:none">
+        <div class="config-section" style="margin-bottom:0.75rem;">
+          <span class="config-label">Tipo de Curva</span>
+          <div class="chip-group row" id="grupo-tipo-curva">
+            <label class="chip-label selected">
+              <input type="radio" name="tipo_curva" value="EXTERNA" checked> Externa
+            </label>
+            <label class="chip-label">
+              <input type="radio" name="tipo_curva" value="INTERNA"> Interna
+            </label>
+          </div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label>Ancho (mm)</label>
+            <input type="number" class="form-input" id="cv-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" class="form-input" id="cv-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Producto con tapa
+        </label>
+      </div>
+
+      <!-- TEE -->
+      <div class="form-producto" id="form-tee" style="display:none">
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label>Derecha (mm)</label>
+            <input type="number" class="form-input" id="t-derecha" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Izquierda (mm)</label>
+            <input type="number" class="form-input" id="t-izquierda" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Abajo (mm)</label>
+            <input type="number" class="form-input" id="t-abajo" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" class="form-input" id="t-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Producto con tapa
+        </label>
+      </div>
+
+      <!-- CRUZ -->
+      <div class="form-producto" id="form-cruz" style="display:none">
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label>Ancho (mm)</label>
+            <input type="number" class="form-input" id="c-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" class="form-input" id="c-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Producto con tapa
+        </label>
+      </div>
+
+      <!-- REDUCCIÓN -->
+      <div class="form-producto" id="form-reduccion" style="display:none">
+        <div class="form-row cols-3">
+          <div class="form-group">
+            <label>Ancho Mayor (mm)</label>
+            <input type="number" class="form-input" id="r-mayor" placeholder="ej: 300" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Ancho Menor (mm)</label>
+            <input type="number" class="form-input" id="r-menor" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" class="form-input" id="r-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Producto con tapa
+        </label>
+      </div>
+
+      <!-- CAJA DE PASE -->
+      <div class="form-producto" id="form-caja_pase" style="display:none">
+        <div class="alert-info">Medidas en <strong>centímetros</strong>. Se ordenan automáticamente.</div>
+        <div class="form-row cols-3">
+          <div class="form-group">
+            <label>Dim 1 (cm)</label>
+            <input type="number" class="form-input" id="cp-d1" placeholder="ej: 30" min="1" step="0.5">
+          </div>
+          <div class="form-group">
+            <label>Dim 2 (cm)</label>
+            <input type="number" class="form-input" id="cp-d2" placeholder="ej: 20" min="1" step="0.5">
+          </div>
+          <div class="form-group">
+            <label>Dim 3 (cm)</label>
+            <input type="number" class="form-input" id="cp-d3" placeholder="ej: 15" min="1" step="0.5">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tipo de Salida</label>
+          <select class="form-input" id="cp-salida" style="margin-top:0.3rem;">
+            <option value="1/2">1/2"</option>
+            <option value="3/4">3/4"</option>
+            <option value="1">1"</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- RESULTADO INTEGRADO -->
+      <div class="resultado-box" id="resultado-box">
+
+        <!-- Ítem: Producto -->
+        <div class="resultado-item">
+          <div class="resultado-item-label">Producto</div>
+          <div class="resultado-desc" id="resultado-desc">—</div>
+          <div class="resultado-main">
+            <div>
+              <div class="resultado-precio-big" id="resultado-precio">S/ —</div>
+              <div class="resultado-peso" id="resultado-peso">Peso: — kg/und</div>
+            </div>
+            <div class="resultado-acciones">
+              <div class="cant-ctrl" id="cant-ctrl-prod" style="display:none">
+                <button onclick="cambiarCant('prod',-1)">−</button>
+                <input type="number" id="cant-prod" value="1" min="1" max="999">
+                <button onclick="cambiarCant('prod',1)">+</button>
+              </div>
+              <button class="btn-agregar" id="btn-agregar-prod" onclick="agregarMock('prod')">+ Producto</button>
+            </div>
+          </div>
+          <div class="resultado-hint" id="resultado-hint"></div>
+        </div>
+
+        <!-- Ítem: Tapa -->
+        <div class="resultado-item">
+          <div class="resultado-item-label">Tapa</div>
+          <div class="resultado-desc" id="resultado-tapa-desc">—</div>
+          <div class="resultado-main">
+            <div>
+              <div class="resultado-precio-big" id="resultado-tapa-precio">S/ —</div>
+              <div class="resultado-peso" id="resultado-tapa-peso">Peso: — kg/und</div>
+            </div>
+            <div class="resultado-acciones">
+              <div class="cant-ctrl" id="cant-ctrl-tapa" style="display:none">
+                <button onclick="cambiarCant('tapa',-1)">−</button>
+                <input type="number" id="cant-tapa" value="1" min="1" max="999">
+                <button onclick="cambiarCant('tapa',1)">+</button>
+              </div>
+              <button class="btn-agregar" id="btn-agregar-tapa" onclick="agregarMock('tapa')">+ Tapa</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cantidad compartida + hint Enter -->
+        <div class="resultado-footer-row">
+          <div id="qty-ambos" style="display:flex; align-items:center; gap:0.45rem;">
+            <div class="cant-ctrl">
+              <button onclick="cambiarCant('main',-1)">−</button>
+              <input type="number" id="cant-main" value="1" min="1" max="999">
+              <button onclick="cambiarCant('main',1)">+</button>
+            </div>
+            <button class="btn-agregar" id="btn-agregar-ambos" onclick="agregarAmbos()">+ Carrito</button>
+          </div>
+          <span class="enter-hint" style="margin-top:0">↵ Enter</span>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- MINI CARRITO EN VIVO -->
+  <aside class="carrito-live-panel" id="carrito-live">
+    <div class="carrito-live-header">
+      🛒 Sesión actual
+      <span class="nav-badge" id="carrito-live-count">0</span>
+    </div>
+    <div id="carrito-live-items">
+      <p class="carrito-live-empty">Todavía no agregaste productos.</p>
+    </div>
+    <div class="carrito-live-footer" id="carrito-live-footer" style="display:none">
+      <span>Cotizaciones en sesión</span>
+      <strong id="carrito-live-total">0</strong>
+    </div>
+  </aside>
+</div>
+
+<div class="mockup-badge">MOCKUP · precios aproximados</div>
+
+<script>
+// ── Estado ──
+let tipoActual = 'bandeja';
+let cantCarrito = 3;
+let calcTimer   = null;
+let medidasRecordadas = null; // { tipo, ancho, alto } — único registro global, excluyente
+const carritoSesion = [];
+
+const TITULOS = {
+  bandeja: 'Bandeja', curva_horizontal: 'Curva Horizontal',
+  curva_vertical: 'Curva Vertical', tee: 'TEE', cruz: 'Cruz',
+  reduccion: 'Reducción', caja_pase: 'Caja de Pase',
+};
+
+// Dimensiones compartidas entre tipos (ancho y alto se arrastran al cambiar)
+const CAMPO_ANCHO = {
+  bandeja: 'b-ancho', curva_horizontal: 'ch-ancho', curva_vertical: 'cv-ancho',
+  tee: ['t-derecha', 't-izquierda', 't-abajo'], cruz: 'c-ancho',
+  reduccion: 'r-mayor', caja_pase: null,
+};
+const CAMPO_ALTO = {
+  bandeja: 'b-alto', curva_horizontal: 'ch-alto', curva_vertical: 'cv-alto',
+  tee: 't-alto', cruz: 'c-alto', reduccion: 'r-alto', caja_pase: null,
+};
+
+function getAnchoActual() {
+  const c = CAMPO_ANCHO[tipoActual];
+  if (!c) return null;
+  return document.getElementById(Array.isArray(c) ? c[0] : c)?.value || null;
+}
+function getAltoActual() {
+  const c = CAMPO_ALTO[tipoActual];
+  if (!c) return null;
+  return document.getElementById(c)?.value || null;
+}
+function aplicarDimensionesCompartidas(tipo, ancho, alto) {
+  if (ancho) {
+    const c = CAMPO_ANCHO[tipo];
+    if (c) (Array.isArray(c) ? c : [c]).forEach(id => { const el = document.getElementById(id); if (el) el.value = ancho; });
+  }
+  if (alto) {
+    const c = CAMPO_ALTO[tipo];
+    if (c) { const el = document.getElementById(c); if (el) el.value = alto; }
+  }
+}
+
+// ── Sidebar collapse ──
+document.getElementById('config-toggle').addEventListener('click', () => {
+  document.getElementById('config-panel').classList.toggle('collapsed');
+});
+
+// ── Selección de tipo de producto ──
+document.querySelectorAll('.tipo-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const tipo = this.dataset.tipo;
+    if (tipo === tipoActual) return;
+
+    // Capturar dimensiones compartidas ANTES de cambiar
+    const ancho = getAnchoActual();
+    const alto  = getAltoActual();
+
+    tipoActual = tipo;
+    document.querySelectorAll('.tipo-btn').forEach(b => b.classList.toggle('active', b === this));
+    document.querySelectorAll('.form-producto').forEach(f => f.style.display = 'none');
+    document.getElementById(`form-${tipo}`).style.display = '';
+    document.getElementById('form-titulo').textContent = TITULOS[tipo] || tipo;
+    ocultarResultado();
+
+    // 1. Si hay medidas recordadas → propagarlas al nuevo tipo (tienen prioridad)
+    //    Si no → arrastrar ancho/alto de la forma anterior (comportamiento base)
+    if (medidasRecordadas) {
+      aplicarMedidasRecordadas(tipo);
+    } else {
+      aplicarDimensionesCompartidas(tipo, ancho, alto);
+    }
+
+    // 2. Actualizar indicador (global, sin parámetro de tipo)
+    actualizarIndicador();
+
+    scheduleCalc();
+  });
+});
+
+// ── Chips de radio ──
+document.querySelectorAll('.chip-group').forEach(group => {
+  group.querySelectorAll('input[type=radio]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      group.querySelectorAll('.chip-label').forEach(l => l.classList.remove('selected'));
+      this.closest('.chip-label').classList.add('selected');
+      scheduleCalc();
+    });
+  });
+});
+
+// ── Auto-cálculo (debounce 400ms) ──
+document.addEventListener('input',  e => { if (e.target.matches('.form-input, .form-select-sm, #esp-prod, #esp-tapa')) scheduleCalc(); });
+document.addEventListener('change', e => { if (e.target.matches('.form-input, .form-select-sm, #esp-prod, #esp-tapa, #b-ml')) scheduleCalc(); });
+document.addEventListener('change', e => { if (e.target.classList.contains('check-contapa')) actualizarQtyMode(); });
+
+function scheduleCalc() {
+  clearTimeout(calcTimer);
+  calcTimer = setTimeout(calcularMock, 400);
+}
+
+// ── Helper: setter de campo ──
+function setField(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+// ── Leer ancho/alto representativos del tipo actual ──
+function getMedidasActuales() {
+  const n = id => { const v = +document.getElementById(id)?.value; return v > 0 ? v : null; };
+  if (tipoActual === 'bandeja')          return { ancho: n('b-ancho'),  alto: n('b-alto') };
+  if (tipoActual === 'curva_horizontal') return { ancho: n('ch-ancho'), alto: n('ch-alto') };
+  if (tipoActual === 'curva_vertical')   return { ancho: n('cv-ancho'), alto: n('cv-alto') };
+  if (tipoActual === 'tee')              return { ancho: n('t-derecha'), alto: n('t-alto') };
+  if (tipoActual === 'cruz')             return { ancho: n('c-ancho'),  alto: n('c-alto') };
+  if (tipoActual === 'reduccion')        return { ancho: n('r-mayor'),  alto: n('r-alto') };
+  return null; // caja_pase: excluida
+}
+
+// ── Propagar medidas recordadas al tipo destino ──
+// Reglas de propagación:
+//   Bandeja/C.H/C.V/Cruz → ancho × alto directo
+//   TEE               → los tres lados = ancho, alto = alto
+//   Reducción         → mayor = ancho, menor = ancho-100 (mín 1), alto = alto
+//   Caja de Pase      → excluida (no se aplica)
+function aplicarMedidasRecordadas(tipo) {
+  if (!medidasRecordadas || tipo === 'caja_pase') return;
+  const { ancho, alto } = medidasRecordadas;
+  if      (tipo === 'bandeja')          { setField('b-ancho', ancho);  setField('b-alto', alto); }
+  else if (tipo === 'curva_horizontal') { setField('ch-ancho', ancho); setField('ch-alto', alto); }
+  else if (tipo === 'curva_vertical')   { setField('cv-ancho', ancho); setField('cv-alto', alto); }
+  else if (tipo === 'tee')              { setField('t-derecha', ancho); setField('t-izquierda', ancho); setField('t-abajo', ancho); setField('t-alto', alto); }
+  else if (tipo === 'cruz')             { setField('c-ancho', ancho);  setField('c-alto', alto); }
+  else if (tipo === 'reduccion')        { setField('r-mayor', ancho);  setField('r-menor', Math.max(ancho - 100, 1)); setField('r-alto', alto); }
+}
+
+// ── Recordar medidas (global, excluyente) ──
+function recordarMedidas() {
+  if (tipoActual === 'caja_pase') return; // excluida
+  const m = getMedidasActuales();
+  if (!m || !m.ancho || !m.alto) return; // algún campo vacío
+  medidasRecordadas = { tipo: tipoActual, ancho: m.ancho, alto: m.alto };
+  actualizarIndicador();
+}
+
+function limpiarRecordar() {
+  medidasRecordadas = null;
+  actualizarIndicador();
+}
+
+// ── Actualizar indicador en tipo-bar (estado global) ──
+function actualizarIndicador() {
+  const btnBar  = document.getElementById('btn-recordar-bar');
+  const chip    = document.getElementById('chip-recordar');
+  const chipNom = document.getElementById('chip-recordar-nombre');
+  const esCaja  = tipoActual === 'caja_pase';
+
+  if (medidasRecordadas) {
+    // Mostrar chip con las dimensiones recordadas
+    btnBar.style.display = 'none';
+    chip.style.display   = 'inline-flex';
+    chipNom.textContent  = `${medidasRecordadas.ancho}×${medidasRecordadas.alto}mm`;
+  } else {
+    // Mostrar botón (oculto en caja_pase donde no tiene sentido)
+    btnBar.style.display = esCaja ? 'none' : '';
+    chip.style.display   = 'none';
+  }
+
+  // Badge amarillo: solo en el tipo que originó el registro
+  document.querySelectorAll('.tipo-btn').forEach(btn => {
+    btn.classList.toggle('tiene-record', !!medidasRecordadas && btn.dataset.tipo === medidasRecordadas.tipo);
+  });
+}
+
+// ── Cálculo mock (aproximado, para UI) ──
+function calcularMock() {
+  const galv    = document.querySelector('input[name=galv]:checked')?.value    || 'GO';
+  const ganancia = document.querySelector('input[name=ganancia]:checked')?.value || '30';
+  const sup     = document.querySelector('input[name=sup]:checked')?.value     || 'LISA';
+  const espProd = parseFloat(document.getElementById('esp-prod').value);
+  const espTapa = parseFloat(document.getElementById('esp-tapa').value);
+
+  const fg    = ganancia === '30' ? 0.70 : 0.65;
+  const fGalv = galv === 'GC' ? 1.08 : 1.0;
+  const fSup  = sup === 'ESCALERILLA' ? 1.05 : 1.0;
+
+  const preciosPlancha = { '1.2': 145, '1.5': 158, '2.0': 175 };
+  const ppProd = preciosPlancha[espProd.toFixed(1)] || 158;
+  const ppTapa = preciosPlancha[espTapa.toFixed(1)] || 145;
+  const pMm2P  = ppProd / (2400 * 1200);
+  const pMm2T  = ppTapa / (2400 * 1200);
+
+  // helper: lee input numérico; null si vacío
+  const n = id => { const v = +document.getElementById(id).value; return v > 0 ? v : null; };
+
+  let prod = null, tapa = null;
+
+  if (tipoActual === 'bandeja') {
+    const ancho = n('b-ancho'), alto = n('b-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    const ml    = document.getElementById('b-ml').checked;
+    const largo = ml ? 1000 : 3000;
+    const areaP = (ancho + 2 * alto) * largo;
+    const areaT = ancho * largo;
+    prod = {
+      precio: (areaP * pMm2P * espProd / fg) * fGalv * fSup,
+      peso:   areaP * espProd * 7.85e-6,
+      desc:   `Bandeja ${ancho}×${alto}mm — ${galv} ${sup} ${espProd}mm`,
+      hint:   ml ? 'Precio por metro lineal' : 'Precio por unidad (3 m)',
+    };
+    tapa = {
+      precio: (areaT * pMm2T * espTapa / fg) * fGalv,
+      peso:   areaT * espTapa * 7.85e-6,
+      desc:   `Tapa Bandeja ${ancho}mm — ${galv} ${espTapa}mm`,
+    };
+
+  } else if (tipoActual === 'curva_horizontal') {
+    const ancho = n('ch-ancho'), alto = n('ch-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    const areaP = (ancho + 2 * alto) * 1200;
+    const areaT = ancho * 1200;
+    prod = {
+      precio: (areaP * pMm2P * espProd / fg) * fGalv * fSup * 1.15,
+      peso:   areaP * espProd * 7.85e-6,
+      desc:   `Curva Horizontal ${ancho}×${alto}mm — ${galv} ${sup} ${espProd}mm`,
+    };
+    tapa = {
+      precio: (areaT * pMm2T * espTapa / fg) * fGalv * 1.10,
+      peso:   areaT * espTapa * 7.85e-6,
+      desc:   `Tapa C. Horizontal ${ancho}mm — ${galv} ${espTapa}mm`,
+    };
+
+  } else if (tipoActual === 'curva_vertical') {
+    const ancho = n('cv-ancho'), alto = n('cv-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    const tc    = document.querySelector('input[name=tipo_curva]:checked')?.value || 'EXTERNA';
+    const areaP = (ancho + 2 * alto) * 1200;
+    const areaT = ancho * 1200;
+    prod = {
+      precio: (areaP * pMm2P * espProd / fg) * fGalv * fSup * (tc === 'EXTERNA' ? 1.12 : 1.09),
+      peso:   areaP * espProd * 7.85e-6,
+      desc:   `Curva Vertical ${tc === 'EXTERNA' ? 'Ext.' : 'Int.'} ${ancho}×${alto}mm — ${galv} ${sup} ${espProd}mm`,
+    };
+    tapa = {
+      precio: (areaT * pMm2T * espTapa / fg) * fGalv * 1.08,
+      peso:   areaT * espTapa * 7.85e-6,
+      desc:   `Tapa C. Vertical ${ancho}mm — ${galv} ${espTapa}mm`,
+    };
+
+  } else if (tipoActual === 'tee') {
+    const d = n('t-derecha'), i = n('t-izquierda'), ab = n('t-abajo'), alto = n('t-alto');
+    if (!d || !i || !ab || !alto) return ocultarResultado();
+    const areaP = (d + i + ab + 2 * alto) * 1200 * 0.75;
+    const areaT = (d + i + ab) * 1200 * 0.75 * 0.5;
+    prod = {
+      precio: (areaP * pMm2P * espProd / fg) * fGalv * fSup * 1.20,
+      peso:   areaP * espProd * 7.85e-6,
+      desc:   `TEE ${d}×${i}×${ab}mm Alto:${alto}mm — ${galv} ${sup} ${espProd}mm`,
+    };
+    tapa = {
+      precio: (areaT * pMm2T * espTapa / fg) * fGalv * 1.15,
+      peso:   areaT * espTapa * 7.85e-6,
+      desc:   `Tapa TEE ${d}×${i}×${ab}mm — ${galv} ${espTapa}mm`,
+    };
+
+  } else if (tipoActual === 'cruz') {
+    const ancho = n('c-ancho'), alto = n('c-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    const areaP = (4 * ancho + 2 * alto) * 1200 * 0.6;
+    const areaT = ancho * ancho * 1.2;
+    prod = {
+      precio: (areaP * pMm2P * espProd / fg) * fGalv * fSup * 1.25,
+      peso:   areaP * espProd * 7.85e-6,
+      desc:   `Cruz ${ancho}×${alto}mm — ${galv} ${sup} ${espProd}mm`,
+    };
+    tapa = {
+      precio: (areaT * pMm2T * espTapa / fg) * fGalv * 1.20,
+      peso:   areaT * espTapa * 7.85e-6,
+      desc:   `Tapa Cruz ${ancho}mm — ${galv} ${espTapa}mm`,
+    };
+
+  } else if (tipoActual === 'reduccion') {
+    const mayor = n('r-mayor'), menor = n('r-menor'), alto = n('r-alto');
+    if (!mayor || !menor || !alto) return ocultarResultado();
+    const areaP = ((mayor + menor) / 2 + 2 * alto) * 1200;
+    const areaT = (mayor + menor) / 2 * 1200 * 0.5;
+    prod = {
+      precio: (areaP * pMm2P * espProd / fg) * fGalv * fSup * 1.10,
+      peso:   areaP * espProd * 7.85e-6,
+      desc:   `Reducción ${mayor}→${menor}mm Alto:${alto}mm — ${galv} ${sup} ${espProd}mm`,
+    };
+    tapa = {
+      precio: (areaT * pMm2T * espTapa / fg) * fGalv * 1.05,
+      peso:   areaT * espTapa * 7.85e-6,
+      desc:   `Tapa Reducción ${mayor}→${menor}mm — ${galv} ${espTapa}mm`,
+    };
+
+  } else if (tipoActual === 'caja_pase') {
+    const d1 = n('cp-d1'), d2 = n('cp-d2'), d3 = n('cp-d3');
+    if (!d1 || !d2 || !d3) return ocultarResultado();
+    const dims   = [d1, d2, d3].sort((a, b) => b - a).map(d => d * 10);
+    const salida = document.getElementById('cp-salida').value;
+    const areaP  = 2 * (dims[0]*dims[1] + dims[0]*dims[2] + dims[1]*dims[2]);
+    const pesoProd = areaP * espProd * 7.85e-6;
+    prod = {
+      precio: pesoProd * 3.0 * 3.8 / fg,
+      peso:   pesoProd,
+      desc:   `Caja de Pase ${dims[0]/10}×${dims[1]/10}×${dims[2]/10}cm Sal.${salida} — ${galv} ${espProd}mm`,
+      hint:   'Tarifa fija USD/kg',
+    };
+    // Caja Pase: la tapa es la cara frontal mayor
+    const areaT  = dims[0] * dims[1];
+    const pesoTapa = areaT * espTapa * 7.85e-6;
+    tapa = {
+      precio: pesoTapa * 3.0 * 3.8 / fg,
+      peso:   pesoTapa,
+      desc:   `Tapa Caja Pase ${dims[0]/10}×${dims[1]/10}cm — ${galv} ${espTapa}mm`,
+    };
+  }
+
+  prod ? mostrarResultado(prod, tapa) : ocultarResultado();
+}
+
+// ── Mostrar resultado ──
+function mostrarResultado(prod, tapa) {
+  document.getElementById('resultado-box').classList.add('visible');
+  document.getElementById('resultado-precio').textContent      = `S/ ${prod.precio.toFixed(2)}`;
+  document.getElementById('resultado-peso').textContent        = `Peso: ${prod.peso.toFixed(4)} kg/und`;
+  document.getElementById('resultado-desc').textContent        = prod.desc;
+  document.getElementById('resultado-hint').textContent        = prod.hint || '';
+  document.getElementById('resultado-tapa-precio').textContent = `S/ ${tapa.precio.toFixed(2)}`;
+  document.getElementById('resultado-tapa-peso').textContent   = `Peso: ${tapa.peso.toFixed(4)} kg/und`;
+  document.getElementById('resultado-tapa-desc').textContent   = tapa.desc;
+  document.getElementById('msg-medidas').style.display         = 'none';
+  actualizarQtyMode();
+}
+
+function ocultarResultado() {
+  document.getElementById('resultado-box').classList.remove('visible');
+  document.getElementById('msg-medidas').style.display = '';
+}
+
+// ── Modo con/sin tapa ──
+function getConTapa() {
+  if (tipoActual === 'caja_pase') return true;
+  const cb = document.querySelector('#form-' + tipoActual + ' .check-contapa');
+  return cb ? cb.checked : true;
+}
+
+function actualizarQtyMode() {
+  const con = getConTapa();
+  document.getElementById('qty-ambos').style.display        = con ? 'flex' : 'none';
+  document.getElementById('cant-ctrl-prod').style.display   = con ? 'none' : 'flex';
+  document.getElementById('cant-ctrl-tapa').style.display   = con ? 'none' : 'flex';
+  document.getElementById('btn-agregar-prod').style.display = con ? 'none' : '';
+  document.getElementById('btn-agregar-tapa').style.display = con ? 'none' : '';
+  if (!con) {
+    const v = document.getElementById('cant-main').value;
+    document.getElementById('cant-prod').value = v;
+    document.getElementById('cant-tapa').value = v;
+  }
+}
+
+// ── Cantidad ──
+function cambiarCant(tipo, delta) {
+  const ids = { prod: 'cant-prod', tapa: 'cant-tapa', main: 'cant-main' };
+  const inp = document.getElementById(ids[tipo]);
+  if (inp) inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+}
+
+// ── Agregar al carrito (mock) — un ítem solo (prod O tapa) ──
+function agregarMock(tipo) {
+  if (!document.getElementById('resultado-box').classList.contains('visible')) return;
+  const btnId    = tipo === 'prod' ? 'btn-agregar-prod' : 'btn-agregar-tapa';
+  const descEl   = tipo === 'prod' ? 'resultado-desc'   : 'resultado-tapa-desc';
+  const precioEl = tipo === 'prod' ? 'resultado-precio' : 'resultado-tapa-precio';
+  const conTapa  = getConTapa();
+  const cantId   = conTapa ? 'cant-main' : (tipo === 'prod' ? 'cant-prod' : 'cant-tapa');
+  const cant     = parseInt(document.getElementById(cantId).value) || 1;
+  const desc     = document.getElementById(descEl).textContent;
+  const precio   = parseFloat(document.getElementById(precioEl).textContent.replace('S/ ', '')) || 0;
+  const label    = desc.split(' — ')[0];
+  const ctxKey   = getContextKey();
+
+  if (tipo === 'prod') {
+    carritoSesion.push({ id: Date.now(), label, contextKey: ctxKey,
+      prod: { desc, cant, precio }, tapa: null, abierto: false });
+  } else {
+    // Fusionar con el último grupo si: tiene prod pendiente Y mismo contexto de producto
+    const ultimo = carritoSesion[carritoSesion.length - 1];
+    if (ultimo && ultimo.prod !== null && ultimo.tapa === null && ultimo.contextKey === ctxKey) {
+      ultimo.tapa = { desc, cant, precio };
+    } else {
+      carritoSesion.push({ id: Date.now(), label, contextKey: ctxKey,
+        prod: null, tapa: { desc, cant, precio }, abierto: false });
+    }
+  }
+
+  cantCarrito += cant;
+  document.getElementById('carrito-badge').textContent = cantCarrito;
+  const btn = document.getElementById(btnId);
+  const labelOrig = tipo === 'prod' ? '+ Producto' : '+ Tapa';
+  btn.textContent = '✓'; btn.classList.add('ok');
+  setTimeout(() => { btn.textContent = labelOrig; btn.classList.remove('ok'); }, 1200);
+  document.getElementById(cantId).value = 1;
+  renderCarritoLive();
+}
+
+// ── Agregar ambos (prod + tapa) en un solo grupo ──
+function agregarAmbos() {
+  if (!document.getElementById('resultado-box').classList.contains('visible')) return;
+  const conTapa   = getConTapa();
+  const cantProd  = conTapa
+    ? parseInt(document.getElementById('cant-main').value) || 1
+    : parseInt(document.getElementById('cant-prod').value) || 1;
+  const cantTapa  = conTapa
+    ? parseInt(document.getElementById('cant-main').value) || 1
+    : parseInt(document.getElementById('cant-tapa').value) || 1;
+  const descProd  = document.getElementById('resultado-desc').textContent;
+  const precioProd = parseFloat(document.getElementById('resultado-precio').textContent.replace('S/ ', '')) || 0;
+  const descTapa  = document.getElementById('resultado-tapa-desc').textContent;
+  const precioTapa = parseFloat(document.getElementById('resultado-tapa-precio').textContent.replace('S/ ', '')) || 0;
+  const label     = descProd.split(' — ')[0];
+
+  carritoSesion.push({
+    id: Date.now(), label, contextKey: getContextKey(), conTapa: true,
+    prod: { desc: descProd, cant: cantProd, precio: precioProd },
+    tapa: { desc: descTapa, cant: cantTapa, precio: precioTapa },
+    abierto: false
+  });
+
+  cantCarrito += cantProd + cantTapa;
+  document.getElementById('carrito-badge').textContent = cantCarrito;
+  const feedbacks = conTapa
+    ? [['btn-agregar-ambos', '+ Carrito']]
+    : [['btn-agregar-prod', '+ Producto'], ['btn-agregar-tapa', '+ Tapa']];
+  feedbacks.forEach(([id, lbl]) => {
+    const btn = document.getElementById(id);
+    btn.textContent = '✓'; btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = lbl; btn.classList.remove('ok'); }, 1200);
+  });
+  if (conTapa) {
+    document.getElementById('cant-main').value = 1;
+  } else {
+    document.getElementById('cant-prod').value = 1;
+    document.getElementById('cant-tapa').value = 1;
+  }
+  renderCarritoLive();
+}
+
+// ── Toggle acordeón de grupo ──
+function toggleGrupo(id) {
+  const g = carritoSesion.find(x => x.id === id);
+  if (g) { g.abierto = !g.abierto; renderCarritoLive(); }
+}
+
+// ── Eliminar grupo del carrito ──
+function deleteGrupo(id) {
+  const idx = carritoSesion.findIndex(x => x.id === id);
+  if (idx !== -1) {
+    const g = carritoSesion[idx];
+    const restado = (g.prod ? g.prod.cant : 0) + (g.tapa ? g.tapa.cant : 0);
+    cantCarrito = Math.max(0, cantCarrito - restado);
+    document.getElementById('carrito-badge').textContent = cantCarrito;
+    carritoSesion.splice(idx, 1);
+  }
+  renderCarritoLive();
+}
+
+// ── Clave de contexto: identifica qué producto se está cotizando ──
+// Evita que tapas de un tipo se fusionen con productos de otro
+function getContextKey() {
+  const galv = document.querySelector('input[name=galv]:checked')?.value || 'GO';
+  const sup  = document.querySelector('input[name=sup]:checked')?.value  || 'LISA';
+  const n    = id => document.getElementById(id)?.value || '';
+  let dims = '';
+  if      (tipoActual === 'bandeja')           dims = `${n('b-ancho')}x${n('b-alto')}`;
+  else if (tipoActual === 'curva_horizontal')  dims = `${n('ch-ancho')}x${n('ch-alto')}`;
+  else if (tipoActual === 'curva_vertical') {
+    const tc = document.querySelector('input[name=tipo_curva]:checked')?.value || 'EXTERNA';
+    dims = `${n('cv-ancho')}x${n('cv-alto')}|${tc}`;
+  }
+  else if (tipoActual === 'tee')               dims = `${n('t-derecha')}x${n('t-izquierda')}x${n('t-abajo')}x${n('t-alto')}`;
+  else if (tipoActual === 'cruz')              dims = `${n('c-ancho')}x${n('c-alto')}`;
+  else if (tipoActual === 'reduccion')         dims = `${n('r-mayor')}x${n('r-menor')}x${n('r-alto')}`;
+  else if (tipoActual === 'caja_pase')         dims = `${n('cp-d1')}x${n('cp-d2')}x${n('cp-d3')}`;
+  return `${tipoActual}|${dims}|${galv}|${sup}`;
+}
+
+// ── Render del mini carrito en vivo (grupos colapsables) ──
+function renderCarritoLive() {
+  const container = document.getElementById('carrito-live-items');
+  const footer    = document.getElementById('carrito-live-footer');
+  const totalEl   = document.getElementById('carrito-live-total');
+  const countEl   = document.getElementById('carrito-live-count');
+
+  countEl.textContent = carritoSesion.length;
+
+  if (carritoSesion.length === 0) {
+    container.innerHTML = '<p class="carrito-live-empty">Todavía no agregaste productos.</p>';
+    footer.style.display = 'none';
+    return;
+  }
+
+  let html = '';
+
+  carritoSesion.forEach((g, idx) => {
+    const esUltimo = idx === carritoSesion.length - 1;
+
+    let tagHtml, cantDisplay;
+    if (g.prod && g.tapa) {
+      tagHtml = '<span class="cli-tag ct">C/T</span>'; cantDisplay = g.prod.cant;
+    } else if (g.prod && !esUltimo) {
+      tagHtml = '<span class="cli-tag st">S/T</span>'; cantDisplay = g.prod.cant;
+    } else if (g.prod) {
+      tagHtml = ''; cantDisplay = g.prod.cant;  // pendiente: el usuario puede aún agregar tapa
+    } else {
+      tagHtml = '<span class="cli-tag tapa">Solo Tapa</span>'; cantDisplay = g.tapa.cant;
+    }
+
+    const labelEsc = g.label.replace(/"/g, '&quot;');
+    html += `<div class="cli-grupo">
+      <div class="cli-row" onclick="toggleGrupo(${g.id})">
+        <span class="cli-arrow${g.abierto ? ' open' : ''}">▶</span>
+        <span class="cli-label" title="${labelEsc}">${g.label}</span>
+        ${tagHtml}
+        <span class="cli-qty">×${cantDisplay}</span>
+        <button class="cli-del" onclick="event.stopPropagation(); deleteGrupo(${g.id})" title="Eliminar">×</button>
+      </div>
+      <div class="cli-detail${g.abierto ? ' open' : ''}">`;
+
+    if (g.prod) {
+      html += `<div class="cli-detail-line">
+          <span><strong>Producto:</strong> ${g.prod.cant} und — ${g.prod.desc}</span>
+        </div>`;
+    }
+    if (g.tapa) {
+      html += `<div class="cli-detail-line">
+          <span><strong>Tapa:</strong> ${g.tapa.cant} und — ${g.tapa.desc}</span>
+        </div>`;
+    }
+
+    html += `</div></div>`;
+  });
+
+  const totalUnds = carritoSesion.reduce((s, g) => {
+    return s + (g.prod ? g.prod.cant : 0) + (g.tapa ? g.tapa.cant : 0);
+  }, 0);
+  container.innerHTML = html;
+  totalEl.textContent = `${totalUnds} und`;
+  footer.style.display = '';
+}
+
+// ── Enter → agregar ambos al carrito como un grupo ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('resultado-box').classList.contains('visible')) {
+    if (document.activeElement.tagName !== 'SELECT') {
+      e.preventDefault();
+      agregarAmbos();
+    }
+  }
+});
+
+// Sin cálculo inicial — el precio aparece solo cuando el usuario ingresa medidas
+</script>
+</body>
+</html>

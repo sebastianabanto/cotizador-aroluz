@@ -1,0 +1,678 @@
+{% extends "base.html" %}
+{% set active = "carrito" %}
+
+{% block title %}Carrito — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+    <h1 class="page-title" style="margin:0;">Carrito de Cotización</h1>
+    {% if carrito %}
+    <button class="btn btn-danger btn-sm" onclick="limpiarCarrito()">Vaciar carrito</button>
+    {% endif %}
+  </div>
+
+  <!-- Datos del proyecto -->
+  <div class="card" style="margin-bottom: 1rem;">
+    <div class="card-title">Datos del Proyecto</div>
+    <div class="grid-2">
+      <!-- Cliente: autocomplete -->
+      <div class="form-group">
+        <label class="form-label" for="cliente-input">Cliente</label>
+        <div class="ac-wrapper">
+          <input type="text" id="cliente-input" class="form-control"
+                 placeholder="Escribir para buscar…" autocomplete="off"
+                 oninput="onClienteInput()" onfocus="onClienteFocus()" onblur="onClienteBlur()">
+          <div id="cliente-lista" class="ac-lista" style="display:none;"></div>
+        </div>
+        <input type="hidden" id="cliente" value="">
+        <input type="hidden" id="cliente-nombre" value="">
+        <input type="hidden" id="cliente-ruc" value="">
+        <input type="hidden" id="cliente-ubicacion" value="">
+        <input type="hidden" id="atencion-email" value="">
+      </div>
+      <!-- Atención: filtrada por cliente -->
+      <div class="form-group">
+        <label class="form-label" for="atencion">Atención</label>
+        <select id="atencion" class="form-control">
+          <option value="">— Seleccionar —</option>
+          {% for a in catalogo.atenciones %}
+          <option value="{{ a.nombre }}">{{ a.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="proyecto">Proyecto / Referencia</label>
+        <input type="text" id="proyecto" class="form-control" placeholder="Ej: Edificio Central Piso 3">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="moneda">Moneda</label>
+        <select id="moneda" class="form-control" onchange="cambiarMoneda()">
+          <option value="SOLES" selected>Soles (S/)</option>
+          <option value="DOLARES">Dólares Americanos ($)</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label class="form-label" for="encabezado-tabla">Texto fila amarilla &nbsp;<span style="font-weight:400; color:var(--texto-suave);">(opcional — aparece en la fila amarilla de la cotización)</span></label>
+        <input type="text" id="encabezado-tabla" class="form-control" placeholder="Ej: BANDEJA PORTACABLE Y ACCESORIOS">
+      </div>
+    </div>
+  </div>
+
+  {% if carrito %}
+  <!-- Tabla del carrito -->
+  <div class="card table-carrito" style="margin-bottom: 1rem;">
+    <div class="card-title">Productos ({{ carrito|length }} items)</div>
+    <div class="table-container" style="max-height:420px; overflow-y:auto;">
+      <table id="tabla-carrito">
+        <thead>
+          <tr>
+            <th style="width:44px;">#</th>
+            <th>Descripción</th>
+            <th style="width:90px;">Cant.</th>
+            <th style="width:60px;">Und</th>
+            <th style="width:120px;" class="td-num" id="th-pu">P.U. (S/)</th>
+            <th style="width:120px;" class="td-num" id="th-pt">P.T. (S/)</th>
+            <th style="width:80px;"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-carrito">
+          {% for item in carrito %}
+          <tr id="fila-{{ item.id }}">
+            <td data-label="#">{{ loop.index }}</td>
+            <td data-label="">
+              <div style="font-size:0.875rem;">{{ item.descripcion }}</div>
+              {% if item.tipo_galvanizado == 'N/A' %}
+              <div style="font-size:0.75rem; color:var(--texto-suave);">
+                {{ 'Manual' if item.tipo == 'MANUAL' else 'Catálogo' }} · {{ item.porcentaje_ganancia }}% · {{ item.unidad }}
+              </div>
+              {% else %}
+              <div style="font-size:0.75rem; color:var(--texto-suave);">
+                {{ item.tipo_galvanizado }} · {{ item.porcentaje_ganancia }}% ·
+                {{ "%.2f"|format(item.peso_unitario) }} kg/und
+              </div>
+              {% endif %}
+            </td>
+            <td data-label="Cant.">
+              <div class="cantidad-ctrl">
+                <button onclick="cambiarCant({{ item.id }}, -1)" aria-label="Restar cantidad de {{ item.descripcion }}">−</button>
+                <input type="number" id="cant-{{ item.id }}" value="{{ item.cantidad }}"
+                  min="1" max="999" onchange="actualizarCant({{ item.id }})"
+                  aria-label="Cantidad de {{ item.descripcion }}">
+                <button onclick="cambiarCant({{ item.id }}, 1)" aria-label="Sumar cantidad de {{ item.descripcion }}">+</button>
+              </div>
+            </td>
+            <td data-label="Und." style="text-align:center;">{{ item.unidad }}</td>
+            <td data-label="P.U." class="td-num" id="pu-{{ item.id }}" data-precio-soles="{{ item.precio_unitario }}">
+              S/ {{ "%.2f"|format(item.precio_unitario) }}
+            </td>
+            <td data-label="P.T." class="td-num" id="pt-{{ item.id }}">
+              S/ {{ "%.2f"|format(item.precio_unitario * item.cantidad) }}
+            </td>
+            <td data-label="">
+              <button class="btn btn-danger btn-sm" onclick="eliminarItem({{ item.id }})"
+                aria-label="Eliminar {{ item.descripcion }}">✕</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4"></td>
+            <td class="td-num" style="font-weight:600; font-size:0.9rem;">TOTAL</td>
+            <td class="td-num" id="total-display" data-total-soles="{{ total }}" style="font-weight:700; font-size:1.1rem; color:var(--azul);">
+              S/ {{ "%.2f"|format(total) }}
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="4"></td>
+            <td class="td-num" style="font-size:0.8rem; color:var(--texto-suave);">Peso total</td>
+            <td class="td-num" id="peso-display" style="font-size:0.8rem; color:var(--texto-suave);">
+              {{ "%.2f"|format(peso_total) }} kg
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <!-- Total visible solo en móvil (≤600px) -->
+    <div class="total-movil" id="total-movil-wrap">
+      <div>
+        <div class="total-movil-valor" id="total-movil-val">S/ {{ "%.2f"|format(total) }}</div>
+        <div class="total-movil-peso" id="peso-movil-val">{{ "%.2f"|format(peso_total) }} kg</div>
+      </div>
+      <span class="total-movil-label">Total</span>
+    </div>
+  </div>
+  {% else %}
+  <!-- Carrito vacío -->
+  <div class="card" style="text-align:center; padding: 3rem;">
+    <div style="font-size:3rem; margin-bottom:1rem;">🛒</div>
+    <p style="color:var(--texto-suave); font-size:1.1rem; margin-bottom:1.5rem;">El carrito está vacío</p>
+    <a href="/cotizar" class="btn btn-primary">Ir a Cotizar</a>
+  </div>
+  {% endif %}
+
+  <!-- Agregar manual — siempre visible -->
+  <details class="card" style="margin-bottom: 1rem;">
+    <summary>Agregar producto manual</summary>
+    <div class="grid-2" style="margin-top:0.5rem;">
+      <div class="form-group">
+        <label class="form-label" for="m-desc">Descripción</label>
+        <input type="text" id="m-desc" class="form-control" placeholder="Descripción del producto">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="m-precio">Precio Unitario (S/)</label>
+        <input type="number" id="m-precio" class="form-control" value="0" min="0" step="0.01" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="m-cantidad">Cantidad</label>
+        <input type="number" id="m-cantidad" class="form-control" value="1" min="1" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="m-unidad">Unidad</label>
+        <select id="m-unidad" class="form-control">
+          <option value="UND">UND</option>
+          <option value="ML">ML</option>
+          <option value="M2">M2</option>
+          <option value="KG">KG</option>
+          <option value="JGO">JGO</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="m-peso">Peso Unitario (kg, opcional)</label>
+        <input type="number" id="m-peso" class="form-control" value="0" min="0" step="0.001" inputmode="decimal">
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="agregarManual()">Agregar al carrito</button>
+  </details>
+
+  {% if carrito %}
+  <!-- Exportar -->
+  <div class="card">
+    <div class="card-title">Exportar Cotización</div>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
+      <div class="form-group" style="margin:0; display:flex; align-items:center; gap:0.5rem;">
+        <label class="form-label" for="validez" style="margin:0; white-space:nowrap;">Validez:</label>
+        <select id="validez" class="form-control" style="width:auto;">
+          <option value="15 días">Válido 15 días</option>
+          <option value="30 días" selected>Válido 30 días</option>
+          <option value="60 días">Válido 60 días</option>
+          <option value="90 días">Válido 90 días</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="exportar('pdf', this)">
+        Descargar PDF
+      </button>
+      <button class="btn btn-secondary" onclick="guardarCotizacion()">
+        Guardar en Historial
+      </button>
+    </div>
+    <p style="margin-top:0.75rem; font-size:0.8rem; color:var(--texto-suave);">
+      Los datos de cliente, atención y proyecto del formulario arriba se incluirán en el documento.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ac-wrapper { position: relative; }
+.ac-lista {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0; right: 0;
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 200;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+.ac-item {
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  border-bottom: 1px solid var(--gris-borde);
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.ac-active { background: rgba(37,99,168,0.08); }
+.ac-code { font-weight: 600; color: var(--azul); }
+.ac-name { color: var(--texto-suave); font-size: 0.78rem; }
+.ac-sin-resultado { padding: 0.45rem 0.75rem; font-size:0.85rem; color:var(--texto-suave); }
+</style>
+<script>
+// ── Datos embebidos ──
+const CLIENTES   = {{ catalogo.clientes  | tojson }};
+const ATENCIONES = {{ catalogo.atenciones | tojson }};
+const DOLAR      = {{ dolar }};  // tipo de cambio S/ por USD
+
+// ── Persistencia del formulario — definida aquí para que esté disponible globalmente ──
+const _FORM_KEY = 'carrito_form_v1';
+function guardarFormulario() {
+  sessionStorage.setItem(_FORM_KEY, JSON.stringify({
+    clienteInput:     document.getElementById('cliente-input')?.value || '',
+    cliente:          document.getElementById('cliente')?.value || '',
+    clienteNombre:    document.getElementById('cliente-nombre')?.value || '',
+    clienteRuc:       document.getElementById('cliente-ruc')?.value || '',
+    clienteUbicacion: document.getElementById('cliente-ubicacion')?.value || '',
+    atencionEmail:    document.getElementById('atencion-email')?.value || '',
+    atencion:         document.getElementById('atencion')?.value || '',
+    proyecto:         document.getElementById('proyecto')?.value || '',
+    moneda:           document.getElementById('moneda')?.value || 'SOLES',
+    encabezadoTabla:  document.getElementById('encabezado-tabla')?.value || '',
+  }));
+}
+
+// Datos del carrito indexados por id para actualización dinámica
+const carritoMap = new Map({{ carrito | tojson }}.map(i => [i.id, i]));
+
+// ── Conversión de moneda ──
+function esDolares() { return document.getElementById('moneda').value === 'DOLARES'; }
+function sym()       { return esDolares() ? '$' : 'S/'; }
+function conv(soles) { return esDolares() ? soles / DOLAR : soles; }
+
+function cambiarMoneda() {
+  const s = sym();
+  // Encabezados
+  document.getElementById('th-pu').textContent = `P.U. (${s})`;
+  document.getElementById('th-pt').textContent = `P.T. (${s})`;
+  // Celdas P.U.
+  document.querySelectorAll('[data-precio-soles]').forEach(el => {
+    const pu = parseFloat(el.dataset.precioSoles);
+    el.textContent = `${s} ${conv(pu).toFixed(2)}`;
+  });
+  // Celdas P.T. (usando carritoMap para respetar cantidades actuales)
+  carritoMap.forEach((item, id) => {
+    const ptEl = document.getElementById(`pt-${id}`);
+    if (ptEl) ptEl.textContent = `${s} ${conv(item.precio_unitario * item.cantidad).toFixed(2)}`;
+  });
+  actualizarTotales();
+}
+
+// ── Autocomplete Cliente ──
+let acActiveIndex = -1;
+let _clienteActual = { codigo: '', nombre: '' }; // último cliente seleccionado
+
+function renderLista(filtrados) {
+  const lista = document.getElementById('cliente-lista');
+  if (filtrados.length === 0) {
+    lista.innerHTML = '<div class="ac-sin-resultado">Sin resultados</div>';
+  } else {
+    lista.innerHTML = filtrados.map(c =>
+      `<div class="ac-item" data-codigo="${c.codigo}" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">
+        <span class="ac-code">${c.codigo}</span>
+        <span class="ac-name"> — ${c.nombre}</span>
+      </div>`
+    ).join('');
+    lista.querySelectorAll('.ac-item').forEach(el => {
+      el.addEventListener('mousedown', () =>
+        seleccionarCliente(el.dataset.codigo, el.dataset.nombre)
+      );
+    });
+  }
+  lista.style.display = 'block';
+  acActiveIndex = -1;
+}
+
+function onClienteInput() {
+  const q = document.getElementById('cliente-input').value.trim().toLowerCase();
+  document.getElementById('cliente').value = '';
+  const filtrados = q
+    ? CLIENTES.filter(c => c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q))
+    : CLIENTES;
+  renderLista(filtrados);
+}
+
+function onClienteFocus() {
+  // Al enfocar: limpiar el texto para que el usuario pueda escribir o ver toda la lista
+  document.getElementById('cliente-input').value = '';
+  document.getElementById('cliente').value = '';
+  renderLista(CLIENTES);
+}
+
+function onClienteBlur() {
+  // Si el usuario cierra sin elegir, restaurar el texto del cliente anterior
+  setTimeout(() => {
+    const inp = document.getElementById('cliente-input');
+    if (!inp.value.trim() && _clienteActual.codigo) {
+      inp.value = `${_clienteActual.codigo} — ${_clienteActual.nombre}`;
+      document.getElementById('cliente').value = _clienteActual.codigo;
+    }
+  }, 200); // demora para que mousedown de la lista se ejecute primero
+}
+
+function seleccionarCliente(codigo, nombre) {
+  _clienteActual = { codigo, nombre };
+  document.getElementById('cliente-input').value = `${codigo} — ${nombre}`;
+  document.getElementById('cliente').value = codigo;
+  document.getElementById('cliente-lista').style.display = 'none';
+  const c = CLIENTES.find(x => x.codigo === codigo);
+  document.getElementById('cliente-nombre').value = c?.nombre || '';
+  document.getElementById('cliente-ruc').value = c?.ruc || '';
+  document.getElementById('cliente-ubicacion').value = c?.ubicacion || '';
+  document.getElementById('atencion-email').value = '';
+  filtrarAtenciones(codigo);
+  guardarFormulario();
+}
+
+function filtrarAtenciones(codigoCliente) {
+  const sel = document.getElementById('atencion');
+  const atFiltradas = codigoCliente
+    ? ATENCIONES.filter(a => a.codigo_empresa === codigoCliente)
+    : ATENCIONES;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+    atFiltradas.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
+  document.getElementById('atencion-email').value = '';
+}
+
+document.getElementById('atencion').addEventListener('change', function() {
+  const a = ATENCIONES.find(x => x.nombre === this.value);
+  document.getElementById('atencion-email').value = a?.email || '';
+});
+
+// Cerrar lista al hacer click fuera
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ac-wrapper')) {
+    document.getElementById('cliente-lista').style.display = 'none';
+    acActiveIndex = -1;
+  }
+});
+
+// Navegación con teclado
+document.getElementById('cliente-input').addEventListener('keydown', e => {
+  const lista = document.getElementById('cliente-lista');
+  const items = [...lista.querySelectorAll('.ac-item[data-codigo]')];
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acActiveIndex = Math.min(acActiveIndex + 1, items.length - 1);
+    items.forEach((it, i) => it.classList.toggle('ac-active', i === acActiveIndex));
+    items[acActiveIndex]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acActiveIndex = Math.max(acActiveIndex - 1, 0);
+    items.forEach((it, i) => it.classList.toggle('ac-active', i === acActiveIndex));
+    items[acActiveIndex]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter' && acActiveIndex >= 0) {
+    e.preventDefault();
+    const it = items[acActiveIndex];
+    if (it) seleccionarCliente(it.dataset.codigo, it.dataset.nombre);
+  } else if (e.key === 'Escape') {
+    lista.style.display = 'none';
+    acActiveIndex = -1;
+  }
+});
+
+// ── Carrito ──
+function cambiarCant(itemId, delta) {
+  const inp = document.getElementById(`cant-${itemId}`);
+  inp.value = Math.max(1, parseInt(inp.value || 1) + delta);
+  actualizarCant(itemId);
+}
+
+async function actualizarCant(itemId) {
+  const cant = parseInt(document.getElementById(`cant-${itemId}`).value) || 1;
+  const fd = formData({ cantidad: cant });
+  const data = await apiFetch(`/api/carrito/modificar/${itemId}`, { method: 'POST', body: fd });
+  if (data.ok) {
+    const item = carritoMap.get(itemId);
+    item.cantidad = cant;
+    document.getElementById(`pt-${itemId}`).textContent =
+      `${sym()} ${conv(item.precio_unitario * cant).toFixed(2)}`;
+    actualizarTotales();
+  }
+}
+
+async function eliminarItem(itemId) {
+  if (!confirm('¿Eliminar este ítem del carrito?')) return;
+  const data = await apiFetch(`/api/carrito/eliminar/${itemId}`, { method: 'DELETE' });
+  if (data.ok) {
+    _navegandoInternamente = true;
+    sessionStorage.setItem('_reloadProgramatico', '1');
+    window.location.reload();
+  } else {
+    toast('Error al eliminar', 'error');
+  }
+}
+
+async function limpiarCarrito() {
+  if (!confirm('¿Vaciar todo el carrito?')) return;
+  const data = await apiFetch('/api/carrito/limpiar', { method: 'POST' });
+  if (data.ok) {
+    sessionStorage.removeItem('carrito_form_v1');
+    sessionStorage.removeItem('editando_desde_cotizacion_id');
+    sessionStorage.removeItem('carritoLive');
+    _navegandoInternamente = true;
+    sessionStorage.setItem('_reloadProgramatico', '1');
+    window.location.reload();
+  }
+}
+
+function actualizarTotales() {
+  let totalSoles = 0;
+  let peso = 0;
+  carritoMap.forEach(item => {
+    totalSoles += item.precio_unitario * item.cantidad;
+    peso       += item.peso_unitario   * item.cantidad;
+  });
+  const totalDisplay = document.getElementById('total-display');
+  totalDisplay.textContent = `${sym()} ${conv(totalSoles).toFixed(2)}`;
+  totalDisplay.dataset.totalSoles = totalSoles;
+  if (document.getElementById('peso-display')) {
+    document.getElementById('peso-display').textContent = `${peso.toFixed(2)} kg`;
+  }
+  // Actualizar total móvil (visible en ≤600px)
+  const movil = document.getElementById('total-movil-val');
+  if (movil) movil.textContent = `${sym()} ${conv(totalSoles).toFixed(2)}`;
+  const pesoMovil = document.getElementById('peso-movil-val');
+  if (pesoMovil) pesoMovil.textContent = `${peso.toFixed(2)} kg`;
+}
+
+async function agregarManual() {
+  const desc = document.getElementById('m-desc').value.trim();
+  if (!desc) { toast('Ingrese una descripción', 'error'); return; }
+
+  const fd = formData({
+    descripcion: desc,
+    precio_unitario: document.getElementById('m-precio').value,
+    cantidad: document.getElementById('m-cantidad').value,
+    unidad: document.getElementById('m-unidad').value,
+    peso_unitario: document.getElementById('m-peso').value,
+  });
+
+  const data = await apiFetch('/api/carrito/agregar_manual', { method: 'POST', body: fd });
+  if (data.ok) {
+    toast('Producto manual agregado', 'success');
+    _navegandoInternamente = true;
+    setTimeout(() => {
+      sessionStorage.setItem('_reloadProgramatico', '1');
+      window.location.reload();
+    }, 600);
+  } else {
+    toast('Error al agregar', 'error');
+  }
+}
+
+async function exportar(formato, btnEl) {
+  // Validar que el carrito no esté vacío
+  if (document.querySelectorAll('#tbody-carrito tr').length === 0) {
+    toast('El carrito está vacío', 'error');
+    return;
+  }
+  // Deshabilitar botón mientras se genera el archivo
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Generando PDF…'; }
+
+  // cliente_nombre: preferir hidden (autocomplete seleccionado), si no usar lo que se escribió
+  const clienteNombre = document.getElementById('cliente-nombre')?.value
+    || document.getElementById('cliente-input')?.value
+    || '';
+
+  const fd = formData({
+    cliente: document.getElementById('cliente')?.value || '',
+    cliente_nombre: clienteNombre,
+    cliente_ruc: document.getElementById('cliente-ruc')?.value || '',
+    cliente_ubicacion: document.getElementById('cliente-ubicacion')?.value || '',
+    atencion: document.getElementById('atencion')?.value || '',
+    atencion_email: document.getElementById('atencion-email')?.value || '',
+    moneda: document.getElementById('moneda')?.value || 'SOLES',
+    proyecto: document.getElementById('proyecto')?.value || '',
+    validez: document.getElementById('validez')?.value || '30 días',
+    encabezado_tabla: document.getElementById('encabezado-tabla')?.value || '',
+  });
+
+  const resp = await fetch(`/api/exportar/${formato}`, { method: 'POST', body: fd });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    toast(err.error || 'Error al exportar', 'error');
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Descargar PDF'; }
+    return;
+  }
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = resp.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1]
+    || `cotizacion.${formato}`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('PDF descargado — redirigiendo al historial…', 'success');
+  await fetch('/api/carrito/limpiar', { method: 'POST' });
+  sessionStorage.removeItem('carrito_form_v1');
+  sessionStorage.removeItem('editando_desde_cotizacion_id');
+  sessionStorage.removeItem('carritoLive');
+  _navegandoInternamente = true;
+  setTimeout(() => { window.location.href = '/historial'; }, 2800);
+}
+
+async function guardarCotizacion() {
+  const cliente = document.getElementById('cliente')?.value || '';
+  const proyecto = document.getElementById('proyecto')?.value || '';
+  if (!cliente && !proyecto) {
+    toast('Ingrese al menos cliente o proyecto antes de guardar', 'error');
+    return;
+  }
+  const fd = formData({
+    cliente: cliente,
+    cliente_nombre: document.getElementById('cliente-nombre')?.value || '',
+    cliente_ruc: document.getElementById('cliente-ruc')?.value || '',
+    cliente_ubicacion: document.getElementById('cliente-ubicacion')?.value || '',
+    atencion: document.getElementById('atencion')?.value || '',
+    atencion_email: document.getElementById('atencion-email')?.value || '',
+    moneda: document.getElementById('moneda')?.value || 'SOLES',
+    proyecto: proyecto,
+    encabezado_tabla: document.getElementById('encabezado-tabla')?.value || '',
+  });
+  const data = await apiFetch('/api/historial/guardar', { method: 'POST', body: fd });
+  if (data.ok) {
+    await fetch('/api/carrito/limpiar', { method: 'POST' });
+    sessionStorage.removeItem('carrito_form_v1');
+    sessionStorage.removeItem('editando_desde_cotizacion_id');
+    sessionStorage.removeItem('carritoLive');
+    toast(`Cotización #${data.id} guardada — redirigiendo al historial…`, 'success');
+    _navegandoInternamente = true;
+    setTimeout(() => { window.location.href = '/historial'; }, 2800);
+  } else {
+    toast(data.error || 'Error al guardar', 'error');
+  }
+}
+
+// ── Aviso al cerrar/F5 si hay ítems (no al navegar internamente) ──
+let _navegandoInternamente = false;
+document.querySelectorAll('a[href^="/"]').forEach(a => {
+  a.addEventListener('click', () => { _navegandoInternamente = true; });
+});
+window.addEventListener('beforeunload', e => {
+  if (carritoMap.size > 0 && !_navegandoInternamente) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+  setTimeout(() => { _navegandoInternamente = false; }, 200);
+});
+
+// ── Persistencia del formulario (cliente, atención, proyecto…) ──
+function restaurarFormulario() {
+  let f;
+  try { f = JSON.parse(sessionStorage.getItem(_FORM_KEY) || 'null'); } catch { return; }
+  if (!f) return;
+
+  // Cliente
+  if (f.cliente) {
+    _clienteActual = { codigo: f.cliente, nombre: f.clienteNombre };
+    document.getElementById('cliente-input').value = f.clienteInput;
+    document.getElementById('cliente').value = f.cliente;
+    document.getElementById('cliente-nombre').value = f.clienteNombre;
+    document.getElementById('cliente-ruc').value = f.clienteRuc;
+    document.getElementById('cliente-ubicacion').value = f.clienteUbicacion;
+    filtrarAtenciones(f.cliente);
+  }
+  // Atención (después de filtrarAtenciones para que existan las opciones)
+  if (f.atencion) {
+    document.getElementById('atencion').value = f.atencion;
+    document.getElementById('atencion-email').value = f.atencionEmail || '';
+  }
+  // Proyecto
+  if (f.proyecto) document.getElementById('proyecto').value = f.proyecto;
+  // Texto fila amarilla
+  if (f.encabezadoTabla) document.getElementById('encabezado-tabla').value = f.encabezadoTabla;
+  // Moneda (actualiza encabezados de tabla si existen)
+  if (f.moneda) {
+    document.getElementById('moneda').value = f.moneda;
+    if (document.getElementById('th-pu')) cambiarMoneda();
+  }
+}
+
+// Guardar automáticamente en cada cambio
+document.getElementById('cliente-input')?.addEventListener('input', guardarFormulario);
+document.getElementById('proyecto')?.addEventListener('input', guardarFormulario);
+document.getElementById('encabezado-tabla')?.addEventListener('input', guardarFormulario);
+document.getElementById('atencion')?.addEventListener('change', guardarFormulario);
+document.getElementById('moneda')?.addEventListener('change', guardarFormulario);
+
+// ── Vaciar carrito real Y panel en vivo si el usuario hace F5 ──
+const _navType = performance.getEntriesByType('navigation')[0]?.type;
+const _yaVaciado      = sessionStorage.getItem('carritoVaciadoPorF5');
+const _esProgramatico = sessionStorage.getItem('_reloadProgramatico');
+sessionStorage.removeItem('_reloadProgramatico');
+
+// ── Banner: editando copia desde historial ──
+const _editandoDesdeId = sessionStorage.getItem('editando_desde_cotizacion_id');
+// Siempre restaurar validez si hay valor guardado (persiste entre cotizar ↔ carrito)
+const _fvValidez = JSON.parse(sessionStorage.getItem('carrito_form_v1') || 'null');
+if (_fvValidez?.validez) {
+  const vs = document.getElementById('validez');
+  if (vs) vs.value = _fvValidez.validez;
+}
+
+if (_editandoDesdeId || _esProgramatico) {
+  // Restaurar formulario cuando se viene de editar desde historial O tras recarga programática
+  restaurarFormulario();
+  if (_editandoDesdeId) {
+    const banner = document.createElement('div');
+    banner.className = 'banner-editando';
+    banner.innerHTML = `✏️ Editando copia de cotización <strong>#${_editandoDesdeId}</strong> — al guardar al historial se creará una <strong>nueva cotización</strong>. <button onclick="this.parentElement.remove(); sessionStorage.removeItem('editando_desde_cotizacion_id')" style="margin-left:auto; background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--texto-suave);" title="Cerrar aviso">✕</button>`;
+    document.querySelector('.container')?.prepend(banner);
+  }
+} else {
+  // Visita fresca al carrito: limpiar datos previos para que no haya campos pre-llenados
+  sessionStorage.removeItem('carrito_form_v1');
+}
+if (_navType === 'reload' && !_yaVaciado && !_esProgramatico) {
+  sessionStorage.setItem('carritoVaciadoPorF5', '1');
+  sessionStorage.removeItem('carritoLive');
+  sessionStorage.removeItem('editando_desde_cotizacion_id');
+  fetch('/api/carrito/limpiar', { method: 'POST' }).then(() => {
+    _navegandoInternamente = true;
+    location.reload();
+  });
+} else {
+  sessionStorage.removeItem('carritoVaciadoPorF5');
+}
+</script>
+{% endblock %}

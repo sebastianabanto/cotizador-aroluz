@@ -1,0 +1,874 @@
+{% extends "base.html" %}
+{% set active = "configuracion" %}
+
+{% block title %}Configuración — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Configuración</h1>
+
+  <!-- ── Tab bar ── -->
+  <div class="cfg-tabs">
+    <button class="cfg-tab active" onclick="switchTab('precios', this)">
+      <span class="cfg-tab-icon">💰</span> Precios
+    </button>
+    <button class="cfg-tab" onclick="switchTab('datos', this)">
+      <span class="cfg-tab-icon">📁</span> Datos
+    </button>
+    <button class="cfg-tab" onclick="switchTab('usuarios', this)">
+      <span class="cfg-tab-icon">👤</span> Usuarios
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- Panel: Precios                                 -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="cfg-panel" id="panel-precios">
+
+    <!-- Fila superior: Defaults + Tipo de cambio -->
+    <div class="cfg-row-2">
+
+      <!-- Parámetros por defecto -->
+      <div class="cfg-card">
+        <div class="cfg-card-header">
+          <span class="cfg-card-icon" style="background:#e8f4fd; color:#1a6fad;">⚙</span>
+          <span>Parámetros por Defecto</span>
+        </div>
+        <div class="cfg-card-body">
+          <div class="cfg-field">
+            <label class="cfg-label">Factor de Ganancia</label>
+            <div class="radio-group">
+              <label class="radio-label {% if config.valores_defecto.ganancia == '30' %}selected{% endif %}">
+                <input type="radio" name="ganancia" value="30"
+                  {% if config.valores_defecto.ganancia == '30' %}checked{% endif %}> 30%
+              </label>
+              <label class="radio-label {% if config.valores_defecto.ganancia == '35' %}selected{% endif %}">
+                <input type="radio" name="ganancia" value="35"
+                  {% if config.valores_defecto.ganancia == '35' %}checked{% endif %}> 35%
+              </label>
+            </div>
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Galvanizado por Defecto</label>
+            <div class="radio-group">
+              <label class="radio-label {% if config.valores_defecto.galvanizado == 'GO' %}selected{% endif %}">
+                <input type="radio" name="galvanizado" value="GO"
+                  {% if config.valores_defecto.galvanizado == 'GO' %}checked{% endif %}> GO — Origen
+              </label>
+              <label class="radio-label {% if config.valores_defecto.galvanizado == 'GC' %}selected{% endif %}">
+                <input type="radio" name="galvanizado" value="GC"
+                  {% if config.valores_defecto.galvanizado == 'GC' %}checked{% endif %}> GC — Caliente
+              </label>
+            </div>
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Espesor de Producto</label>
+            <div class="radio-group">
+              {% set ep = config.valores_defecto.espesor_producto or '1.5' %}
+              <label class="radio-label {% if ep == '1.2' %}selected{% endif %}">
+                <input type="radio" name="espesor_producto" value="1.2"
+                  {% if ep == '1.2' %}checked{% endif %}> 1.2 mm
+              </label>
+              <label class="radio-label {% if ep == '1.5' or ep not in ['1.2','2.0'] %}selected{% endif %}">
+                <input type="radio" name="espesor_producto" value="1.5"
+                  {% if ep == '1.5' or ep not in ['1.2','2.0'] %}checked{% endif %}> 1.5 mm
+              </label>
+              <label class="radio-label {% if ep == '2.0' %}selected{% endif %}">
+                <input type="radio" name="espesor_producto" value="2.0"
+                  {% if ep == '2.0' %}checked{% endif %}> 2.0 mm
+              </label>
+            </div>
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Espesor de Tapa</label>
+            <div class="radio-group">
+              {% set et = config.valores_defecto.espesor_tapa or '1.2' %}
+              <label class="radio-label {% if et == '1.2' or et not in ['1.5','2.0'] %}selected{% endif %}">
+                <input type="radio" name="espesor_tapa" value="1.2"
+                  {% if et == '1.2' or et not in ['1.5','2.0'] %}checked{% endif %}> 1.2 mm
+              </label>
+              <label class="radio-label {% if et == '1.5' %}selected{% endif %}">
+                <input type="radio" name="espesor_tapa" value="1.5"
+                  {% if et == '1.5' %}checked{% endif %}> 1.5 mm
+              </label>
+              <label class="radio-label {% if et == '2.0' %}selected{% endif %}">
+                <input type="radio" name="espesor_tapa" value="2.0"
+                  {% if et == '2.0' %}checked{% endif %}> 2.0 mm
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tipo de cambio -->
+      <div class="cfg-card">
+        <div class="cfg-card-header">
+          <span class="cfg-card-icon" style="background:#e8f9f0; color:#1a8a4a;">$</span>
+          <span>Tipo de Cambio</span>
+        </div>
+        <div class="cfg-card-body">
+          <div class="cfg-field">
+            <label class="cfg-label" for="dolar">Dólar (S/ por USD)</label>
+            <input type="number" id="dolar" class="form-control" step="0.01" min="0"
+              value="{{ config.valores_defecto.dolar }}">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="usd-productos">USD / kg — Productos</label>
+            <input type="number" id="usd-productos" class="form-control" step="0.01" min="0"
+              value="{{ config.valores_defecto.usd_kg_productos }}">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="usd-cajas">USD / kg — Cajas de Pase</label>
+            <input type="number" id="usd-cajas" class="form-control" step="0.01" min="0"
+              value="{{ config.valores_defecto.usd_kg_cajas }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Precios de planchas -->
+    <div class="cfg-card" style="margin-top:1rem;">
+      <div class="cfg-card-header">
+        <span class="cfg-card-icon" style="background:#fef3e2; color:#b45309;">▦</span>
+        <span>Precios de Planchas (S/ por plancha)</span>
+      </div>
+      <div class="cfg-card-body">
+        <div class="precio-table-wrap">
+          <table class="precio-table">
+            <thead>
+              <tr>
+                <th class="pt-head-label">Tipo</th>
+                <th>1.2 mm</th>
+                <th>1.5 mm</th>
+                <th>2.0 mm</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="pt-row-go">
+                <td class="precio-table-label">
+                  <span class="pt-badge pt-badge-go">GO</span>
+                  <span class="pt-label-text">Origen</span>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="go-12" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_go['1.2'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="go-15" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_go['1.5'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="go-20" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_go['2.0'] }}">
+                  </div>
+                </td>
+              </tr>
+              <tr class="pt-row-gc">
+                <td class="precio-table-label">
+                  <span class="pt-badge pt-badge-gc">GC</span>
+                  <span class="pt-label-text">Caliente</span>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="gc-12" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_gc['1.2'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="gc-15" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_gc['1.5'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="gc-20" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_gc['2.0'] }}">
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="cfg-save-row" style="gap:0.75rem;">
+      <button class="btn btn-outline" onclick="restaurarDefecto()" style="min-width:160px;">
+        Restaurar por defecto
+      </button>
+      <button class="btn btn-primary" onclick="pedirConfirmacion()" style="min-width:160px;">
+        Guardar cambios
+      </button>
+    </div>
+
+  </div><!-- /panel-precios -->
+
+  <!-- ── Modal de confirmación guardar config ── -->
+  <div id="modal-confirm-cfg" style="display:none; position:fixed; inset:0; z-index:9000;
+    background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:1.75rem 2rem; max-width:420px;
+      width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <div style="font-size:1.5rem; margin-bottom:0.5rem;">⚠️</div>
+      <h3 style="margin:0 0 0.75rem; font-size:1.05rem; color:#1a3a5c;">
+        ¿Guardar cambios de configuración?
+      </h3>
+      <p style="margin:0 0 1.25rem; font-size:0.9rem; color:#6b7280; line-height:1.5;">
+        Los nuevos valores de precio afectarán <strong>todas las cotizaciones futuras</strong>.
+        Las cotizaciones ya guardadas en el historial no se modifican.
+      </p>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="cerrarModalConfig()">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmarGuardar()">Sí, guardar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- Panel: Datos                                   -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="cfg-panel oculto" id="panel-datos">
+
+    <!-- Catálogo de Productos -->
+    <div class="cfg-card" style="margin-bottom:1rem;">
+      <div class="cfg-card-header">
+        <span class="cfg-card-icon" style="background:#f0eaff; color:#6d28d9;">📦</span>
+        <span>Catálogo de Productos</span>
+        <span class="cfg-card-badge">EMT · Cajas · Pernería</span>
+      </div>
+      <div class="cfg-card-body">
+
+        <!-- Acceso rápido -->
+        <div class="cfg-action-row" style="margin-bottom:1.25rem;">
+          <a href="/configuracion/catalogo" class="btn btn-primary">
+            Gestionar Catálogo →
+          </a>
+          <span class="cfg-hint" style="margin:0;">Agregar, editar o eliminar productos del catálogo desde la pantalla dedicada.</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Clientes & Atenciones -->
+    <div class="cfg-card">
+      <div class="cfg-card-header">
+        <span class="cfg-card-icon" style="background:#fef3e2; color:#b45309;">👥</span>
+        <span>Clientes & Atenciones</span>
+        <span class="cfg-card-badge">
+          {{ catalogo.clientes|length }} clientes · {{ catalogo.atenciones|length }} atenciones
+        </span>
+      </div>
+      <div class="cfg-card-body">
+
+        <!-- Acceso rápido -->
+        <div class="cfg-action-row" style="margin-bottom:1.25rem;">
+          <a href="/configuracion/clientes" class="btn btn-primary">
+            Gestionar Clientes →
+          </a>
+          <span class="cfg-hint" style="margin:0;">Agregar, editar o eliminar clientes y atenciones desde la pantalla dedicada.</span>
+        </div>
+
+
+      </div>
+    </div>
+
+  </div><!-- /panel-datos -->
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- Panel: Usuarios                               -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="cfg-panel oculto" id="panel-usuarios">
+    <div class="cfg-row-2">
+
+      <!-- Columna izquierda: lista + crear -->
+      <div>
+
+        <!-- Lista de usuarios -->
+        <div class="cfg-card" style="margin-bottom:1rem;">
+          <div class="cfg-card-header">
+            <span class="cfg-card-icon" style="background:#e8f4fd; color:#1a6fad;">👥</span>
+            <span>Usuarios del Sistema</span>
+          </div>
+          <div class="cfg-card-body" style="padding-top:0.5rem;">
+            {% for u in usuarios %}
+            <div class="cfg-user-row">
+              <div>
+                <strong>{{ u.username }}</strong>
+                {% if u.nombre %}<span style="color:var(--texto-suave);"> · {{ u.nombre }}</span>{% endif %}
+              </div>
+              <div style="display:flex; gap:0.4rem; align-items:center; flex-shrink:0;">
+                {% if u.rol == 'ADMIN' %}
+                <span style="font-size:0.72rem; font-weight:700; color:#7c3aed; background:#ede9fe; padding:0.15rem 0.5rem; border-radius:20px;">Admin</span>
+                {% else %}
+                <span style="font-size:0.72rem; font-weight:600; color:#1a6fad; background:#e8f4fd; padding:0.15rem 0.5rem; border-radius:20px;">Usuario</span>
+                {% endif %}
+                {% if not u.activo %}
+                <span class="cfg-badge-inactivo">inactivo</span>
+                {% else %}
+                <span class="cfg-badge-activo">activo</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Crear usuario -->
+        <div class="cfg-card">
+          <div class="cfg-card-header">
+            <span class="cfg-card-icon" style="background:#e8f9f0; color:#1a8a4a;">+</span>
+            <span>Crear Nuevo Usuario</span>
+          </div>
+          <div class="cfg-card-body">
+            <div class="cfg-field">
+              <label class="cfg-label" for="new-username">Usuario</label>
+              <input type="text" id="new-username" class="form-control"
+                placeholder="nombre de usuario" autocomplete="username">
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label" for="new-nombre">Nombre completo</label>
+              <input type="text" id="new-nombre" class="form-control"
+                placeholder="opcional" autocomplete="name">
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label" for="new-pwd">Contraseña</label>
+              <input type="password" id="new-pwd" class="form-control" autocomplete="new-password">
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label" for="new-rol">Rol</label>
+              <select id="new-rol" class="form-control">
+                <option value="USER">Usuario (limitado)</option>
+                <option value="ADMIN">Administrador</option>
+              </select>
+            </div>
+            <div class="cfg-btn-row" style="margin-top:0.25rem;">
+              <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Columna derecha: cambiar contraseña -->
+      <div>
+        <div class="cfg-card">
+          <div class="cfg-card-header">
+            <span class="cfg-card-icon" style="background:#fff3e0; color:#c27500;">🔑</span>
+            <span>Cambiar Contraseña</span>
+          </div>
+          <div class="cfg-card-body">
+            <div class="cfg-field">
+              <label class="cfg-label" for="pwd-actual">Contraseña actual</label>
+              <input type="password" id="pwd-actual" class="form-control" autocomplete="current-password">
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label" for="pwd-nuevo">Contraseña nueva</label>
+              <input type="password" id="pwd-nuevo" class="form-control" autocomplete="new-password">
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label" for="pwd-confirmar">Confirmar nueva</label>
+              <input type="password" id="pwd-confirmar" class="form-control" autocomplete="new-password">
+            </div>
+            <div class="cfg-btn-row" style="margin-top:0.25rem;">
+              <button class="btn btn-warning" onclick="cambiarPassword()">Cambiar contraseña</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /panel-usuarios -->
+
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<style>
+/*
+ * Configuración — layout 100% fluido
+ * Técnicas: auto-fit + minmax(), clamp(), flex-wrap, min()
+ * Sin breakpoints rígidos. Rango: 320px → 1440px
+ */
+
+/* ── Box-sizing y anti-overflow para todo el scope ── */
+.cfg-tabs, .cfg-tab, .cfg-panel,
+.cfg-row-2, .cfg-card, .cfg-card-header, .cfg-card-body,
+.cfg-file-row, .cfg-download-block, .cfg-upload-block,
+.cfg-upload-row, .cfg-action-row, .cfg-save-row, .cfg-btn-row {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* Todos los inputs respetan el contenedor siempre (excluye radio/checkbox) */
+.cfg-card input:not([type=radio]):not([type=checkbox]),
+.cfg-card select,
+.cfg-card textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Radio labels: no se rompen en líneas — el texto siempre cabe en una sola */
+.cfg-card .radio-label {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Tabs: siempre full-width, repartidas en partes iguales ── */
+.cfg-tabs {
+  display: flex;
+  gap: 0.375rem;
+  margin-bottom: 1.5rem;
+  background: #f0f4f8;
+  padding: 0.375rem;
+  border-radius: 10px;
+  width: 100%;                   /* full-width nativo, sin media query */
+}
+.cfg-tab {
+  flex: 1;                       /* partes iguales */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.2rem, 1vw, 0.4rem);
+  padding: 0.55rem clamp(0.35rem, 2vw, 1.25rem);
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  font-size: clamp(0.78rem, 1.8vw, 0.9rem);
+  font-weight: 500;
+  color: var(--texto-suave);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.cfg-tab:hover  { background: #e2e8f0; color: var(--texto-principal); }
+.cfg-tab.active {
+  background: #fff;
+  color: var(--primario);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.cfg-tab-icon { font-size: clamp(0.82rem, 1.8vw, 1rem); flex-shrink: 0; }
+
+/* ── Panels ── */
+.cfg-panel.oculto { display: none; }
+
+/* ── Layout: auto-fit — 2 cols cuando caben ≥280px c/u, 1 col si no ── */
+.cfg-row-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+/* ── Cards ── */
+.cfg-card {
+  background: #fff;
+  border: 1px solid var(--gris-borde);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cfg-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;               /* badge baja a nueva línea si no cabe */
+  gap: 0.5rem;
+  padding:
+    clamp(0.6rem, 2vw, 0.8rem)
+    clamp(0.75rem, 2.5vw, 1.1rem);
+  background: #fafbfc;
+  border-bottom: 1px solid var(--gris-borde);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.cfg-card-icon {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; font-weight: 700;
+  flex-shrink: 0;
+}
+.cfg-card-badge {
+  margin-left: auto;
+  font-size: 0.78rem; font-weight: 400;
+  color: var(--texto-suave);
+  background: #f0f4f8;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.cfg-card-body {
+  padding:
+    clamp(0.75rem, 2.5vw, 1rem)
+    clamp(0.75rem, 2.5vw, 1.1rem);
+}
+
+/* ── Fields ── */
+.cfg-field { margin-bottom: 0.9rem; }
+.cfg-field:last-child { margin-bottom: 0; }
+.cfg-label {
+  display: block;
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+}
+
+/* ── Tabla de planchas — rediseño ── */
+.precio-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.precio-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 320px;
+}
+/* Cabecera */
+.precio-table thead tr {
+  background: #f5f7fa;
+}
+.precio-table th {
+  text-align: center;
+  font-size: clamp(0.72rem, 1.5vw, 0.82rem);
+  font-weight: 700; color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0.55rem clamp(0.3rem, 1.5vw, 0.9rem);
+  border-bottom: 2px solid #e2e8f0;
+}
+.precio-table th.pt-head-label { text-align: left; padding-left: 1rem; }
+/* Celdas */
+.precio-table td {
+  padding: 0.55rem clamp(0.2rem, 1vw, 0.6rem);
+  vertical-align: middle;
+}
+/* Filas GO y GC con fondo tenue */
+.pt-row-go { background: #f0f7ff; }
+.pt-row-gc { background: #fff8f0; }
+.pt-row-go:hover { background: #e3f0fd; }
+.pt-row-gc:hover { background: #fef2e4; }
+/* Separador entre filas */
+.pt-row-go td { border-bottom: 1px solid #e2e8f0; }
+/* Columna etiqueta */
+.precio-table-label {
+  white-space: nowrap;
+  padding-left: 1rem !important;
+  padding-right: clamp(0.5rem, 2vw, 1.25rem) !important;
+}
+.pt-label-text {
+  font-size: clamp(0.78rem, 1.5vw, 0.875rem);
+  font-weight: 600; color: var(--texto-principal);
+}
+/* Badges GO / GC */
+.pt-badge {
+  display: inline-block;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+.pt-badge-go { background: #dbeafe; color: #1d4ed8; }
+.pt-badge-gc { background: #fde68a; color: #92400e; }
+/* Input con prefijo S/ */
+.pt-input-wrap {
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  overflow: hidden;
+  width: clamp(90px, 12vw, 130px);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pt-input-wrap:focus-within {
+  border-color: var(--primario);
+  box-shadow: 0 0 0 3px rgba(26,111,173,0.12);
+}
+.pt-prefix {
+  padding: 0 0.4rem;
+  font-size: 0.75rem; font-weight: 700; color: var(--texto-suave);
+  background: #f0f4f8;
+  border-right: 1px solid #d1d9e0;
+  display: flex; align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pt-input-wrap input {
+  border: none;
+  background: transparent;
+  text-align: right;
+  padding: 0.4rem 0.5rem;
+  width: 100%;
+  font-size: 0.875rem;
+  outline: none;
+  min-width: 0;
+}
+/* Override form-control max-width dentro de pt-input-wrap */
+.pt-input-wrap input[type=number] {
+  max-width: none;
+}
+
+/* ── Datos panel ── */
+.cfg-hint {
+  font-size: 0.85rem; color: var(--texto-suave);
+  margin-bottom: 1rem; line-height: 1.5;
+}
+.cfg-section-label {
+  font-size: 0.8rem; font-weight: 600; color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 0.6rem;
+}
+.cfg-divider {
+  border: none; border-top: 1px solid var(--gris-borde);
+  margin: 1.1rem 0;
+}
+
+/* ── File row: flex con wrap — colapsa solo cuando no hay espacio ── */
+.cfg-file-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.cfg-download-block {
+  flex: 0 0 auto;                /* tamaño natural, nunca se encoge */
+  display: flex; flex-direction: column;
+  align-items: flex-start; gap: 0.4rem;
+}
+.cfg-filename {
+  font-size: 0.78rem; color: var(--texto-suave); font-family: monospace;
+}
+.cfg-upload-block {
+  flex: 1 1 200px;               /* crece; baja de línea si < 200px disponibles */
+  display: flex; flex-direction: column; gap: 0.4rem;
+}
+
+/* ── Upload row: file-input crece, botón se fija; ambos envuelven si hace falta ── */
+.cfg-upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.cfg-file-input {
+  flex: 1 1 140px;               /* crece; baja de línea si < 140px disponibles */
+  font-size: 0.85rem;
+}
+.cfg-result { font-size: 0.82rem; min-height: 1.1rem; }
+
+/* ── Action row: botón + hint; hint envuelve si no cabe en la misma fila ── */
+.cfg-action-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.cfg-action-row .btn      { flex-shrink: 0; }
+.cfg-action-row .cfg-hint { flex: 1 1 180px; margin: 0; }
+
+/* ── Usuarios ── */
+.cfg-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.875rem;
+}
+.cfg-user-row:last-child { border-bottom: none; }
+.cfg-user-row > div      { flex: 1; min-width: 0; word-break: break-word; }
+.cfg-badge-activo {
+  flex-shrink: 0;
+  font-size: 0.72rem; font-weight: 600;
+  color: #1a8a4a; background: #e8f9f0;
+  padding: 0.15rem 0.5rem; border-radius: 20px;
+}
+.cfg-badge-inactivo {
+  flex-shrink: 0;
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--rojo); background: #fdecea;
+  padding: 0.15rem 0.5rem; border-radius: 20px;
+}
+
+/* ── Botones de acción ── */
+.cfg-save-row {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--primario);
+  color: var(--primario);
+  border-radius: 6px;
+  padding: 0.45rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-outline:hover { background: #e8f4fd; }
+.cfg-btn-row {
+  display: flex;
+  justify-content: flex-end;
+}
+/* Botón nunca más ancho que el contenedor; mínimo 160px */
+.cfg-save-row .btn,
+.cfg-btn-row .btn {
+  min-width: min(160px, 100%);
+}
+</style>
+
+<script>
+// ── Tabs ──
+function switchTab(nombre, btn) {
+  document.querySelectorAll('.cfg-panel').forEach(p => p.classList.add('oculto'));
+  document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + nombre).classList.remove('oculto');
+  btn.classList.add('active');
+}
+
+// ── Radio groups ──
+document.querySelectorAll('.radio-group').forEach(group => {
+  group.querySelectorAll('input[type=radio]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      group.querySelectorAll('.radio-label').forEach(l => l.classList.remove('selected'));
+      this.closest('.radio-label').classList.add('selected');
+    });
+  });
+});
+
+// ── Valores por defecto del sistema ──
+const DEFAULTS_CONFIG = {
+  ganancia: '30', galvanizado: 'GO',
+  espesor_producto: '1.5', espesor_tapa: '1.2',
+  go_12: 150, go_15: 180, go_20: 220,
+  gc_12: 140, gc_15: 170, gc_20: 210,
+  dolar: 3.8, usd_kg_productos: 1.0, usd_kg_cajas: 3.0,
+};
+
+// ── Modal de confirmación guardar config ──
+function pedirConfirmacion() {
+  const m = document.getElementById('modal-confirm-cfg');
+  m.style.display = 'flex';
+  m.style.alignItems = 'center';
+  m.style.justifyContent = 'center';
+}
+function cerrarModalConfig() {
+  document.getElementById('modal-confirm-cfg').style.display = 'none';
+}
+async function confirmarGuardar() {
+  cerrarModalConfig();
+  await guardarConfig();
+}
+// Cerrar modal al hacer click fuera
+document.getElementById('modal-confirm-cfg')?.addEventListener('click', function(e) {
+  if (e.target === this) cerrarModalConfig();
+});
+
+// ── Restaurar valores por defecto ──
+function restaurarDefecto() {
+  const d = DEFAULTS_CONFIG;
+  // Radios
+  [['ganancia', d.ganancia], ['galvanizado', d.galvanizado],
+   ['espesor_producto', d.espesor_producto], ['espesor_tapa', d.espesor_tapa]].forEach(([name, val]) => {
+    const radio = document.querySelector(`input[name=${name}][value="${val}"]`);
+    if (radio) {
+      radio.checked = true;
+      radio.closest('.radio-group')?.querySelectorAll('.radio-label').forEach(l => l.classList.remove('selected'));
+      radio.closest('.radio-label')?.classList.add('selected');
+    }
+  });
+  // Inputs numéricos
+  document.getElementById('go-12').value = d.go_12;
+  document.getElementById('go-15').value = d.go_15;
+  document.getElementById('go-20').value = d.go_20;
+  document.getElementById('gc-12').value = d.gc_12;
+  document.getElementById('gc-15').value = d.gc_15;
+  document.getElementById('gc-20').value = d.gc_20;
+  document.getElementById('dolar').value = d.dolar;
+  document.getElementById('usd-productos').value = d.usd_kg_productos;
+  document.getElementById('usd-cajas').value = d.usd_kg_cajas;
+  toast('Valores restaurados — haz clic en Guardar para confirmar', 'info');
+}
+
+// ── Guardar precios ──
+async function guardarConfig() {
+  const fd = formData({
+    ganancia:         document.querySelector('input[name=ganancia]:checked')?.value || '30',
+    galvanizado:      document.querySelector('input[name=galvanizado]:checked')?.value || 'GO',
+    espesor_producto: document.querySelector('input[name=espesor_producto]:checked')?.value || '1.5',
+    espesor_tapa:     document.querySelector('input[name=espesor_tapa]:checked')?.value || '1.2',
+    go_12:            document.getElementById('go-12').value,
+    go_15:            document.getElementById('go-15').value,
+    go_20:            document.getElementById('go-20').value,
+    gc_12:            document.getElementById('gc-12').value,
+    gc_15:            document.getElementById('gc-15').value,
+    gc_20:            document.getElementById('gc-20').value,
+    dolar:            document.getElementById('dolar').value,
+    usd_kg_productos: document.getElementById('usd-productos').value,
+    usd_kg_cajas:     document.getElementById('usd-cajas').value,
+  });
+  const data = await apiFetch('/configuracion/guardar', { method: 'POST', body: fd });
+  toast(data.ok ? 'Configuración guardada' : (data.error || 'Error al guardar'), data.ok ? 'success' : 'error');
+}
+
+// ── Crear usuario ──
+async function crearUsuario() {
+  const username = document.getElementById('new-username').value.trim();
+  const pwd      = document.getElementById('new-pwd').value;
+  const nombre   = document.getElementById('new-nombre').value.trim();
+  const rol      = document.getElementById('new-rol').value;
+  if (!username || !pwd) { toast('Complete usuario y contraseña', 'error'); return; }
+  const data = await apiFetch('/configuracion/usuario/crear', {
+    method: 'POST', body: formData({ username, password: pwd, nombre, rol })
+  });
+  toast(data.ok ? `Usuario "${username}" creado` : (data.error || 'Error'), data.ok ? 'success' : 'error');
+  if (data.ok) {
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-pwd').value = '';
+    document.getElementById('new-nombre').value = '';
+    document.getElementById('new-rol').value = 'USER';
+    setTimeout(() => location.reload(), 1000);
+  }
+}
+
+// ── Cambiar contraseña ──
+async function cambiarPassword() {
+  const actual    = document.getElementById('pwd-actual').value;
+  const nuevo     = document.getElementById('pwd-nuevo').value;
+  const confirmar = document.getElementById('pwd-confirmar').value;
+  if (!actual || !nuevo) { toast('Complete los campos', 'error'); return; }
+  if (nuevo !== confirmar) { toast('Las contraseñas no coinciden', 'error'); return; }
+  const data = await apiFetch('/configuracion/usuario/cambiar_password', {
+    method: 'POST', body: formData({ password_actual: actual, password_nuevo: nuevo })
+  });
+  toast(data.ok ? 'Contraseña actualizada' : (data.error || 'Error'), data.ok ? 'success' : 'error');
+  if (data.ok) {
+    document.getElementById('pwd-actual').value = '';
+    document.getElementById('pwd-nuevo').value = '';
+    document.getElementById('pwd-confirmar').value = '';
+  }
+}
+</script>
+{% endblock %}

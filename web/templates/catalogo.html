@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+{% set active = "catalogo" %}
+
+{% block title %}Catálogo de Productos — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Catálogo de Productos</h1>
+
+  <!-- Buscador + leyenda comisión -->
+  <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem;">
+    <div class="card" style="flex:1; min-width:220px; padding:0.6rem 0.9rem; margin:0;">
+      <input type="text" id="buscador" class="form-control"
+        placeholder="Buscar producto por descripción…"
+        oninput="filtrar(this.value)"
+        style="font-size:0.95rem;">
+    </div>
+    <div class="cat-leyenda">
+      <span class="cat-badge-30">30% — Sin comisión</span>
+      <span class="cat-badge-sep">·</span>
+      <span class="cat-badge-35">35% — Con comisión</span>
+    </div>
+  </div>
+
+  <!-- Sin resultados -->
+  <div id="sin-resultados" style="display:none; text-align:center; color:var(--texto-suave); padding:2rem;">
+    No se encontraron productos para la búsqueda.
+  </div>
+
+  <!-- Categorías -->
+  {% if catalogo_productos.categorias %}
+    {% for cat in catalogo_productos.categorias %}
+    {% set ci = loop.index0 %}
+    <div class="cat-bloque">
+
+      <!-- Encabezado categoría -->
+      <button class="cat-header" onclick="toggleCat({{ ci }})"
+              aria-expanded="false" aria-controls="body-cat-{{ ci }}">
+        <span class="cat-icono" aria-hidden="true">{{ cat.icono or "📦" }}</span>
+        <span class="cat-nombre">{{ cat.nombre }}</span>
+        <span class="cat-arrow cerrado" id="arrow-cat-{{ ci }}" aria-hidden="true">▼</span>
+      </button>
+
+      <!-- Cuerpo categoría -->
+      <div class="cat-body oculto" id="body-cat-{{ ci }}">
+        {% for sub in cat.subcategorias %}
+        {% set si = loop.index0 %}
+        {% set sid = ci ~ "-" ~ si %}
+        <div class="sub-bloque" id="sub-bloque-{{ sid }}">
+
+          <!-- Encabezado subcategoría -->
+          <button class="sub-header" onclick="toggleSub('{{ sid }}')"
+                  aria-expanded="false" aria-controls="body-sub-{{ sid }}">
+            <span class="sub-icono" aria-hidden="true">{{ sub.icono or "📋" }}</span>
+            <span class="sub-nombre">{{ sub.nombre }}</span>
+            <span class="sub-arrow cerrado" id="arrow-sub-{{ sid }}" aria-hidden="true">▼</span>
+          </button>
+
+          <!-- Tabla de productos -->
+          <div class="sub-body oculto" id="body-sub-{{ sid }}">
+            <table class="tabla-catalogo">
+              <thead>
+                <tr>
+                  <th>Descripción</th>
+                  <th>Und.</th>
+                  <th>Present.</th>
+                  <th class="th-precio th-30" title="Precio sin comisión — 30% ganancia">
+                    S/ Sin comisión
+                    <span class="th-badge th-badge-30">30%</span>
+                  </th>
+                  <th class="th-precio th-35" title="Precio con comisión — 35% ganancia">
+                    S/ Con comisión
+                    <span class="th-badge th-badge-35">35%</span>
+                  </th>
+                  <th style="width:58px; text-align:center;">Cant.</th>
+                  <th style="width:160px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for prod in sub.productos %}
+                <tr class="prod-fila"
+                    data-desc="{{ prod.descripcion | lower }}"
+                    data-cat="{{ ci }}"
+                    data-sub="{{ sid }}">
+                  <td>{{ prod.descripcion }}</td>
+                  <td style="text-align:center;">{{ prod.unidad }}</td>
+                  <td class="td-present">{{ prod.presentacion }}</td>
+                  <td class="td-precio td-30">{{ "%.2f"|format(prod.precio) }}</td>
+                  <td class="td-precio td-35">{{ "%.2f"|format(prod.precio * 0.7 / 0.65) }}</td>
+                  <td>
+                    <div class="qty-stepper">
+                      <button class="btn-qty btn-qty-dec" type="button" onclick="cambiarCantidad(this,-1)">−</button>
+                      <input type="number" class="inp-cantidad form-control"
+                        value="1" min="1" step="1" inputmode="numeric"
+                        style="width:52px; text-align:center; padding:0.25rem 0.3rem;">
+                      <button class="btn-qty btn-qty-inc" type="button" onclick="cambiarCantidad(this,1)">+</button>
+                    </div>
+                  </td>
+                  <td>
+                    <div style="display:flex; gap:0.35rem;">
+                      <button class="btn btn-sm btn-agregar btn-agregar-30"
+                        data-descripcion="{{ prod.descripcion }}"
+                        data-precio="{{ prod.precio }}"
+                        data-unidad="{{ prod.unidad }}"
+                        title="Agregar al precio sin comisión (30%)"
+                        onclick="agregarAlCarrito(this)">
+                        +&nbsp;30%
+                      </button>
+                      <button class="btn btn-sm btn-agregar btn-agregar-35"
+                        data-descripcion="{{ prod.descripcion }}"
+                        data-precio="{{ "%.2f"|format(prod.precio * 0.7 / 0.65) }}"
+                        data-unidad="{{ prod.unidad }}"
+                        title="Agregar al precio con comisión (35%)"
+                        onclick="agregarAlCarrito(this)">
+                        +&nbsp;35%
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div><!-- /.sub-body -->
+
+        </div><!-- /.sub-bloque -->
+        {% endfor %}
+      </div><!-- /.cat-body -->
+
+    </div><!-- /.cat-bloque -->
+    {% endfor %}
+  {% else %}
+    <div class="card" style="text-align:center; color:var(--texto-suave); padding:2rem;">
+      No se encontró el archivo <code>catalogo_productos.json</code> en el directorio raíz.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── Leyenda ── */
+.cat-leyenda {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid var(--gris-borde);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.cat-badge-sep { color: var(--gris-borde); }
+.cat-badge-30 { font-weight: 600; color: #1a6fad; }
+.cat-badge-35 { font-weight: 600; color: #1a8a4a; }
+
+/* ── Categorías ── */
+.cat-bloque { margin-bottom: 0.75rem; }
+
+.cat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: var(--azul);
+  color: #fff;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+.cat-header:hover { background: var(--azul-hover); }
+.cat-icono { font-size: 1.1rem; }
+.cat-nombre { flex: 1; }
+.cat-arrow  { font-size: 0.85rem; transition: transform 0.2s; opacity: 0.8; }
+.cat-arrow.cerrado { transform: rotate(-90deg); }
+
+.cat-body {
+  border: 1px solid var(--gris-borde);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+.cat-body.oculto { display: none; }
+
+/* ── Subcategorías ── */
+.sub-bloque { border-bottom: 1px solid var(--gris-borde); }
+.sub-bloque:last-child { border-bottom: none; }
+
+.sub-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: #e8edf5;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-bottom: 1px solid #d1d9e6;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #1a3a5c;
+  text-align: left;
+}
+.sub-header:hover { background: #dce3ef; }
+.sub-icono { font-size: 0.95rem; }
+.sub-nombre { flex: 1; }
+.sub-arrow  {
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+  color: #1a3a5c;
+  opacity: 0.6;
+}
+.sub-arrow.cerrado { transform: rotate(-90deg); }
+.sub-body.oculto { display: none; }
+
+/* ── Tabla ── */
+.tabla-catalogo {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.tabla-catalogo thead th {
+  background: #f8f9fb;
+  padding: 0.45rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.78rem;
+  border-bottom: 2px solid var(--gris-borde);
+  white-space: nowrap;
+}
+.tabla-catalogo tbody td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+.tabla-catalogo tbody tr:last-child td { border-bottom: none; }
+.tabla-catalogo tbody tr:hover td     { background: #fafbfc; }
+.tabla-catalogo tbody tr.oculta       { display: none; }
+
+/* Columnas de precio */
+.th-precio { text-align: right; position: relative; padding-right: 2rem !important; }
+.th-badge {
+  position: absolute;
+  top: 3px; right: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+.th-badge-30 { background: #dbeafe; color: #1a6fad; }
+.th-badge-35 { background: #d1fae5; color: #1a8a4a; }
+
+.td-precio   { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.td-30       { color: #1a6fad; }
+.td-35       { color: #1a8a4a; }
+.td-present  { color: var(--texto-suave); font-size: 0.8rem; }
+
+/* Botones agregar */
+.btn-sm { padding: 0.28rem 0.55rem; font-size: 0.78rem; }
+.btn-agregar { white-space: nowrap; border: none; cursor: pointer; border-radius: 5px; font-weight: 600; }
+.btn-agregar:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-agregar-30 {
+  background: #dbeafe; color: #1a6fad;
+  border: 1px solid #93c5fd;
+}
+.btn-agregar-30:hover:not(:disabled) { background: #bfdbfe; }
+.btn-agregar-35 {
+  background: #d1fae5; color: #1a8a4a;
+  border: 1px solid #6ee7b7;
+}
+.btn-agregar-35:hover:not(:disabled) { background: #a7f3d0; }
+
+/* ── Stepper de cantidad ── */
+.qty-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.btn-qty {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #374151;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.btn-qty:hover  { background: #e5e7eb; }
+.btn-qty:active { background: #d1d5db; }
+
+/* ── Mobile responsive (≤ 640px) ── */
+@media (max-width: 640px) {
+  /* Ocultar cabecera de tabla */
+  .tabla-catalogo thead { display: none; }
+
+  /* Cada fila → tarjeta grid 2 cols iguales, gap 0.3rem entre columnas */
+  .tabla-catalogo tbody tr.prod-fila {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 0.3rem;
+    row-gap: 0.2rem;
+    padding: 0.65rem 0.75rem 0.6rem;
+    margin: 0.4rem 0.4rem;
+    border-radius: 10px;
+    border: 1px solid var(--gris-borde);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    background: #fff;
+    container-type: inline-size; /* habilita unidades cqi para hijos */
+  }
+
+  /* Reset base para todas las celdas */
+  .tabla-catalogo tbody tr.prod-fila td {
+    display: block;
+    padding: 0;
+    border: none;
+    box-sizing: border-box;
+  }
+
+  /* td:1 — Descripción (ancho completo, fila 1) */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(1) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #1a3a5c;
+  }
+
+  /* td:2 y td:3 — Unidad y Presentación ocultas en mobile */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(2),
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(3) {
+    display: none;
+  }
+
+  /* tr::before — label "Precios" (fila 3, ancho completo) */
+  .tabla-catalogo tbody tr.prod-fila::before {
+    content: "Precios";
+    grid-column: 1 / -1;
+    grid-row: 3;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #374151;
+    padding-top: 0.5rem;
+    padding-bottom: 0.2rem;
+    border-top: 1px solid #edf0f5;
+    margin-top: 0.1rem;
+  }
+
+  /* td:4 y td:5 — chips de precio: el contenedor dicta las dimensiones, nunca el contenido */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(4),
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(5) {
+    /* Flex interno: centra contenido sin que éste controle el tamaño del bloque */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+
+    /* CLAVE — align-self: start hace que la altura se calcule únicamente a partir de
+       aspect-ratio × ancho-del-track-1fr, ignorando por completo la altura del contenido.
+       Con align-self: stretch (defecto) el grid row puede ser inflado por el texto;
+       con start, aspect-ratio tiene precedencia absoluta. */
+    align-self: start;
+    width: 100%;           /* ocupa el 100 % del track 1fr */
+    aspect-ratio: 5 / 2;  /* altura = 40 % del ancho → proporción estable a cualquier tamaño */
+
+    /* Cortar overflow sin expandir el bloque */
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 0;
+    min-width: 0;
+
+    /* Tipografía: escala con el contenedor (cqi = % del ancho del tr).
+       clamp() garantiza que el texto nunca expanda el chip. */
+    font-size: clamp(0.95rem, 5cqi, 1.2rem);
+    font-weight: 700;
+    line-height: 1.1;
+    border-radius: 8px;
+  }
+
+  /* Labels "30% · S/" y "35% · S/" — escalan con el contenedor */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(4)::before,
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(5)::before {
+    font-size: clamp(0.65rem, 2.8cqi, 0.78rem);
+    font-weight: 500;
+    opacity: 0.7;
+    letter-spacing: 0.03em;
+    line-height: 1;
+  }
+
+  /* td:4 — Precio 30% (chip azul, col 1, fila 4) */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(4) {
+    grid-column: 1;
+    grid-row: 4;
+    background: #dbeafe;
+    color: #1a6fad;
+  }
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(4)::before {
+    content: "30%  ·  S/";
+  }
+
+  /* td:5 — Precio 35% (chip verde, col 2, fila 4) */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(5) {
+    grid-column: 2;
+    grid-row: 4;
+    background: #d1fae5;
+    color: #1a8a4a;
+  }
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(5)::before {
+    content: "35%  ·  S/";
+  }
+
+  /* tr::after — label "Cantidades" (fila 5, ancho completo) */
+  .tabla-catalogo tbody tr.prod-fila::after {
+    content: "Cantidades";
+    grid-column: 1 / -1;
+    grid-row: 5;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #374151;
+    padding-top: 0.5rem;
+    padding-bottom: 0.1rem;
+  }
+
+  /* td:6 — Stepper cantidad (col 1, fila 6) */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(6) {
+    grid-column: 1;
+    grid-row: 6;
+    display: flex;
+    align-items: center;
+  }
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(6) .btn-qty {
+    display: flex;
+  }
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(6) .inp-cantidad {
+    width: 40px !important;
+  }
+
+  /* td:7 — Botones (col 2, fila 6) */
+  .tabla-catalogo tbody tr.prod-fila td:nth-child(7) {
+    grid-column: 2;
+    grid-row: 6;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.3rem;
+  }
+
+  /* Botones agregar más compactos en mobile */
+  .btn-agregar { font-size: 0.78rem; padding: 0.3rem 0.6rem; }
+
+  /* Encabezados más compactos */
+  .cat-header { padding: 0.55rem 0.75rem; font-size: 0.9rem; }
+  .sub-header { padding: 0.4rem 0.75rem; font-size: 0.82rem; }
+
+  /* Leyenda: hacer wrap */
+  .cat-leyenda { flex-wrap: wrap; white-space: normal; }
+
+  /* Quitar hover de fila */
+  .tabla-catalogo tbody tr:hover td { background: transparent; }
+}
+</style>
+
+<script>
+// ── F5: limpiar carrito (igual que cotizar y carrito) ──
+const _navType = performance.getEntriesByType('navigation')[0]?.type;
+if (_navType === 'reload') {
+  sessionStorage.removeItem('carritoLive');
+  fetch('/api/carrito/limpiar', { method: 'POST' }).then(() => {
+    const badge = document.getElementById('nav-badge-carrito');
+    if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+  });
+}
+
+// ── Popup al cerrar/F5 si hay items en el carrito ──
+let _cartCount = parseInt(document.getElementById('nav-badge-carrito')?.textContent || '0');
+let _navegandoInternamente = false;
+document.querySelectorAll('a[href^="/"]').forEach(a => {
+  a.addEventListener('click', () => { _navegandoInternamente = true; });
+});
+window.addEventListener('beforeunload', e => {
+  if (_cartCount > 0 && !_navegandoInternamente) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+  setTimeout(() => { _navegandoInternamente = false; }, 200);
+});
+
+// ── Colapsar / expandir categoría ──
+function toggleCat(ci) {
+  const body   = document.getElementById(`body-cat-${ci}`);
+  const arrow  = document.getElementById(`arrow-cat-${ci}`);
+  const btn    = body.previousElementSibling;
+  const abierto = !body.classList.contains('oculto');
+  body.classList.toggle('oculto', abierto);
+  arrow.classList.toggle('cerrado', abierto);
+  if (btn) btn.setAttribute('aria-expanded', String(!abierto));
+}
+
+// ── Colapsar / expandir subcategoría ──
+function toggleSub(sid) {
+  const body   = document.getElementById(`body-sub-${sid}`);
+  const arrow  = document.getElementById(`arrow-sub-${sid}`);
+  const btn    = body.previousElementSibling;
+  const abierto = !body.classList.contains('oculto');
+  body.classList.toggle('oculto', abierto);
+  arrow.classList.toggle('cerrado', abierto);
+  if (btn) btn.setAttribute('aria-expanded', String(!abierto));
+}
+
+// ── Buscador en tiempo real ──
+function filtrar(texto) {
+  const q = texto.trim().toLowerCase();
+  let totalVisibles = 0;
+
+  document.querySelectorAll('.cat-bloque').forEach(catBloque => {
+    let catTieneMatch = false;
+
+    catBloque.querySelectorAll('.sub-bloque').forEach(subBloque => {
+      let subTieneMatch = false;
+      subBloque.querySelectorAll('.prod-fila').forEach(fila => {
+        const visible = q === '' || (fila.dataset.desc || '').includes(q);
+        fila.classList.toggle('oculta', !visible);
+        if (visible) { subTieneMatch = true; catTieneMatch = true; totalVisibles++; }
+      });
+
+      subBloque.style.display = subTieneMatch ? '' : 'none';
+
+      const sid = subBloque.id.replace('sub-bloque-', '');
+      const bodySubEl  = document.getElementById(`body-sub-${sid}`);
+      const arrowSubEl = document.getElementById(`arrow-sub-${sid}`);
+      if (q && subTieneMatch) {
+        // Expandir si hay coincidencias
+        if (bodySubEl)  bodySubEl.classList.remove('oculto');
+        if (arrowSubEl) arrowSubEl.classList.remove('cerrado');
+      } else if (!q) {
+        // Recolapsar al limpiar búsqueda
+        if (bodySubEl)  bodySubEl.classList.add('oculto');
+        if (arrowSubEl) arrowSubEl.classList.add('cerrado');
+      }
+    });
+
+    catBloque.style.display = catTieneMatch ? '' : 'none';
+
+    const bodyCatEl  = catBloque.querySelector('.cat-body');
+    const arrowCatEl = catBloque.querySelector('.cat-arrow');
+    if (q && catTieneMatch) {
+      // Expandir si hay coincidencias
+      if (bodyCatEl)  bodyCatEl.classList.remove('oculto');
+      if (arrowCatEl) arrowCatEl.classList.remove('cerrado');
+    } else if (!q) {
+      // Recolapsar al limpiar búsqueda
+      if (bodyCatEl)  bodyCatEl.classList.add('oculto');
+      if (arrowCatEl) arrowCatEl.classList.add('cerrado');
+    }
+  });
+
+  document.getElementById('sin-resultados').style.display =
+    (q !== '' && totalVisibles === 0) ? '' : 'none';
+}
+
+// ── Stepper de cantidad ──
+function cambiarCantidad(btn, delta) {
+  const input = btn.closest('.qty-stepper').querySelector('.inp-cantidad');
+  input.value = Math.max(1, (parseInt(input.value) || 1) + delta);
+}
+
+// ── Solo dígitos en campos de cantidad ──
+document.addEventListener('keydown', e => {
+  if (!e.target.classList.contains('inp-cantidad')) return;
+  if (['e', 'E', '+', '-', '.', ','].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('input', e => {
+  if (!e.target.classList.contains('inp-cantidad')) return;
+  const digitos = e.target.value.replace(/[^0-9]/g, '');
+  e.target.value = digitos === '' ? '' : Math.max(1, parseInt(digitos, 10));
+});
+
+// ── Countdown + redirección al carrito ──
+function contarYRedirigir(msg) {
+  const c = document.getElementById('toast-container');
+  while (c.children.length >= 3) c.firstChild.remove();
+  const t = document.createElement('div');
+  t.className = 'toast toast-info';
+  c.appendChild(t);
+
+  let seg = 3;
+  const actualizar = () => {
+    t.innerHTML = `<span>ℹ</span> ${msg} — redirigiendo al carrito en ${seg}…`;
+  };
+  actualizar();
+
+  const iv = setInterval(() => {
+    seg--;
+    if (seg <= 0) {
+      clearInterval(iv);
+      t.remove();
+      _navegandoInternamente = true;
+      window.location.href = '/carrito';
+    } else {
+      actualizar();
+    }
+  }, 1000);
+}
+
+// ── Agregar al carrito ──
+async function agregarAlCarrito(btn) {
+  const descripcion = btn.dataset.descripcion;
+  const precio      = parseFloat(btn.dataset.precio);
+  const unidad      = btn.dataset.unidad;
+  const fila        = btn.closest('tr');
+  const cantidad    = parseInt(fila.querySelector('.inp-cantidad').value) || 1;
+
+  btn.disabled    = true;
+  btn.textContent = '...';
+
+  try {
+    const ganancia = btn.classList.contains('btn-agregar-35') ? '35' : '30';
+    const fd = formData({
+      tipo:                'CAT',
+      descripcion:         descripcion,
+      precio_unitario:     precio,
+      peso_unitario:       0,
+      cantidad:            cantidad,
+      unidad:              unidad,
+      tipo_galvanizado:    'N/A',
+      porcentaje_ganancia: ganancia,
+    });
+
+    const r = await fetch('/api/carrito/agregar', { method: 'POST', body: fd });
+    const d = await r.json();
+
+    if (d.ok) {
+      _cartCount = d.cantidad_items;
+      const label    = descripcion.length > 40 ? descripcion.substring(0, 40) + '…' : descripcion;
+      const es35     = btn.classList.contains('btn-agregar-35');
+      const comision = es35 ? 'con comisión (35%)' : 'sin comisión (30%)';
+      ['nav-badge-carrito', 'bn-badge-carrito'].forEach(id => {
+        const badge = document.getElementById(id);
+        if (badge) {
+          badge.textContent   = d.cantidad_items;
+          badge.style.display = d.cantidad_items > 0 ? '' : 'none';
+        }
+      });
+      contarYRedirigir(`✓ "${label}" agregado — S/ ${parseFloat(precio).toFixed(2)} ${comision}`);
+    } else {
+      toast(d.error || 'Error al agregar', 'error');
+    }
+  } catch (_) {
+    toast('Error de red', 'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = btn.classList.contains('btn-agregar-35') ? '+&nbsp;35%' : '+&nbsp;30%';
+  }
+}
+</script>
+{% endblock %}

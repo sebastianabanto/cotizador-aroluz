@@ -1,0 +1,660 @@
+{% extends "base.html" %}
+{% set active = "historial" %}
+
+{% block title %}Historial — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+    <h1 class="page-title" style="margin:0;">Historial de Cotizaciones</h1>
+  </div>
+
+  <!-- Barra de filtros (oculta hasta que haya datos) -->
+  <!-- DOM order = mobile order: inputs → tipo → acciones.
+       Desktop uses CSS `order` to pull acciones inline with inputs. -->
+  <div id="filtros-bar" style="display:none; gap:0.5rem; margin-bottom:0.75rem;" role="search">
+
+    <!-- Fila inputs: cliente · proyecto -->
+    <div class="fil-row fil-row-inputs">
+      <label class="sr-only" for="fil-cliente">Filtrar por cliente</label>
+      <input type="text" id="fil-cliente"  placeholder="Filtrar por cliente…"  class="form-control"
+             oninput="filtrarHistorial()">
+      <label class="sr-only" for="fil-proyecto">Filtrar por proyecto</label>
+      <input type="text" id="fil-proyecto" placeholder="Filtrar por proyecto…" class="form-control"
+             oninput="filtrarHistorial()">
+    </div>
+
+    <!-- Fila tipo: checkboxes · descripción/tamaño -->
+    <div class="fil-row fil-row-tipo">
+      <div class="fil-tipo-wrap">
+        <span class="fil-tipo-title">Tipo:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label" title="Bandeja"><input type="checkbox" class="fil-tipo" value="B"   onchange="triggerFetch()"> Bandeja</label>
+          <label class="fil-tipo-label" title="Curva Horizontal"><input type="checkbox" class="fil-tipo" value="CH"  onchange="triggerFetch()"> Curva H</label>
+          <label class="fil-tipo-label" title="Curva Vertical Exterior"><input type="checkbox" class="fil-tipo" value="CVE" onchange="triggerFetch()"> Curva VE</label>
+          <label class="fil-tipo-label" title="Curva Vertical Interior"><input type="checkbox" class="fil-tipo" value="CVI" onchange="triggerFetch()"> Curva VI</label>
+          <label class="fil-tipo-label" title="Tee"><input type="checkbox" class="fil-tipo" value="T"   onchange="triggerFetch()"> Tee</label>
+          <label class="fil-tipo-label" title="Cruz"><input type="checkbox" class="fil-tipo" value="C"   onchange="triggerFetch()"> Cruz</label>
+          <label class="fil-tipo-label" title="Reducción"><input type="checkbox" class="fil-tipo" value="R"   onchange="triggerFetch()"> Reducción</label>
+          <label class="fil-tipo-label" title="Caja de Pase"><input type="checkbox" class="fil-tipo" value="CP"  onchange="triggerFetch()"> Caja Pase</label>
+        </div>
+      </div>
+      <label class="sr-only" for="fil-desc">Buscar en descripción</label>
+      <input type="text" id="fil-desc" placeholder="Ej: 400x100, ESCALERILLA, GC…" class="form-control"
+             style="flex:1; min-width:200px;" oninput="triggerFetch()">
+    </div>
+
+    <!-- Fila acciones: fecha · limpiar -->
+    <div class="fil-row fil-row-acciones">
+      <div id="fil-fecha-wrap" style="position:relative; display:flex; align-items:stretch;">
+        <button type="button" id="fil-fecha-btn" onclick="toggleCalendario()"
+                class="btn btn-secondary btn-sm" style="white-space:nowrap;">
+          📅 <span id="fil-fecha-label">Rango de fechas</span>
+        </button>
+        <div id="cal-dropdown" onclick="event.stopPropagation()"
+             style="display:none; position:absolute; top:calc(100% + 6px); right:0; z-index:300;
+             background:white; border:1px solid var(--gris-borde); border-radius:8px;
+             box-shadow:0 8px 32px rgba(0,0,0,0.18); padding:1rem; min-width:272px; user-select:none;">
+          <div id="cal-content"></div>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm fil-limpiar-btn" onclick="limpiarFiltros()" aria-label="Limpiar filtros">✕ Limpiar</button>
+    </div>
+  </div>
+
+  <style>
+    /* ── Filter bar base ──────────────────────────── */
+    #filtros-bar { flex-direction: column; }
+    .fil-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+    .fil-tipo-wrap {
+      display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+    }
+    .fil-tipo-title {
+      font-size: 0.72rem; font-weight: 600;
+      color: var(--texto-suave); white-space: nowrap;
+    }
+    .fil-tipo-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+
+    /* ── Desktop (≥ 641 px): inputs + acciones on row 1, tipo on row 2 ── */
+    @media (min-width: 641px) {
+      #filtros-bar { flex-direction: row; flex-wrap: wrap; align-items: center; }
+      .fil-row-inputs   { flex: 1; min-width: 0; flex-wrap: nowrap; order: 0; }
+      .fil-row-inputs input { flex: 1; min-width: 140px; }
+      .fil-row-acciones { flex-shrink: 0; order: 1; }
+      .fil-row-tipo     { flex: 0 0 100%; order: 2; }
+    }
+
+    /* ── Mobile (≤ 640 px) ─────────────────────────── */
+    @media (max-width: 640px) {
+      #filtros-bar {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-auto-rows: auto;
+        gap: 0.5rem;
+      }
+
+      .fil-row-inputs {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+      .fil-row-inputs input { width: 100%; min-width: 0; }
+
+      .fil-row-tipo  { width: 100%; }
+      .fil-tipo-wrap { display: flex; align-items: flex-start; gap: 0.4rem; width: 100%; }
+      .fil-tipo-grid { display: flex; flex-wrap: wrap; gap: 0.3rem; flex: 1; min-width: 0; }
+      .fil-tipo-label { font-size: 0.72rem; padding: 3px 6px; }
+      #fil-desc { display: none; }
+
+      .fil-row-acciones {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .fil-limpiar-btn {
+        background: var(--rojo) !important;
+        color: white !important;
+        border-color: var(--rojo) !important;
+      }
+    }
+
+    /* ── Modal detalle: tabla compacta en mobile (<480px) ── */
+    @media (max-width: 479px) {
+      /* Metadatos: 1 columna */
+      #modal-info { grid-template-columns: 1fr !important; }
+
+      /* Tabla: reducir fuente y padding para que quepan las 5 columnas */
+      #modal-tabla { font-size: 0.72rem; }
+      #modal-tabla th,
+      #modal-tabla td { padding: 0.25rem 0.3rem; }
+
+      /* Anchos fijos en columnas numéricas/pequeñas */
+      #modal-tabla th:nth-child(2),
+      #modal-tabla td:nth-child(2) { width: 34px; text-align: center; }   /* Cant. */
+      #modal-tabla th:nth-child(3),
+      #modal-tabla td:nth-child(3) { width: 30px; text-align: center; }   /* Und  */
+      #modal-tabla th:nth-child(4),
+      #modal-tabla td:nth-child(4) { width: 64px; }                       /* P.U. */
+      #modal-tabla th:nth-child(5),
+      #modal-tabla td:nth-child(5) { width: 64px; }                       /* P.T. */
+
+      /* Descripción: ocupa el espacio restante, permite wrap */
+      #modal-tabla td:first-child { white-space: normal; word-break: break-word; }
+    }
+
+    /* ── Tipo chip labels ─────────────────────────── */
+    .fil-tipo-label {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 0.75rem;
+      background: var(--gris-fondo, #f5f7fa);
+      border: 1px solid var(--gris-borde, #dde1e7);
+      border-radius: 4px; padding: 2px 7px; cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .fil-tipo-label:hover { background: var(--azul-claro, #4a90d9); color: white; border-color: var(--azul-claro, #4a90d9); }
+    .fil-tipo-label input[type="checkbox"] { accent-color: var(--navy, #0c2340); width: 13px; height: 13px; }
+  </style>
+
+  <div class="card">
+    <div id="historial-loading" style="text-align:center; padding:2rem; color:var(--texto-suave);">
+      Cargando…
+    </div>
+    <div id="historial-vacio" style="display:none; text-align:center; padding:3rem;">
+      <div style="font-size:3rem; margin-bottom:1rem;">📋</div>
+      <p style="color:var(--texto-suave); font-size:1.1rem; margin-bottom:1.5rem;">
+        Aún no hay cotizaciones guardadas
+      </p>
+      <a href="/carrito" class="btn btn-primary">Ir al Carrito</a>
+    </div>
+    <div id="historial-tabla" class="table-historial" style="display:none;">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:50px;">#</th>
+              <th style="width:140px;">Fecha</th>
+              <th>Cliente</th>
+              <th>Proyecto</th>
+              <th id="th-usuario" style="display:none; width:100px;">Usuario</th>
+              <th style="width:60px; text-align:center;">Items</th>
+              <th style="width:130px;" class="td-num">Total</th>
+              <th style="width:160px; text-align:center;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-historial"></tbody>
+        </table>
+      </div>
+      <div id="paginacion-ctrl" style="display:none; align-items:center; justify-content:center; gap:0.75rem; padding:0.75rem 0;">
+        <button id="btn-prev" class="btn btn-secondary btn-sm" onclick="cambiarPagina(-1)">← Anterior</button>
+        <span id="pag-info" style="font-size:0.875rem; color:var(--texto-suave);"></span>
+        <button id="btn-next" class="btn btn-secondary btn-sm" onclick="cambiarPagina(1)">Siguiente →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal detalle -->
+<div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-titulo"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center; padding:1rem;">
+  <div class="modal-inner">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 id="modal-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Detalle de cotización</h2>
+      <button onclick="cerrarModal()" aria-label="Cerrar detalle de cotización"
+              style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--texto-suave); min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">✕</button>
+    </div>
+    <div id="modal-info" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:1rem; font-size:0.875rem;"></div>
+    <div class="table-container">
+      <table id="modal-tabla">
+        <thead>
+          <tr>
+            <th>Descripción</th>
+            <th style="width:60px; text-align:center;">Cant.</th>
+            <th style="width:55px; text-align:center;">Und</th>
+            <th id="modal-th-pu" style="width:110px;" class="td-num">P.U. (S/)</th>
+            <th id="modal-th-pt" style="width:110px;" class="td-num">P.T. (S/)</th>
+          </tr>
+        </thead>
+        <tbody id="modal-tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3"></td>
+            <td class="td-num" style="font-weight:600;">TOTAL</td>
+            <td class="td-num" id="modal-total" style="font-weight:700; color:var(--azul);"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+<!-- Modal editar cotización -->
+<div id="modal-editar" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100; align-items:center; justify-content:center; padding:1rem;">
+  <div class="modal-inner" style="max-width:420px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 style="margin:0; font-size:1.1rem; color:var(--azul);">Editar cotización</h2>
+      <button onclick="cerrarModalEditar()" aria-label="Cerrar"
+              style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--texto-suave); min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">✕</button>
+    </div>
+    <p style="margin:0 0 0.75rem;">Se cargará la cotización <strong id="modal-editar-num"></strong> en tu carrito.</p>
+    <p style="margin:0 0 1.25rem; font-size:0.875rem; color:var(--texto-suave); background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:0.6rem 0.85rem;">
+      ⚠️ Tu carrito actual será reemplazado.<br>
+      Al guardar al historial se creará una <strong>nueva cotización</strong> — la original no se modifica.
+    </p>
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="cerrarModalEditar()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-editar" onclick="confirmarEditar()">Cargar al carrito</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ES_ADMIN = {{ es_admin | tojson }};
+
+// ── Estado global ──
+let todasCotizaciones   = [];
+let cotizacionesFiltradas = [];
+let paginaActual        = 1;
+const POR_PAGINA        = 8;
+let fetchDebounce       = null;
+
+// ── Fetch desde servidor (aplica filtros tipo + q) ──
+async function fetchLista(isInitial) {
+  const tipos = [...document.querySelectorAll('.fil-tipo:checked')].map(cb => cb.value);
+  const q     = document.getElementById('fil-desc').value.trim();
+
+  const params = new URLSearchParams();
+  tipos.forEach(t => params.append('tipo', t));
+  if (q) params.append('q', q);
+
+  const url  = '/api/historial/lista' + (params.toString() ? '?' + params.toString() : '');
+  const data = await apiFetch(url);
+
+  if (isInitial) {
+    document.getElementById('historial-loading').style.display = 'none';
+    if (!data.ok || !data.cotizaciones.length) {
+      document.getElementById('historial-vacio').style.display = 'block';
+      return;
+    }
+    document.getElementById('historial-tabla').style.display = 'block';
+    document.getElementById('filtros-bar').style.display     = 'flex';
+  }
+
+  todasCotizaciones = (data.ok && data.cotizaciones) ? data.cotizaciones : [];
+  filtrarHistorial();
+}
+
+// ── Debounce para cambios que disparan re-fetch ──
+function triggerFetch() {
+  clearTimeout(fetchDebounce);
+  fetchDebounce = setTimeout(() => fetchLista(false), 300);
+}
+
+// ── Carga inicial ──
+async function cargarHistorial() {
+  if (ES_ADMIN) {
+    document.getElementById('th-usuario').style.display = '';
+  }
+  await fetchLista(true);
+}
+
+// ── Render de la página actual ──
+function renderHistorial() {
+  const tbody  = document.getElementById('tbody-historial');
+  tbody.innerHTML = '';
+
+  if (!cotizacionesFiltradas.length) {
+    const cols = ES_ADMIN ? 8 : 7;
+    tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; padding:2rem; color:var(--texto-suave);">No hay cotizaciones que coincidan con los filtros.</td></tr>`;
+    renderPaginacion();
+    return;
+  }
+
+  const inicio  = (paginaActual - 1) * POR_PAGINA;
+  const pagina  = cotizacionesFiltradas.slice(inicio, inicio + POR_PAGINA);
+
+  for (const c of pagina) {
+    const fecha = formatearFecha(c.fecha);
+    const dolar_rate  = c.dolar_rate || 3.8;
+    const esUSD       = c.moneda === 'DOLARES';
+    const sym         = esUSD ? '$' : 'S/';
+    const totalDisplay = esUSD
+      ? (c.total_precio / dolar_rate).toFixed(2)
+      : parseFloat(c.total_precio).toFixed(2);
+
+    const tr = document.createElement('tr');
+    tr.id = `row-${c.id}`;
+    tr.innerHTML = `
+      <td data-label="#" style="color:var(--texto-suave);font-size:0.8rem;">${c.id}</td>
+      <td data-label="Fecha" style="font-size:0.8rem;">${fecha}</td>
+      <td data-label="Cliente">${c.cliente || '<span style="color:var(--texto-suave);">—</span>'}</td>
+      <td data-label="Proyecto" style="font-size:0.875rem;">${c.proyecto || '<span style="color:var(--texto-suave);">—</span>'}</td>
+      ${ES_ADMIN ? `<td data-label="Usuario" style="font-size:0.8rem;color:var(--texto-suave);">${c.username || '—'}</td>` : ''}
+      <td data-label="Items" style="text-align:center;font-size:0.875rem;">
+        <span style="background:var(--azul-claro);color:white;border-radius:12px;padding:2px 8px;font-size:0.75rem;font-weight:600;">
+          ${c.total_items || '?'}
+        </span>
+      </td>
+      <td data-label="Total" class="td-num" style="font-weight:600;">${sym} ${totalDisplay}</td>
+      <td data-label="Acciones" style="text-align:center;">
+        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="verDetalle(${c.id})">Ver</button>
+          <button class="btn btn-primary btn-sm" onclick="descargarPdf(${c.id})">PDF</button>
+          <button class="btn btn-secondary btn-sm btn-edit" onclick="editarCotizacion(${c.id})" title="Editar — cargar al carrito">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${c.id})">✕</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  renderPaginacion();
+}
+
+// ── Paginación ──
+function renderPaginacion() {
+  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
+  const ctrl = document.getElementById('paginacion-ctrl');
+  if (totalPaginas <= 1) { ctrl.style.display = 'none'; return; }
+  ctrl.style.display = 'flex';
+  document.getElementById('pag-info').textContent = `Página ${paginaActual} de ${totalPaginas}`;
+  document.getElementById('btn-prev').disabled = paginaActual === 1;
+  document.getElementById('btn-next').disabled = paginaActual === totalPaginas;
+}
+
+function cambiarPagina(delta) {
+  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
+  paginaActual = Math.max(1, Math.min(paginaActual + delta, totalPaginas));
+  renderHistorial();
+}
+
+// ── Descargar PDF desde historial ──
+function descargarPdf(id) {
+  const a = document.createElement('a');
+  a.href = `/api/historial/${id}/exportar/pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ── Filtros ──
+function filtrarHistorial() {
+  const filCli  = document.getElementById('fil-cliente').value.trim().toLowerCase();
+  const filProy = document.getElementById('fil-proyecto').value.trim().toLowerCase();
+
+  cotizacionesFiltradas = todasCotizaciones.filter(c => {
+    const fechDate = (c.fecha || '').slice(0, 10);
+    return (!filCli        || (c.cliente  || '').toLowerCase().includes(filCli))
+        && (!filProy       || (c.proyecto || '').toLowerCase().includes(filProy))
+        && (!calFechaInicio || fechDate >= calFechaInicio)
+        && (!calFechaFin   || fechDate <= calFechaFin);
+  });
+
+  paginaActual = 1;
+  renderHistorial();
+}
+
+function limpiarFiltros() {
+  document.getElementById('fil-cliente').value  = '';
+  document.getElementById('fil-proyecto').value = '';
+  document.getElementById('fil-desc').value     = '';
+  document.querySelectorAll('.fil-tipo').forEach(cb => cb.checked = false);
+  calFechaInicio = null;
+  calFechaFin    = null;
+  actualizarBotonFecha();
+  fetchLista(false);
+}
+
+// ── Date range picker ──
+let calFechaInicio = null;
+let calFechaFin    = null;
+let calMes         = new Date(); calMes.setDate(1);
+
+const CAL_MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const CAL_DIASEM  = ['Lu','Ma','Mi','Ju','Vi','Sa','Do'];
+
+function toggleCalendario() {
+  const drop = document.getElementById('cal-dropdown');
+  if (drop.style.display === 'none') { renderCalendario(); drop.style.display = 'block'; }
+  else                               { drop.style.display = 'none'; }
+}
+
+function renderCalendario() {
+  const year  = calMes.getFullYear();
+  const month = calMes.getMonth();
+  const diasMes = new Date(year, month + 1, 0).getDate();
+  let dow = new Date(year, month, 1).getDay();
+  dow = dow === 0 ? 6 : dow - 1;   // lunes como primer día
+
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+      <button type="button" onclick="cambiarMes(-1)"
+              style="background:none;border:1px solid var(--gris-borde);border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:1.1rem;line-height:1;color:var(--texto);display:flex;align-items:center;justify-content:center;">‹</button>
+      <span style="font-weight:600;font-size:0.875rem;color:var(--navy);">${CAL_MESES[month]} ${year}</span>
+      <button type="button" onclick="cambiarMes(1)"
+              style="background:none;border:1px solid var(--gris-borde);border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:1.1rem;line-height:1;color:var(--texto);display:flex;align-items:center;justify-content:center;">›</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;">`;
+
+  CAL_DIASEM.forEach(d =>
+    html += `<div style="font-size:0.68rem;color:var(--texto-suave);padding:4px 0;font-weight:600;">${d}</div>`
+  );
+
+  for (let i = 0; i < dow; i++) html += '<div></div>';
+
+  for (let d = 1; d <= diasMes; d++) {
+    const f   = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const ini = f === calFechaInicio;
+    const fin = f === calFechaFin;
+    const mid = calFechaInicio && calFechaFin && f > calFechaInicio && f < calFechaFin;
+    const esHoy = f === hoy;
+
+    let bg = 'transparent', col = 'inherit', fw = 'normal', br = '50%', op = '';
+    if (ini || fin) { bg = 'var(--navy)'; col = 'white'; fw = '700'; }
+    else if (mid)   { bg = 'rgba(12,35,64,0.1)'; br = '0'; }
+    else if (esHoy) { col = 'var(--acento)'; fw = '600'; }
+
+    html += `<div onclick="seleccionarDia('${f}')"
+                  style="padding:5px 1px;cursor:pointer;border-radius:${br};background:${bg};color:${col};font-weight:${fw};font-size:0.82rem;transition:opacity .1s;"
+                  onmouseenter="this.style.opacity='.7'" onmouseleave="this.style.opacity='1'">${d}</div>`;
+  }
+
+  html += '</div>';
+
+  if (!calFechaInicio) {
+    html += `<p style="font-size:0.72rem;color:var(--texto-suave);margin-top:0.6rem;text-align:center;">Seleccioná el día de inicio</p>`;
+  } else if (!calFechaFin) {
+    html += `<p style="font-size:0.72rem;color:var(--acento);margin-top:0.6rem;text-align:center;font-weight:600;">Ahora elegí el día de fin</p>`;
+  } else {
+    html += `<button type="button" onclick="limpiarFechas()"
+                     style="margin-top:0.6rem;width:100%;background:none;border:1px solid var(--gris-borde);border-radius:4px;padding:4px 0;font-size:0.75rem;color:var(--texto-suave);cursor:pointer;">
+               ✕ Limpiar fechas
+             </button>`;
+  }
+
+  document.getElementById('cal-content').innerHTML = html;
+}
+
+function seleccionarDia(fecha) {
+  if (!calFechaInicio || (calFechaInicio && calFechaFin)) {
+    calFechaInicio = fecha;
+    calFechaFin    = null;
+  } else {
+    if (fecha < calFechaInicio) { calFechaFin = calFechaInicio; calFechaInicio = fecha; }
+    else                        { calFechaFin = fecha; }
+    actualizarBotonFecha();
+    filtrarHistorial();
+    document.getElementById('cal-dropdown').style.display = 'none';
+  }
+  renderCalendario();
+}
+
+function cambiarMes(delta) {
+  calMes.setMonth(calMes.getMonth() + delta);
+  renderCalendario();
+}
+
+function actualizarBotonFecha() {
+  const lbl = document.getElementById('fil-fecha-label');
+  const fmt  = iso => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+  if (!calFechaInicio && !calFechaFin)           lbl.textContent = 'Rango de fechas';
+  else if (calFechaInicio && calFechaFin)        lbl.textContent = `${fmt(calFechaInicio)} – ${fmt(calFechaFin)}`;
+  else                                            lbl.textContent = `${fmt(calFechaInicio)}…`;
+}
+
+function limpiarFechas() {
+  calFechaInicio = null; calFechaFin = null;
+  actualizarBotonFecha();
+  filtrarHistorial();
+  document.getElementById('cal-dropdown').style.display = 'none';
+}
+
+// Cerrar al hacer clic fuera del calendario
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('fil-fecha-wrap');
+  if (wrap && !wrap.contains(e.target))
+    document.getElementById('cal-dropdown').style.display = 'none';
+});
+
+// ── Modal detalle ──
+function formatearFecha(fechaIso) {
+  try {
+    const [fecha] = fechaIso.split(' ');
+    const [y, m, d] = fecha.split('-');
+    const hora = fechaIso.split(' ')[1] || '';
+    return `${d}/${m}/${y}${hora ? ' ' + hora.slice(0,5) : ''}`;
+  } catch (_) { return fechaIso; }
+}
+
+async function verDetalle(id) {
+  const data = await apiFetch(`/api/historial/${id}`);
+  if (!data.ok) { toast('Error al cargar detalle', 'error'); return; }
+  const c = data.cotizacion;
+
+  const esUSD     = c.moneda === 'DOLARES';
+  const dolarRate = parseFloat(c.dolar_rate) || 3.8;
+  const sym       = esUSD ? '$' : 'S/';
+  const conv      = p => esUSD ? p / dolarRate : p;
+
+  document.getElementById('modal-titulo').textContent = `Cotización #${c.id}`;
+  document.getElementById('modal-info').innerHTML = `
+    <div><b>Cliente:</b> ${c.cliente || '—'}</div>
+    <div><b>Atención:</b> ${c.atencion || '—'}</div>
+    <div><b>Proyecto:</b> ${c.proyecto || '—'}</div>
+    <div><b>Moneda:</b> ${c.moneda}</div>
+    <div><b>Validez:</b> ${c.validez || '30 días'}</div>
+    <div><b>Fecha:</b> ${formatearFecha(c.fecha)}</div>
+    <div><b>Guardado por:</b> ${c.username}</div>
+  `;
+  document.getElementById('modal-th-pu').textContent = `P.U. (${sym})`;
+  document.getElementById('modal-th-pt').textContent = `P.T. (${sym})`;
+
+  const tbody = document.getElementById('modal-tbody');
+  tbody.innerHTML = '';
+  let total_soles = 0;
+  for (const item of c.items) {
+    const pt_soles = item.precio_unitario * item.cantidad;
+    total_soles += pt_soles;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-size:0.8rem;">${item.descripcion}</td>
+      <td style="text-align:center;">${item.cantidad}</td>
+      <td style="text-align:center;">${item.unidad}</td>
+      <td class="td-num">${sym} ${conv(item.precio_unitario).toFixed(2)}</td>
+      <td class="td-num">${sym} ${conv(pt_soles).toFixed(2)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('modal-total').textContent = `${sym} ${conv(total_soles).toFixed(2)}`;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function cerrarModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) cerrarModal();
+});
+
+// ── Eliminar ──
+async function eliminarCotizacion(id) {
+  if (!confirm(`¿Eliminar cotización #${id}? Esta acción no se puede deshacer.`)) return;
+  const data = await apiFetch(`/api/historial/${id}`, { method: 'DELETE' });
+  if (!data.ok) { toast(data.error || 'Error al eliminar', 'error'); return; }
+
+  toast(`Cotización #${id} eliminada`, 'success');
+
+  // Re-fetch para reflejar el estado real (puede haber más registros en el servidor)
+  await fetchLista(false);
+
+  // Si ya no quedan cotizaciones en absoluto → volver a estado vacío
+  if (!todasCotizaciones.length && !cotizacionesFiltradas.length) {
+    document.getElementById('historial-tabla').style.display = 'none';
+    document.getElementById('filtros-bar').style.display     = 'none';
+    document.getElementById('historial-vacio').style.display = 'block';
+    return;
+  }
+}
+
+// ── Editar cotización (cargar al carrito) ──
+let _editarId = null;
+
+function editarCotizacion(id) {
+  _editarId = id;
+  document.getElementById('modal-editar-num').textContent = `#${id}`;
+  document.getElementById('modal-editar').style.display = 'flex';
+}
+
+function cerrarModalEditar() {
+  document.getElementById('modal-editar').style.display = 'none';
+  _editarId = null;
+}
+
+document.getElementById('modal-editar').addEventListener('click', function(e) {
+  if (e.target === this) cerrarModalEditar();
+});
+
+async function confirmarEditar() {
+  const btn = document.getElementById('btn-confirmar-editar');
+  btn.disabled = true;
+  btn.textContent = 'Cargando…';
+  try {
+    const resp = await fetch(`/api/historial/${_editarId}/cargar_al_carrito`, { method: 'POST' });
+    if (!resp.ok) throw new Error('Error al cargar');
+    const meta = await resp.json();
+
+    // Pre-llenar sessionStorage del carrito con los metadatos de la cotización
+    sessionStorage.setItem('carrito_form_v1', JSON.stringify({
+      clienteInput:     meta.cliente && meta.cliente_nombre
+                          ? `${meta.cliente} — ${meta.cliente_nombre}`
+                          : (meta.cliente || ''),
+      cliente:          meta.cliente || '',
+      clienteNombre:    meta.cliente_nombre || '',
+      clienteRuc:       meta.cliente_ruc || '',
+      clienteUbicacion: meta.cliente_ubicacion || '',
+      atencion:         meta.atencion || '',
+      atencionEmail:    meta.atencion_email || '',
+      proyecto:         meta.proyecto || '',
+      moneda:           meta.moneda || 'SOLES',
+      validez:          meta.validez || '30 días',
+      encabezadoTabla:  meta.encabezado_tabla || '',
+    }));
+    sessionStorage.setItem('editando_desde_cotizacion_id', meta.id);
+
+    window.location.href = '/carrito';
+  } catch (e) {
+    alert('Error al cargar la cotización. Intenta de nuevo.');
+    btn.disabled = false;
+    btn.textContent = 'Cargar al carrito';
+  }
+}
+
+// Cargar al entrar
+cargarHistorial();
+</script>
+{% endblock %}

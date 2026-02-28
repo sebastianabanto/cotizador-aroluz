@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AROLUZ Cotizador{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Semi+Condensed:wght@600;700;800&family=Roboto+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/cotizar" class="navbar-brand">⚡ AROLUZ</a>
+
+  <div class="navbar-nav">
+    <a href="/cotizar" class="nav-link {% if active == 'cotizar' %}active{% endif %}" title="Alt+C">
+      Cotizar
+    </a>
+    <a href="/carrito" class="nav-link {% if active == 'carrito' %}active{% endif %}" title="Alt+R">
+      Carrito
+      <span class="nav-badge" id="nav-badge-carrito"{% if n_carrito == 0 %} style="display:none"{% endif %}>{{ n_carrito }}</span>
+    </a>
+    <a href="/catalogo" class="nav-link {% if active == 'catalogo' %}active{% endif %}" title="Alt+K">
+      Catálogo
+    </a>
+    <a href="/historial" class="nav-link {% if active == 'historial' %}active{% endif %}" title="Alt+H">
+      Historial
+    </a>
+    {% if usuario.r == "ADMIN" %}
+    <a href="/configuracion" class="nav-link {% if active == 'configuracion' %}active{% endif %}" title="Alt+G">
+      Config
+    </a>
+    {% endif %}
+    <span class="navbar-user">
+      <a href="/cuenta" style="color:inherit; text-decoration:none;" title="Mi cuenta">{{ usuario.n or usuario.u }}</a>
+    </span>
+    <a href="/logout" class="nav-link" title="Cerrar sesión" aria-label="Cerrar sesión">✕</a>
+  </div>
+
+  <a href="/logout" class="navbar-logout-movil" title="Cerrar sesión" aria-label="Cerrar sesión">✕ Salir</a>
+</nav>
+
+<div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<script>
+// ── Toast notifications ──
+function toast(msg, tipo = 'success') {
+  const c = document.getElementById('toast-container');
+  // Máximo 3 toasts: eliminar el más antiguo si se supera
+  while (c.children.length >= 3) c.firstChild.remove();
+  const t = document.createElement('div');
+  t.className = `toast toast-${tipo}`;
+  t.innerHTML = `<span>${tipo === 'success' ? '✓' : tipo === 'error' ? '✕' : 'ℹ'}</span> ${msg}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ── Fetch helper ──
+async function apiFetch(url, opts = {}) {
+  const resp = await fetch(url, opts);
+  const data = await resp.json();
+  return data;
+}
+
+// ── Form to FormData ──
+function formData(obj) {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== null) fd.append(k, v);
+  }
+  return fd;
+}
+
+// ── Actualizar badge carrito en navbar ──
+async function actualizarBadgeCarrito() {
+  try {
+    const r = await fetch('/api/carrito/resumen');
+    const d = await r.json();
+    ['nav-badge-carrito', 'bn-badge-carrito'].forEach(id => {
+      const badge = document.getElementById(id);
+      if (badge) {
+        badge.textContent = d.cantidad_items;
+        badge.style.display = d.cantidad_items > 0 ? '' : 'none';
+      }
+    });
+  } catch (_) {}
+}
+</script>
+
+<nav class="bottom-nav">
+  <a href="/cotizar" class="bottom-nav-item {% if active == 'cotizar' %}active{% endif %}">
+    <span class="bn-emoji">📐</span>
+    <span class="bn-label">Cotizar</span>
+  </a>
+  <a href="/carrito" class="bottom-nav-item {% if active == 'carrito' %}active{% endif %}">
+    <span class="bn-emoji">🛒</span>
+    <span class="bn-label">Carrito</span>
+    <span class="bn-badge" id="bn-badge-carrito"{% if n_carrito == 0 %} style="display:none"{% endif %}>{{ n_carrito }}</span>
+  </a>
+  <a href="/catalogo" class="bottom-nav-item {% if active == 'catalogo' %}active{% endif %}">
+    <span class="bn-emoji">📋</span>
+    <span class="bn-label">Catálogo</span>
+  </a>
+  <a href="/historial" class="bottom-nav-item {% if active == 'historial' %}active{% endif %}">
+    <span class="bn-emoji">📄</span>
+    <span class="bn-label">Historial</span>
+  </a>
+  {% if usuario.r == "ADMIN" %}
+  <a href="/configuracion" class="bottom-nav-item {% if active == 'configuracion' %}active{% endif %}">
+    <span class="bn-emoji">⚙️</span>
+    <span class="bn-label">Config</span>
+  </a>
+  {% endif %}
+</nav>
+
+{% block scripts %}{% endblock %}
+
+<script>
+// ── Mensaje flash desde URL param ──
+(function() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('msg') === 'nopermiso') {
+    setTimeout(() => toast('No tenés permisos para acceder a esa sección', 'error'), 100);
+    history.replaceState(null, '', window.location.pathname);
+  }
+})();
+
+// ── Navegación global por teclado (Alt+Letra) ──
+document.addEventListener('keydown', e => {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  const mapa = {
+    'c': '/cotizar',
+    'r': '/carrito',
+    'h': '/historial',
+    'k': '/catalogo',
+    'g': '/configuracion',
+  };
+  const dest = mapa[e.key.toLowerCase()];
+  if (dest) {
+    e.preventDefault();
+    // Marcar navegación interna para que beforeunload no muestre el popup
+    if (typeof _navegandoInternamente !== 'undefined') _navegandoInternamente = true;
+    window.location.href = dest;
+  }
+});
+</script>
+</body>
+</html>

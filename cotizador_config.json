@@ -1,0 +1,31 @@
+{
+  "rutas": {
+    "carpeta_excel": "D:/Sebastian_2/Escritorio/ARCHIVOS AROLUZ/APLICACION/BACKUPS PROGRAMA/cotizador_aroluz/ARCHIVOS_PRUEBA",
+    "carpeta_pdfs": "D:/Sebastian_2/Escritorio/ARCHIVOS AROLUZ/APLICACION/BACKUPS PROGRAMA/cotizador_aroluz/ARCHIVOS_PRUEBA",
+    "plantilla_excel": "D:\\Sebastian_2\\Escritorio\\ARCHIVOS AROLUZ\\APLICACION\\BACKUPS PROGRAMA\\Cursor_IA\\cotizador_aroluz\\plantillas\\COTIZACIÓN v1.2     12-07-2023.xlsm"
+  },
+  "valores_defecto": {
+    "ganancia": "30",
+    "galvanizado": "GO",
+    "espesor_producto": "1.5",
+    "espesor_tapa": "1.2",
+    "precios_go": {
+      "1.2": 100.0,
+      "1.5": 110.0,
+      "2.0": 160.0
+    },
+    "precios_gc": {
+      "1.2": 140.0,
+      "1.5": 170.0,
+      "2.0": 210.0
+    },
+    "dolar": 3.8,
+    "usd_kg_productos": 1.0,
+    "usd_kg_cajas": 3.0
+  },
+  "interfaz": {
+    "recordar_config": true,
+    "recordar_medidas": true,
+    "mostrar_validaciones": true
+  }
+}

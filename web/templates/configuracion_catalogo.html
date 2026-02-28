@@ -1,0 +1,668 @@
+{% extends "base.html" %}
+{% set active = "configuracion" %}
+
+{% block title %}Catálogo de Productos — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="cat-header">
+    <a href="/configuracion" class="btn btn-secondary btn-sm">← Configuración</a>
+    <h1 class="page-title" style="margin:0;">Catálogo de Productos</h1>
+  </div>
+
+  <!-- Tarjeta importar / exportar Excel -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-title" style="font-size:0.9rem; margin-bottom:0.75rem;">Importar / Exportar Excel</div>
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+      <a href="/configuracion/catalogo/descargar" class="btn btn-secondary btn-sm">
+        ↓ Descargar XLSX
+      </a>
+      <div style="display:flex; gap:0.4rem; align-items:center; flex:1; min-width:220px;">
+        <input type="file" id="xlsx-file" accept=".xlsx" class="form-control" style="font-size:0.82rem;">
+        <button class="btn btn-primary btn-sm" onclick="importarXlsx(event)">Importar</button>
+      </div>
+    </div>
+    <div id="xlsx-result" style="margin-top:0.5rem; font-size:0.82rem; min-height:1rem; color:var(--texto-suave);"></div>
+  </div>
+
+  <div class="cat-layout">
+
+    <!-- Panel izquierdo: árbol categorías/subcategorías -->
+    <div>
+      <div class="card" style="padding:0.75rem; overflow:hidden;">
+        <div style="margin-bottom:0.5rem;">
+          <input type="text" id="buscador-cat" class="form-control"
+            placeholder="Buscar…" oninput="filtrarArbol()"
+            style="font-size:0.875rem;">
+        </div>
+        <div id="arbol-cat" style="max-height:520px; overflow-y:auto;"></div>
+        <div style="border-top:1px solid var(--gris-borde); padding-top:0.6rem; margin-top:0.5rem;">
+          <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="mostrarFormNuevaCat()">
+            + Nueva categoría
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel derecho: productos de la subcategoría -->
+    <div id="panel-productos">
+      <div class="card panel-placeholder">
+        <div class="panel-placeholder-icon">
+          <span class="ph-desktop">👈</span>
+          <span class="ph-mobile">☝</span>
+        </div>
+        <p class="ph-desktop">Seleccioná una subcategoría para ver sus productos.</p>
+        <p class="ph-mobile">Seleccioná una subcategoría de arriba.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── Anti-overflow ── */
+.cat-header, .cat-layout, .cat-layout > *,
+#panel-productos, #panel-productos .grid-2 > * {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* ── Header ── */
+.cat-header {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 2vw, 1rem);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+/* ── Layout: 2 cols cuando caben ≥300px, 1 col si no ── */
+.cat-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ── Placeholder ── */
+.panel-placeholder {
+  text-align: center;
+  padding: clamp(1.5rem, 5vw, 3rem) clamp(1rem, 3vw, 2rem);
+  color: var(--texto-suave);
+}
+.panel-placeholder-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.ph-mobile { display: none; }
+
+/* ── Árbol de categorías ── */
+.cat-item { border-bottom: 1px solid var(--gris-borde); }
+.cat-item:last-child { border-bottom: none; }
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.4rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cat-row:hover { background: rgba(37,99,168,0.05); }
+.cat-arrow { font-size: 0.65rem; color: var(--texto-suave); width: 12px; flex-shrink: 0; }
+.cat-nombre {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--texto-principal);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sub-list { padding-left: 1.25rem; }
+
+.sub-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.35rem;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background 0.15s;
+  font-size: 0.83rem;
+}
+.sub-item:hover { background: rgba(37,99,168,0.07); }
+.sub-item.activo { background: rgba(37,99,168,0.13); color: var(--azul); font-weight: 600; }
+.sub-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-count {
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--texto-suave);
+  background: #f0f4f8;
+  padding: 0.1rem 0.45rem;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.agregar-sub-row {
+  font-size: 0.78rem;
+  color: var(--azul);
+  padding: 0.3rem 0.35rem 0.4rem;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.agregar-sub-row:hover { opacity: 1; text-decoration: underline; }
+
+/* ── Botón ícono (eliminar en árbol) ── */
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--rojo, #c0392b);
+  font-size: 0.85rem;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.cat-row:hover .btn-icon,
+.sub-item:hover .btn-icon { opacity: 0.6; }
+.btn-icon:hover { opacity: 1 !important; background: rgba(192,57,43,0.1); }
+
+/* ── Tabla de productos ── */
+.prod-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.prod-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.855rem;
+  min-width: 440px;
+}
+.prod-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.6rem 0.5rem;
+  border-bottom: 2px solid var(--gris-borde);
+  white-space: nowrap;
+}
+.prod-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid #f3f3f3;
+  vertical-align: middle;
+}
+.prod-table tr:last-child td { border-bottom: none; }
+.prod-table tr:hover td { background: rgba(37,99,168,0.03); }
+.prod-acciones { display: flex; gap: 0.3rem; justify-content: flex-end; white-space: nowrap; }
+
+/* Inputs inline de edición */
+.form-control-sm {
+  padding: 0.25rem 0.45rem !important;
+  font-size: 0.82rem !important;
+  height: auto !important;
+}
+
+/* ── Pantalla angosta ── */
+@media (max-width: 660px) {
+  #arbol-cat   { max-height: 300px !important; }
+  .ph-desktop  { display: none; }
+  .ph-mobile   { display: block; }
+}
+</style>
+
+<script>
+let CAT_DATA = {{ catalogo.categorias | tojson }};
+let selCatIdx = null;
+let selSubIdx = null;
+const expandidos = new Set();
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Árbol ──────────────────────────────────────────────────────────────────
+
+function renderArbol(filtro) {
+  const cont = document.getElementById('arbol-cat');
+  filtro = (filtro || '').trim().toLowerCase();
+
+  const items = CAT_DATA.map((cat, catIdx) => {
+    const subsFiltradas = filtro
+      ? cat.subcategorias.filter(s =>
+          s.nombre.toLowerCase().includes(filtro) || cat.nombre.toLowerCase().includes(filtro))
+      : cat.subcategorias;
+
+    if (filtro && subsFiltradas.length === 0 && !cat.nombre.toLowerCase().includes(filtro)) return '';
+
+    const abierta = expandidos.has(catIdx) || filtro;
+    const arrow = abierta ? '▼' : '▶';
+
+    const subsHtml = abierta
+      ? subsFiltradas.map(sub => {
+          const subIdx = cat.subcategorias.indexOf(sub);
+          const activo = selCatIdx === catIdx && selSubIdx === subIdx ? ' activo' : '';
+          return `
+            <div class="sub-item${activo}" onclick="seleccionarSub(${catIdx}, ${subIdx})">
+              <span class="sub-nombre">${esc(sub.nombre)}</span>
+              <span class="sub-count">${sub.productos.length}</span>
+              <button class="btn-icon" title="Eliminar subcategoría"
+                onclick="event.stopPropagation(); eliminarSubcategoria(${catIdx}, ${subIdx})">×</button>
+            </div>`;
+        }).join('') + `
+          <div class="agregar-sub-row" onclick="mostrarFormNuevaSub(${catIdx})">
+            + Subcategoría
+          </div>`
+      : '';
+
+    return `
+      <div class="cat-item">
+        <div class="cat-row" onclick="toggleCat(${catIdx})">
+          <span class="cat-arrow">${arrow}</span>
+          <span class="cat-nombre">${esc(cat.icono)} ${esc(cat.nombre)}</span>
+          <button class="btn-icon" title="Eliminar categoría"
+            onclick="event.stopPropagation(); eliminarCategoria(${catIdx})">×</button>
+        </div>
+        <div class="sub-list">${subsHtml}</div>
+      </div>`;
+  }).join('');
+
+  cont.innerHTML = items || '<div style="padding:0.75rem; font-size:0.85rem; color:var(--texto-suave);">Sin resultados</div>';
+}
+
+function toggleCat(catIdx) {
+  expandidos.has(catIdx) ? expandidos.delete(catIdx) : expandidos.add(catIdx);
+  renderArbol(document.getElementById('buscador-cat').value);
+}
+
+function filtrarArbol() {
+  renderArbol(document.getElementById('buscador-cat').value);
+}
+
+// ── Seleccionar subcategoría ───────────────────────────────────────────────
+
+function seleccionarSub(catIdx, subIdx) {
+  selCatIdx = catIdx;
+  selSubIdx = subIdx;
+  renderArbol(document.getElementById('buscador-cat').value);
+  renderProductos();
+  if (window.innerWidth < 768) {
+    setTimeout(() => {
+      document.getElementById('panel-productos').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+}
+
+// ── Listener Escape para cancelar edición inline ───────────────────────────
+
+function _onEscapeEdit(e) {
+  if (e.key === 'Escape') {
+    document.removeEventListener('keydown', _onEscapeEdit);
+    renderProductos();
+  }
+}
+
+// ── Render panel de productos ──────────────────────────────────────────────
+
+function renderProductos() {
+  document.removeEventListener('keydown', _onEscapeEdit);
+  const cat = CAT_DATA[selCatIdx];
+  const sub = cat.subcategorias[selSubIdx];
+  const panel = document.getElementById('panel-productos');
+
+  const rowsHtml = sub.productos.length === 0
+    ? `<tr><td colspan="5" style="text-align:center; color:var(--texto-suave); padding:1.25rem 0;">
+         Sin productos. Agregá uno abajo.
+       </td></tr>`
+    : sub.productos.map((p, pIdx) => `
+        <tr id="prod-row-${pIdx}">
+          <td>${esc(p.descripcion)}</td>
+          <td style="text-align:right; white-space:nowrap;">S/ ${Number(p.precio).toFixed(2)}</td>
+          <td style="text-align:center;">${esc(p.unidad)}</td>
+          <td>${esc(p.presentacion || '')}</td>
+          <td class="prod-acciones">
+            <button class="btn btn-secondary btn-sm" onclick="iniciarEditarProd(${pIdx})" title="Editar">✎</button>
+            <button class="btn btn-danger btn-sm" onclick="eliminarProducto(${pIdx})" title="Eliminar">×</button>
+          </td>
+        </tr>`).join('');
+
+  panel.innerHTML = `
+    <div class="card" style="margin-bottom:1rem;">
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; flex-wrap:wrap;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:0.72rem; color:var(--texto-suave); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.15rem;">${esc(cat.nombre)}</div>
+          <div style="font-size:1.05rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(sub.nombre)}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="abrirEditarSub()">Renombrar</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarSubcategoriaActual()">Eliminar</button>
+      </div>
+      <input type="text" id="buscador-prod" class="form-control" placeholder="Buscar producto…"
+        oninput="filtrarProductos(this.value)" style="margin-bottom:0.75rem; font-size:0.875rem;">
+      <div class="prod-table-wrap">
+        <table class="prod-table" id="prod-table">
+          <thead>
+            <tr>
+              <th>Descripción</th>
+              <th style="text-align:right;">Precio</th>
+              <th style="text-align:center;">Unidad</th>
+              <th>Presentación</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="prod-tbody">${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="font-size:0.95rem; margin-bottom:0.75rem;">+ Agregar producto</div>
+      <div class="grid-2">
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Descripción *</label>
+          <input type="text" id="np-desc" class="form-control" placeholder="Nombre del producto">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Precio (S/) *</label>
+          <input type="number" id="np-precio" class="form-control" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unidad</label>
+          <select id="np-unidad" class="form-control">
+            <option value="UND">UND</option>
+            <option value="MT">MT</option>
+            <option value="KG">KG</option>
+            <option value="PAR">PAR</option>
+            <option value="RLL">RLL</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Presentación</label>
+          <input type="text" id="np-presentacion" class="form-control" placeholder="Ej: CAJ.100, PQT20">
+        </div>
+      </div>
+      <div style="display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="agregarProducto()">Guardar producto</button>
+      </div>
+    </div>`;
+}
+
+function filtrarProductos(q) {
+  const texto = q.trim().toLowerCase();
+  document.querySelectorAll('#prod-table tbody tr').forEach(tr => {
+    const desc = tr.querySelector('td')?.textContent?.toLowerCase() || '';
+    tr.style.display = texto === '' || desc.includes(texto) ? '' : 'none';
+  });
+}
+
+// ── CRUD Productos ─────────────────────────────────────────────────────────
+
+async function agregarProducto() {
+  const desc   = document.getElementById('np-desc').value.trim();
+  const precio = document.getElementById('np-precio').value;
+  if (!desc || !precio) { toast('Descripción y precio son obligatorios', 'error'); return; }
+  const unidad       = document.getElementById('np-unidad').value;
+  const presentacion = document.getElementById('np-presentacion').value.trim();
+  const fd = formData({ cat_idx: selCatIdx, sub_idx: selSubIdx, descripcion: desc,
+    unidad, precio: parseFloat(precio), presentacion });
+  const data = await apiFetch('/api/catalogo/producto', { method: 'POST', body: fd });
+  if (data.ok) {
+    toast('Producto agregado', 'success');
+    CAT_DATA[selCatIdx].subcategorias[selSubIdx].productos.push(
+      { descripcion: desc, unidad, precio: parseFloat(precio), presentacion }
+    );
+    renderProductos();
+    renderArbol(document.getElementById('buscador-cat').value);
+  } else {
+    toast(data.error || 'Error al agregar', 'error');
+  }
+}
+
+function iniciarEditarProd(pIdx) {
+  const p = CAT_DATA[selCatIdx].subcategorias[selSubIdx].productos[pIdx];
+  const row = document.getElementById(`prod-row-${pIdx}`);
+  const opciones = ['UND','MT','KG','PAR','RLL'].map(u =>
+    `<option${u === p.unidad ? ' selected' : ''}>${u}</option>`).join('');
+  row.innerHTML = `
+    <td><input type="text" id="ep-desc-${pIdx}" class="form-control form-control-sm" value="${esc(p.descripcion)}"></td>
+    <td><input type="number" id="ep-precio-${pIdx}" class="form-control form-control-sm" step="0.01"
+         value="${p.precio}" style="width:90px;"></td>
+    <td><select id="ep-unidad-${pIdx}" class="form-control form-control-sm">${opciones}</select></td>
+    <td><input type="text" id="ep-pres-${pIdx}" class="form-control form-control-sm"
+         value="${esc(p.presentacion || '')}"></td>
+    <td class="prod-acciones">
+      <button class="btn btn-primary btn-sm" onclick="guardarProd(${pIdx})" title="Guardar">✓</button>
+      <button class="btn btn-secondary btn-sm" onclick="renderProductos()" title="Cancelar">✕</button>
+    </td>`;
+  document.getElementById(`ep-desc-${pIdx}`).focus();
+  document.addEventListener('keydown', _onEscapeEdit);
+}
+
+async function guardarProd(pIdx) {
+  const desc   = document.getElementById(`ep-desc-${pIdx}`).value.trim();
+  const precio = document.getElementById(`ep-precio-${pIdx}`).value;
+  if (!desc || !precio) { toast('Descripción y precio son obligatorios', 'error'); return; }
+  const unidad       = document.getElementById(`ep-unidad-${pIdx}`).value;
+  const presentacion = document.getElementById(`ep-pres-${pIdx}`).value.trim();
+  const fd = formData({ descripcion: desc, unidad, precio: parseFloat(precio), presentacion });
+  const data = await apiFetch(`/api/catalogo/producto/${selCatIdx}/${selSubIdx}/${pIdx}`,
+    { method: 'PUT', body: fd });
+  if (data.ok) {
+    toast('Producto actualizado', 'success');
+    const p = CAT_DATA[selCatIdx].subcategorias[selSubIdx].productos[pIdx];
+    p.descripcion = desc; p.unidad = unidad;
+    p.precio = parseFloat(precio); p.presentacion = presentacion;
+    renderProductos();
+  } else {
+    toast(data.error || 'Error al guardar', 'error');
+  }
+}
+
+async function eliminarProducto(pIdx) {
+  const p = CAT_DATA[selCatIdx].subcategorias[selSubIdx].productos[pIdx];
+  if (!confirm(`¿Eliminar "${p.descripcion}"?`)) return;
+  const data = await apiFetch(`/api/catalogo/producto/${selCatIdx}/${selSubIdx}/${pIdx}`,
+    { method: 'DELETE' });
+  if (data.ok) {
+    toast('Producto eliminado', 'success');
+    CAT_DATA[selCatIdx].subcategorias[selSubIdx].productos.splice(pIdx, 1);
+    renderProductos();
+    renderArbol(document.getElementById('buscador-cat').value);
+  } else {
+    toast(data.error || 'Error al eliminar', 'error');
+  }
+}
+
+// ── CRUD Categorías ────────────────────────────────────────────────────────
+
+function mostrarFormNuevaCat() {
+  selCatIdx = null; selSubIdx = null;
+  renderArbol(document.getElementById('buscador-cat').value);
+  document.getElementById('panel-productos').innerHTML = `
+    <div class="card">
+      <div class="card-title">Nueva categoría</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input type="text" id="nc-nombre" class="form-control" placeholder="Ej: EMT, Pernería">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ícono (emoji)</label>
+          <input type="text" id="nc-icono" class="form-control" value="📦">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="crearCategoria()">Crear categoría</button>
+    </div>`;
+  document.getElementById('nc-nombre')?.focus();
+}
+
+async function crearCategoria() {
+  const nombre = document.getElementById('nc-nombre').value.trim();
+  const icono  = document.getElementById('nc-icono').value.trim() || '📦';
+  if (!nombre) { toast('El nombre es obligatorio', 'error'); return; }
+  const data = await apiFetch('/api/catalogo/categoria',
+    { method: 'POST', body: formData({ nombre, icono }) });
+  if (data.ok) {
+    toast(`Categoría "${nombre}" creada`, 'success');
+    CAT_DATA.push({ nombre, icono, subcategorias: [] });
+    expandidos.add(CAT_DATA.length - 1);
+    renderArbol(document.getElementById('buscador-cat').value);
+    document.getElementById('panel-productos').innerHTML = `
+      <div class="card panel-placeholder">
+        <div class="panel-placeholder-icon">👆</div>
+        <p>Categoría creada. Agregá una subcategoría desde el panel izquierdo.</p>
+      </div>`;
+  } else {
+    toast(data.error || 'Error al crear', 'error');
+  }
+}
+
+async function eliminarCategoria(catIdx) {
+  const cat = CAT_DATA[catIdx];
+  const n = cat.subcategorias.reduce((s, sub) => s + sub.productos.length, 0);
+  const msg = n > 0
+    ? `¿Eliminar "${cat.nombre}" con todas sus subcategorías y ${n} productos?`
+    : `¿Eliminar la categoría "${cat.nombre}"?`;
+  if (!confirm(msg)) return;
+  const data = await apiFetch(`/api/catalogo/categoria/${catIdx}`, { method: 'DELETE' });
+  if (data.ok) {
+    toast(`Categoría "${cat.nombre}" eliminada`, 'success');
+    CAT_DATA.splice(catIdx, 1);
+    if (selCatIdx === catIdx) { selCatIdx = null; selSubIdx = null; }
+    else if (selCatIdx > catIdx) selCatIdx--;
+    renderArbol(document.getElementById('buscador-cat').value);
+    if (selCatIdx === null) {
+      document.getElementById('panel-productos').innerHTML = `
+        <div class="card panel-placeholder">
+          <div class="panel-placeholder-icon">👈</div>
+          <p class="ph-desktop">Seleccioná una subcategoría para ver sus productos.</p>
+          <p class="ph-mobile">Seleccioná una subcategoría de arriba.</p>
+        </div>`;
+    }
+  } else {
+    toast(data.error || 'Error al eliminar', 'error');
+  }
+}
+
+// ── CRUD Subcategorías ─────────────────────────────────────────────────────
+
+function mostrarFormNuevaSub(catIdx) {
+  expandidos.add(catIdx);
+  selCatIdx = catIdx; selSubIdx = null;
+  renderArbol(document.getElementById('buscador-cat').value);
+  const cat = CAT_DATA[catIdx];
+  document.getElementById('panel-productos').innerHTML = `
+    <div class="card">
+      <div class="card-title">Nueva subcategoría en "${esc(cat.nombre)}"</div>
+      <div class="form-group">
+        <label class="form-label">Nombre *</label>
+        <input type="text" id="ns-nombre" class="form-control" placeholder='Ej: 1/2" (13mm)'>
+      </div>
+      <button class="btn btn-primary" onclick="crearSubcategoria(${catIdx})">Crear subcategoría</button>
+    </div>`;
+  document.getElementById('ns-nombre')?.focus();
+}
+
+async function crearSubcategoria(catIdx) {
+  const nombre = document.getElementById('ns-nombre').value.trim();
+  if (!nombre) { toast('El nombre es obligatorio', 'error'); return; }
+  const data = await apiFetch('/api/catalogo/subcategoria',
+    { method: 'POST', body: formData({ cat_idx: catIdx, nombre, icono: '📋' }) });
+  if (data.ok) {
+    toast(`Subcategoría "${nombre}" creada`, 'success');
+    CAT_DATA[catIdx].subcategorias.push({ nombre, icono: '📋', productos: [] });
+    seleccionarSub(catIdx, CAT_DATA[catIdx].subcategorias.length - 1);
+  } else {
+    toast(data.error || 'Error al crear', 'error');
+  }
+}
+
+function abrirEditarSub() {
+  const sub = CAT_DATA[selCatIdx].subcategorias[selSubIdx];
+  const nombre = prompt('Nuevo nombre:', sub.nombre);
+  if (!nombre || nombre.trim() === sub.nombre) return;
+  guardarEdicionSub(nombre.trim());
+}
+
+async function guardarEdicionSub(nombre) {
+  const data = await apiFetch(`/api/catalogo/subcategoria/${selCatIdx}/${selSubIdx}`,
+    { method: 'PUT', body: formData({ nombre }) });
+  if (data.ok) {
+    toast('Subcategoría renombrada', 'success');
+    CAT_DATA[selCatIdx].subcategorias[selSubIdx].nombre = nombre;
+    renderArbol(document.getElementById('buscador-cat').value);
+    renderProductos();
+  } else {
+    toast(data.error || 'Error al renombrar', 'error');
+  }
+}
+
+async function eliminarSubcategoria(catIdx, subIdx) {
+  const sub = CAT_DATA[catIdx].subcategorias[subIdx];
+  const msg = sub.productos.length > 0
+    ? `¿Eliminar "${sub.nombre}" con sus ${sub.productos.length} productos?`
+    : `¿Eliminar "${sub.nombre}"?`;
+  if (!confirm(msg)) return;
+  const data = await apiFetch(`/api/catalogo/subcategoria/${catIdx}/${subIdx}`,
+    { method: 'DELETE' });
+  if (data.ok) {
+    toast(`"${sub.nombre}" eliminada`, 'success');
+    CAT_DATA[catIdx].subcategorias.splice(subIdx, 1);
+    if (selCatIdx === catIdx && selSubIdx === subIdx) {
+      selSubIdx = null;
+      document.getElementById('panel-productos').innerHTML = `
+        <div class="card panel-placeholder">
+          <div class="panel-placeholder-icon">👈</div>
+          <p>Seleccioná una subcategoría.</p>
+        </div>`;
+    } else if (selCatIdx === catIdx && selSubIdx > subIdx) {
+      selSubIdx--;
+    }
+    renderArbol(document.getElementById('buscador-cat').value);
+  } else {
+    toast(data.error || 'Error al eliminar', 'error');
+  }
+}
+
+function eliminarSubcategoriaActual() {
+  eliminarSubcategoria(selCatIdx, selSubIdx);
+}
+
+// ── Importar XLSX ──────────────────────────────────────────────────────────
+
+async function importarXlsx(event) {
+  const archivo = document.getElementById('xlsx-file').files[0];
+  if (!archivo) { toast('Seleccioná un archivo .xlsx', 'error'); return; }
+  const fd = new FormData();
+  fd.append('archivo', archivo);
+  const btnEl = event.currentTarget;
+  btnEl.disabled = true; btnEl.textContent = 'Importando…';
+  const resultDiv = document.getElementById('xlsx-result');
+  resultDiv.textContent = '';
+  try {
+    const resp = await fetch('/configuracion/catalogo/subir', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (data.ok) {
+      toast(data.mensaje, 'success');
+      if (data.advertencias) {
+        resultDiv.textContent = '⚠ ' + data.advertencias;
+      }
+      setTimeout(() => window.location.reload(), 1200);
+    } else {
+      toast(data.error || 'Error al importar', 'error');
+    }
+  } catch {
+    toast('Error de red al importar', 'error');
+  } finally {
+    btnEl.disabled = false; btnEl.textContent = 'Importar';
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+if (CAT_DATA.length > 0) expandidos.add(0);
+renderArbol('');
+</script>
+{% endblock %}

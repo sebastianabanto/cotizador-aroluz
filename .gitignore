@@ -1,0 +1,12 @@
+venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+web/data/aroluz.db
+web/data/backups/
+web/data/cotizador_config.json
+cotizador_config_backup.json
+temp/
+plantillas/
+*.xlsm

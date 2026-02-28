@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: aroluz-cotizador
+    runtime: docker
+    disk:
+      name: aroluz-data
+      mountPath: /app/web/data
+      sizeGB: 1
+    envVars:
+      - key: AROLUZ_SECRET_KEY
+        generateValue: true

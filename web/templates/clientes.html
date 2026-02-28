@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% set active = "configuracion" %}
+
+{% block title %}Clientes y Atenciones — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="clientes-header">
+    <a href="/configuracion" class="btn btn-secondary btn-sm">← Configuración</a>
+    <h1 class="page-title" style="margin:0;">Clientes y Atenciones</h1>
+  </div>
+
+  <div class="clientes-layout">
+
+    <!-- Panel izquierdo: lista de clientes -->
+    <div>
+      <div class="card" style="padding:0.75rem; overflow:hidden;">
+        <div style="margin-bottom:0.5rem;">
+          <label class="sr-only" for="buscador-clientes">Buscar cliente</label>
+          <input type="text" id="buscador-clientes" class="form-control"
+            placeholder="Buscar cliente…" oninput="filtrarClientes()"
+            style="font-size:0.875rem;">
+        </div>
+        <div id="lista-clientes" style="max-height:420px; overflow-y:auto;">
+          <!-- Se renderiza via JS -->
+        </div>
+        <div style="border-top:1px solid var(--gris-borde); padding-top:0.6rem; margin-top:0.5rem;">
+          <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="mostrarFormNuevo()">
+            + Nuevo cliente
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel derecho: detalle -->
+    <div id="panel-detalle">
+      <div class="card panel-placeholder">
+        <div class="panel-placeholder-icon">
+          <span class="ph-desktop">👈</span>
+          <span class="ph-mobile">☝</span>
+        </div>
+        <p class="ph-desktop">Seleccioná un cliente de la lista para editar.</p>
+        <p class="ph-mobile">Seleccioná un cliente de la lista de arriba.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/*
+ * clientes.html — layout fluido, sin overflow horizontal
+ *
+ * Causas del overflow corregidas:
+ *   1. margin:0 -0.75rem en #lista-clientes → eliminado (+ overflow:hidden en card)
+ *   2. grid-template-columns: 320px fijo → reemplazado por auto-fit + minmax()
+ *   3. min-width: auto en items del grid → forzado a 0 en todos los contenedores
+ *   4. .grid-2 del panel-detalle sin min-width:0 → corregido en scope local
+ */
+
+/* ── Anti-overflow: min-width:0 en todos los contenedores del layout ── */
+.clientes-header,
+.clientes-layout,
+.clientes-layout > *,
+#panel-detalle,
+#panel-detalle .grid-2 > * {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* ── Header ── */
+.clientes-header {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 2vw, 1rem);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+/* ── Layout: auto-fit — 2 cols cuando caben ≥ 300px c/u, 1 col si no ── */
+.clientes-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ── Placeholder ── */
+.panel-placeholder {
+  text-align: center;
+  padding: clamp(1.5rem, 5vw, 3rem) clamp(1rem, 3vw, 2rem);
+  color: var(--texto-suave);
+}
+.panel-placeholder-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.ph-mobile { display: none; }
+
+/* ── Lista de clientes ── */
+.cliente-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gris-borde);
+  transition: background 0.15s;
+}
+.cliente-item:hover  { background: rgba(37,99,168,0.06); }
+.cliente-item.activo { background: rgba(37,99,168,0.12); }
+.cliente-item:last-child { border-bottom: none; }
+.cliente-codigo { font-weight: 600; font-size: 0.82rem; color: var(--azul); }
+.cliente-nombre {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0; /* imprescindible: permite que overflow:hidden funcione en flex column */
+}
+
+/* ── Agregar atención: sección visualmente separada ── */
+.agregar-at-box {
+  margin-top: 1rem;
+  padding: 0.85rem 0.9rem 0.75rem;
+  background: var(--gris-fondo, #f5f7fa);
+  border: 1px dashed var(--gris-borde);
+  border-radius: var(--radio, 8px);
+}
+.agregar-at-titulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--azul);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 0.65rem;
+}
+
+/* ── Pantalla angosta: lista compacta + placeholder adaptado ── */
+@media (max-width: 660px) {
+  #lista-clientes   { max-height: 260px !important; }
+  .ph-desktop       { display: none; }
+  .ph-mobile        { display: block; }
+}
+</style>
+<script>
+const CLIENTES_DATA = {{ catalogo.clientes | tojson }};
+let clienteActivo = null;
+
+// ── Lista de clientes ──────────────────────────────────────────────────────
+
+function renderLista(filtrados) {
+  const cont = document.getElementById('lista-clientes');
+  if (!filtrados.length) {
+    cont.innerHTML = '<div style="padding:0.75rem; font-size:0.85rem; color:var(--texto-suave);">Sin resultados</div>';
+    return;
+  }
+  cont.innerHTML = filtrados.map(c => `
+    <div class="cliente-item${clienteActivo === c.codigo ? ' activo' : ''}"
+         onclick="cargarCliente('${esc(c.codigo)}')" data-codigo="${esc(c.codigo)}">
+      <span class="cliente-codigo">${c.codigo}</span>
+      <span class="cliente-nombre">${c.nombre}</span>
+    </div>
+  `).join('');
+}
+
+function filtrarClientes() {
+  const q = document.getElementById('buscador-clientes').value.trim().toLowerCase();
+  const filtrados = q
+    ? CLIENTES_DATA.filter(c => c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q))
+    : CLIENTES_DATA;
+  renderLista(filtrados);
+}
+
+function esc(s) { return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+// ── Cargar cliente (panel derecho) ─────────────────────────────────────────
+
+async function cargarCliente(codigo) {
+  clienteActivo = codigo;
+  filtrarClientes(); // actualiza clase activo
+  const data = await apiFetch(`/api/configuracion/cliente/${encodeURIComponent(codigo)}`);
+  if (!data.ok) { toast('Error al cargar cliente', 'error'); return; }
+  mostrarPanelCliente(data.cliente, data.atenciones);
+}
+
+function scrollAlDetalle() {
+  if (window.innerWidth < 768) {
+    setTimeout(() => {
+      document.getElementById('panel-detalle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+}
+
+function mostrarPanelCliente(cliente, atenciones) {
+  const panel = document.getElementById('panel-detalle');
+  panel.innerHTML = `
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-title" style="font-size:1rem;">Editar cliente: ${cliente.codigo}</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Nombre</label>
+          <input type="text" id="ec-nombre" class="form-control" value="${esc(cliente.nombre)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">RUC</label>
+          <input type="text" id="ec-ruc" class="form-control" value="${esc(cliente.ruc || '')}" placeholder="Ej: 20123456789">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dirección</label>
+        <input type="text" id="ec-ubicacion" class="form-control" value="${esc(cliente.ubicacion || '')}" placeholder="Av. ...">
+      </div>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="guardarCliente('${esc(cliente.codigo)}')">Guardar cliente</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarCliente('${esc(cliente.codigo)}')">Eliminar cliente</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="font-size:1rem;">Atenciones de ${cliente.codigo}</div>
+      <div id="lista-atenciones-panel">
+        ${renderAtenciones(atenciones, cliente.codigo)}
+      </div>
+      <div class="agregar-at-box">
+        <p class="agregar-at-titulo">+ Agregar atención</p>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="na-nombre" class="form-control" placeholder="Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="na-email" class="form-control" placeholder="juan@empresa.com">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="agregarAtencion('${esc(cliente.codigo)}')">Guardar atención</button>
+      </div>
+    </div>
+  `;
+  scrollAlDetalle();
+}
+
+function renderAtenciones(atenciones, codigoCliente) {
+  if (!atenciones.length) {
+    return '<p style="font-size:0.875rem; color:var(--texto-suave); margin-bottom:0.5rem;">Sin atenciones para este cliente.</p>';
+  }
+  return atenciones.map(a => `
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:0.5rem 0; border-bottom:1px solid var(--gris-borde); gap:0.5rem;" id="at-row-${encodeURIComponent(a.nombre)}">
+      <div>
+        <div style="font-size:0.875rem; font-weight:600;">${a.nombre}</div>
+        ${a.email ? `<div style="font-size:0.78rem; color:var(--texto-suave);">${a.email}</div>` : ''}
+      </div>
+      <div style="display:flex; gap:0.35rem; flex-shrink:0;">
+        <button class="btn btn-secondary btn-sm" aria-label="Editar atención ${a.nombre}"
+                onclick="abrirEditarAtencion('${esc(a.nombre)}', '${esc(codigoCliente)}', '${esc(a.email || '')}')">✎</button>
+        <button class="btn btn-danger btn-sm" aria-label="Eliminar atención ${a.nombre}"
+                onclick="eliminarAtencion('${esc(a.nombre)}', '${esc(codigoCliente)}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Validación de RUC ──────────────────────────────────────────────────────
+
+function validarRUC(valor) {
+  if (!valor) return true;           // campo opcional
+  return /^\d{11}$/.test(valor);
+}
+
+// ── Guardar / Eliminar cliente ─────────────────────────────────────────────
+
+async function guardarCliente(codigo) {
+  const nombre = document.getElementById('ec-nombre').value.trim();
+  if (!nombre) { toast('El nombre no puede estar vacío', 'error'); return; }
+  const ruc = document.getElementById('ec-ruc').value.trim();
+  if (!validarRUC(ruc)) { toast('El RUC debe tener exactamente 11 dígitos numéricos', 'error'); return; }
+  const fd = formData({
+    nombre,
+    ruc,
+    ubicacion: document.getElementById('ec-ubicacion').value.trim(),
+  });
+  const data = await apiFetch(`/configuracion/cliente/${encodeURIComponent(codigo)}`, { method: 'PUT', body: fd });
+  if (data.ok) {
+    toast('Cliente actualizado', 'success');
+    // Actualizar datos locales
+    const idx = CLIENTES_DATA.findIndex(c => c.codigo === codigo);
+    if (idx >= 0) {
+      CLIENTES_DATA[idx].nombre = nombre;
+      CLIENTES_DATA[idx].ruc = document.getElementById('ec-ruc').value.trim();
+      CLIENTES_DATA[idx].ubicacion = document.getElementById('ec-ubicacion').value.trim();
+    }
+    filtrarClientes();
+  } else {
+    toast(data.error || 'Error al guardar', 'error');
+  }
+}
+
+async function eliminarCliente(codigo) {
+  if (!confirm(`¿Eliminar cliente "${codigo}" y todas sus atenciones?`)) return;
+  const data = await apiFetch(`/configuracion/cliente/${encodeURIComponent(codigo)}`, { method: 'DELETE' });
+  if (data.ok) {
+    toast(`Cliente "${codigo}" eliminado`, 'success');
+    const idx = CLIENTES_DATA.findIndex(c => c.codigo === codigo);
+    if (idx >= 0) CLIENTES_DATA.splice(idx, 1);
+    clienteActivo = null;
+    filtrarClientes();
+    document.getElementById('panel-detalle').innerHTML = `
+      <div class="card" style="text-align:center; padding:3rem; color:var(--texto-suave);">
+        <p>Seleccioná un cliente de la lista.</p>
+      </div>`;
+  } else {
+    toast('Error al eliminar', 'error');
+  }
+}
+
+// ── Atenciones ─────────────────────────────────────────────────────────────
+
+async function agregarAtencion(codigoCliente) {
+  const nombre = document.getElementById('na-nombre').value.trim();
+  const email = document.getElementById('na-email').value.trim();
+  if (!nombre) { toast('Ingrese el nombre de la atención', 'error'); return; }
+  const fd = formData({ nombre, codigo_empresa: codigoCliente, email });
+  const data = await apiFetch('/configuracion/atencion/agregar', { method: 'POST', body: fd });
+  if (data.ok) {
+    toast(`Atención "${nombre}" agregada`, 'success');
+    document.getElementById('na-nombre').value = '';
+    document.getElementById('na-email').value = '';
+    await recargarAtenciones(codigoCliente);
+  } else {
+    toast('La atención ya existe o hubo un error', 'error');
+  }
+}
+
+async function eliminarAtencion(nombre, codigoCliente) {
+  if (!confirm(`¿Eliminar atención "${nombre}"?`)) return;
+  const data = await apiFetch(`/configuracion/atencion/${encodeURIComponent(nombre)}`, { method: 'DELETE' });
+  if (data.ok) {
+    toast(`"${nombre}" eliminado`, 'success');
+    await recargarAtenciones(codigoCliente);
+  } else {
+    toast('Error al eliminar', 'error');
+  }
+}
+
+async function recargarAtenciones(codigoCliente) {
+  const data = await apiFetch(`/api/configuracion/cliente/${encodeURIComponent(codigoCliente)}`);
+  if (data.ok) {
+    document.getElementById('lista-atenciones-panel').innerHTML =
+      renderAtenciones(data.atenciones, codigoCliente);
+  }
+}
+
+// ── Modal editar atención ──────────────────────────────────────────────────
+
+function abrirEditarAtencion(nombre, codigoCliente, email) {
+  // Crear modal dinámico
+  let modal = document.getElementById('modal-at');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-at';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'mat-titulo');
+    modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:var(--blanco); border-radius:var(--radio); padding:1.5rem; min-width:0; max-width:480px; width:90%; box-shadow:0 4px 24px rgba(0,0,0,0.2);">
+        <h3 id="mat-titulo" style="margin:0 0 1rem; font-size:1rem; color:var(--azul-oscuro);"></h3>
+        <div class="form-group">
+          <label class="form-label" for="mat-nombre">Nombre</label>
+          <input type="text" id="mat-nombre" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="mat-email">Email</label>
+          <input type="email" id="mat-email" class="form-control" autocomplete="email">
+        </div>
+        <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+          <button class="btn btn-secondary" onclick="cerrarModalAt()">Cancelar</button>
+          <button class="btn btn-primary" id="mat-guardar">Guardar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) cerrarModalAt(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModalAt(); });
+  }
+
+  document.getElementById('mat-titulo').textContent = `Editar atención: ${nombre}`;
+  document.getElementById('mat-nombre').value = nombre;
+  document.getElementById('mat-email').value = email || '';
+  modal.style.display = 'flex';
+  document.getElementById('mat-nombre').focus();
+
+  // Handler guardar (remover anterior)
+  const btnG = document.getElementById('mat-guardar');
+  btnG.replaceWith(btnG.cloneNode(true)); // limpia listeners
+  document.getElementById('mat-guardar').addEventListener('click', () =>
+    guardarEdicionAtencion(nombre, codigoCliente)
+  );
+}
+
+function cerrarModalAt() {
+  const modal = document.getElementById('modal-at');
+  if (modal) modal.style.display = 'none';
+}
+
+async function guardarEdicionAtencion(nombreActual, codigoCliente) {
+  const nombre = document.getElementById('mat-nombre').value.trim();
+  const email = document.getElementById('mat-email').value.trim();
+  if (!nombre) { toast('El nombre no puede estar vacío', 'error'); return; }
+  const fd = formData({ nombre, codigo_empresa: codigoCliente, email });
+  const data = await apiFetch(`/configuracion/atencion/${encodeURIComponent(nombreActual)}`, { method: 'PUT', body: fd });
+  if (data.ok) {
+    toast('Atención actualizada', 'success');
+    cerrarModalAt();
+    await recargarAtenciones(codigoCliente);
+  } else {
+    toast('Error al guardar', 'error');
+  }
+}
+
+// ── Formulario nuevo cliente ───────────────────────────────────────────────
+
+function mostrarFormNuevo() {
+  clienteActivo = null;
+  filtrarClientes();
+  document.getElementById('panel-detalle').innerHTML = `
+    <div class="card">
+      <div class="card-title">Nuevo cliente</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Código *</label>
+          <input type="text" id="nc-codigo" class="form-control" placeholder="Ej: CONKRETO">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input type="text" id="nc-nombre" class="form-control" placeholder="Nombre de la empresa">
+        </div>
+        <div class="form-group">
+          <label class="form-label">RUC</label>
+          <input type="text" id="nc-ruc" class="form-control" placeholder="Ej: 20123456789">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dirección</label>
+          <input type="text" id="nc-ubicacion" class="form-control" placeholder="Av. ...">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="crearCliente()">Crear cliente</button>
+    </div>
+  `;
+  scrollAlDetalle();
+  document.getElementById('nc-codigo').focus();
+}
+
+async function crearCliente() {
+  const codigo = document.getElementById('nc-codigo').value.trim().toUpperCase();
+  const nombre = document.getElementById('nc-nombre').value.trim();
+  if (!codigo || !nombre) { toast('Código y nombre son obligatorios', 'error'); return; }
+  const ruc = document.getElementById('nc-ruc').value.trim();
+  if (!validarRUC(ruc)) { toast('El RUC debe tener exactamente 11 dígitos numéricos', 'error'); return; }
+  const fd = formData({
+    codigo,
+    nombre,
+    ruc,
+    ubicacion: document.getElementById('nc-ubicacion').value.trim(),
+  });
+  const data = await apiFetch('/configuracion/cliente/agregar', { method: 'POST', body: fd });
+  if (data.ok) {
+    toast(`Cliente "${codigo}" creado`, 'success');
+    CLIENTES_DATA.push({ codigo, nombre, ruc: fd.get('ruc'), ubicacion: fd.get('ubicacion') });
+    CLIENTES_DATA.sort((a, b) => a.codigo.localeCompare(b.codigo));
+    filtrarClientes();
+    await cargarCliente(codigo);
+  } else {
+    toast(data.error || 'El cliente ya existe o hubo un error', 'error');
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+filtrarClientes();
+</script>
+{% endblock %}

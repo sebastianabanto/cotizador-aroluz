@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% set active = "" %}
+
+{% block title %}Mi Cuenta — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:480px;">
+  <h1 class="page-title">Mi Cuenta</h1>
+
+  <div class="card" style="padding:1.5rem;">
+    <div style="margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:1px solid var(--gris-borde);">
+      <div style="font-size:0.8rem; color:var(--texto-suave); text-transform:uppercase; font-weight:600; letter-spacing:0.04em; margin-bottom:0.4rem;">Usuario</div>
+      <div style="font-weight:600; font-size:1.05rem;">{{ usuario.u }}</div>
+      {% if usuario.n %}
+      <div style="color:var(--texto-suave); font-size:0.9rem;">{{ usuario.n }}</div>
+      {% endif %}
+    </div>
+
+    {% if error %}
+    <div style="background:#fdecea; border:1px solid #f5c6cb; border-radius:6px; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem; color:#b91c1c;">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    {% if exito %}
+    <div style="background:#e8f9f0; border:1px solid #a7f3d0; border-radius:6px; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem; color:#065f46;">
+      {{ exito }}
+    </div>
+    {% endif %}
+
+    <h2 style="font-size:1rem; margin:0 0 1rem; color:var(--azul);">Cambiar Contraseña</h2>
+
+    <form method="post" action="/cuenta/cambiar_password">
+      <div style="margin-bottom:0.85rem;">
+        <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--texto-suave); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.35rem;" for="pwd-actual">
+          Contraseña actual
+        </label>
+        <input type="password" id="pwd-actual" name="password_actual" class="form-control"
+               required autocomplete="current-password">
+      </div>
+      <div style="margin-bottom:0.85rem;">
+        <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--texto-suave); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.35rem;" for="pwd-nuevo">
+          Nueva contraseña
+        </label>
+        <input type="password" id="pwd-nuevo" name="password_nuevo" class="form-control"
+               required autocomplete="new-password" minlength="4">
+      </div>
+      <div style="margin-bottom:1.25rem;">
+        <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--texto-suave); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.35rem;" for="pwd-confirmar">
+          Confirmar nueva contraseña
+        </label>
+        <input type="password" id="pwd-confirmar" name="password_confirmar" class="form-control"
+               required autocomplete="new-password" minlength="4">
+      </div>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+        <a href="/cotizar" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Cambiar contraseña</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Validar que las contraseñas coincidan antes de enviar
+document.querySelector('form').addEventListener('submit', function(e) {
+  const nuevo     = document.getElementById('pwd-nuevo').value;
+  const confirmar = document.getElementById('pwd-confirmar').value;
+  if (nuevo !== confirmar) {
+    e.preventDefault();
+    toast('Las contraseñas nuevas no coinciden', 'error');
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AROLUZ — Iniciar Sesión</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    html, body {
+      min-height: 100%;
+      height: 100%;
+      background: #0c2340;
+    }
+    .login-wrapper { min-height: 100dvh; }
+
+    @media (max-width: 768px) {
+      html, body {
+        height: 100dvh;
+        overflow: hidden;
+      }
+      .login-wrapper {
+        height: 100dvh;
+        overflow-y: auto;   /* por si en pantallas muy pequeñas la card no entra */
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="login-wrapper">
+  <div class="login-card">
+
+    <!-- ── Cabecera de marca ── -->
+    <div class="login-logo">
+      <h1>AROLUZ</h1>
+      <p>Cotizador de Bandejas Porta Cables</p>
+    </div>
+
+    <!-- ── Formulario ── -->
+    <div class="login-form-area">
+
+      {% if error %}
+      <div class="alert alert-error" style="margin-bottom:1.25rem;">✕ {{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/login" id="form-login">
+        <div class="form-group">
+          <label class="form-label" for="username">Usuario</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            class="form-control"
+            placeholder="nombre de usuario"
+            autocomplete="username"
+            required
+            autofocus
+          >
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label" for="password">Contraseña</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-control"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-login">
+          Iniciar Sesión
+        </button>
+      </form>
+
+      <p style="text-align:center; margin-top:1.75rem; font-family:var(--f-mono); font-size:0.68rem; color:#b0bac6; letter-spacing:0.5px;">
+        v2.0 · 2026
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.getElementById('form-login').addEventListener('submit', function() {
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Verificando...';
+});
+</script>
+</body>
+</html>

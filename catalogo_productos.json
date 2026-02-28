@@ -1,0 +1,480 @@
+{
+  "version": "1.0",
+  "ultima_actualizacion": "2026-02-27",
+  "categorias": [
+    {
+      "nombre": "EMT",
+      "icono": "🔌",
+      "subcategorias": [
+        {
+          "nombre": "1/2\" (13mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT PESADO DE 1/2\"",
+              "unidad": "UND",
+              "precio": 8.47,
+              "presentacion": "PQT20"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 1/2\"",
+              "unidad": "UND",
+              "precio": 1.21,
+              "presentacion": "CAJ.150"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 1/2\"",
+              "unidad": "UND",
+              "precio": 0.85,
+              "presentacion": "CAJ.500"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 1/2\"",
+              "unidad": "UND",
+              "precio": 0.85,
+              "presentacion": "CAJ.500"
+            },
+            {
+              "descripcion": "ABRAZADERA 1/2\"",
+              "unidad": "UND",
+              "precio": 0.85,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "3/4\" (20mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT PESADO DE 3/4\"",
+              "unidad": "UND",
+              "precio": 11.5,
+              "presentacion": "PQT10"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 3/4\"",
+              "unidad": "UND",
+              "precio": 1.82,
+              "presentacion": "CAJ.100"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 3/4\"",
+              "unidad": "UND",
+              "precio": 0.97,
+              "presentacion": "CAJ.400"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 3/4\"",
+              "unidad": "UND",
+              "precio": 0.97,
+              "presentacion": "CAJ.400"
+            },
+            {
+              "descripcion": "ABRAZADERA 3/4\"",
+              "unidad": "UND",
+              "precio": 1.33,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "1\" (25mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT PESADO DE 1\"",
+              "unidad": "UND",
+              "precio": 13.92,
+              "presentacion": "PQT10"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 1\"",
+              "unidad": "UND",
+              "precio": 3.03,
+              "presentacion": "CAJ.50"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 1\"",
+              "unidad": "UND",
+              "precio": 1.33,
+              "presentacion": "CAJ.300"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 1\"",
+              "unidad": "UND",
+              "precio": 1.33,
+              "presentacion": "CAJ300"
+            },
+            {
+              "descripcion": "ABRAZADERA 1\"",
+              "unidad": "UND",
+              "precio": 1.45,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "1 1/4\" (32mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT ESTANDAR 1 1/4\"",
+              "unidad": "UND",
+              "precio": 19.61,
+              "presentacion": "PQT5"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 1 1/4\"",
+              "unidad": "UND",
+              "precio": 8.47,
+              "presentacion": "CAJ.30"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 1 1/4\"",
+              "unidad": "UND",
+              "precio": 2.66,
+              "presentacion": "CAJ.100"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 1 1/4\"",
+              "unidad": "UND",
+              "precio": 3.03,
+              "presentacion": "CAJ.120"
+            },
+            {
+              "descripcion": "ABRAZADERA 1 1/4\"",
+              "unidad": "UND",
+              "precio": 1.69,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "1 1/2\" (38mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT ESTANDART 1 1/2\"",
+              "unidad": "UND",
+              "precio": 25.42,
+              "presentacion": "PQT5"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 1 1/2\"",
+              "unidad": "UND",
+              "precio": 9.69,
+              "presentacion": "CAJ.12"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 1 1/2\"",
+              "unidad": "UND",
+              "precio": 4.24,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 1 1/2\"",
+              "unidad": "UND",
+              "precio": 4.24,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "ABRAZADERA 1 1/2\"",
+              "unidad": "UND",
+              "precio": 1.82,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "2\" (51mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT ESTANDART 2\"",
+              "unidad": "UND",
+              "precio": 35.11,
+              "presentacion": "PQT5"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 2\"",
+              "unidad": "UND",
+              "precio": 11.5,
+              "presentacion": "CAJ.12"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 2\"",
+              "unidad": "UND",
+              "precio": 4.24,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 2\"",
+              "unidad": "UND",
+              "precio": 4.24,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "ABRAZADERA 2\"",
+              "unidad": "UND",
+              "precio": 1.82,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "2 1/2\" (64mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT ESTANDART 2 1/2\"",
+              "unidad": "UND",
+              "precio": 66.59,
+              "presentacion": "PQT5"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 2 1/2\"",
+              "unidad": "UND",
+              "precio": 30.27,
+              "presentacion": "CAJ.12"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 2 1/2\"",
+              "unidad": "UND",
+              "precio": 13.32,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 2 1/2\"",
+              "unidad": "UND",
+              "precio": 13.32,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "ABRAZADERA 2 1/2\"",
+              "unidad": "UND",
+              "precio": 3.63,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "3\" (76mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT ESTANDART 3\"",
+              "unidad": "UND",
+              "precio": 84.75,
+              "presentacion": "PQT5"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 3\"",
+              "unidad": "UND",
+              "precio": 46.0,
+              "presentacion": "CAJ.12"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 3\"",
+              "unidad": "UND",
+              "precio": 15.74,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 3\"",
+              "unidad": "UND",
+              "precio": 15.74,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "ABRAZADERA 3\"",
+              "unidad": "UND",
+              "precio": 4.24,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "4\" (102mm)",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "TUBO EMT ESTANDART 4\"",
+              "unidad": "UND",
+              "precio": 115.01,
+              "presentacion": "PQT5"
+            },
+            {
+              "descripcion": "CURVA EMT GALVANIZADO 4\"",
+              "unidad": "UND",
+              "precio": 66.59,
+              "presentacion": "CAJ.12"
+            },
+            {
+              "descripcion": "CONECTOR EMT PESADO GALVANIZADO 4\"",
+              "unidad": "UND",
+              "precio": 20.58,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "UNION EMT GALVANIZADO DE 4\"",
+              "unidad": "UND",
+              "precio": 20.58,
+              "presentacion": "CAJ.80"
+            },
+            {
+              "descripcion": "ABRAZADERA 4\"",
+              "unidad": "UND",
+              "precio": 4.84,
+              "presentacion": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nombre": "CAJAS",
+      "icono": "📦",
+      "subcategorias": [
+        {
+          "nombre": "RECTANGULAR",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "CAJA DE PASE RECTANGULAR ALTA",
+              "unidad": "UND",
+              "precio": 99.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA DE PASE RECTANGULAR CHATA",
+              "unidad": "UND",
+              "precio": 99.0,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "OCTOGONAL",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "CAJA DE PASE OCTOGONAL ALTA",
+              "unidad": "UND",
+              "precio": 99.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA DE PASE OCTOGONAL CHATA",
+              "unidad": "UND",
+              "precio": 99.0,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "CUADRADA",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "CAJA DE PASE 100X100X50MM SOLDADA",
+              "unidad": "UND",
+              "precio": 99.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA DE PASE 100X100X50MM SOLDADA HERMETICA",
+              "unidad": "UND",
+              "precio": 99.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA DE PASE CUADRADA EMBUTIDA",
+              "unidad": "UND",
+              "precio": 99.0,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "TELEFONICA",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "CAJA TELEFONICA TIPO A",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA TELEFONICA TIPO B",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA TELEFONICA TIPO C",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA TELEFONICA TIPO E",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            },
+            {
+              "descripcion": "CAJA TELEFONICA TIPO D",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nombre": "PERNERÍA",
+      "icono": "🔩",
+      "subcategorias": [
+        {
+          "nombre": "PERNOS",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "PERNO HEXAGONAL",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "ESPARRAGO",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "VARILLA ROSCADA",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            }
+          ]
+        },
+        {
+          "nombre": "ARANDELA",
+          "icono": "📋",
+          "productos": [
+            {
+              "descripcion": "ARANDELA XXX",
+              "unidad": "UND",
+              "precio": 999.0,
+              "presentacion": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

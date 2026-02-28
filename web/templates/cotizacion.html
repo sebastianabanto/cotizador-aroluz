@@ -1,0 +1,1123 @@
+{% extends "base.html" %}
+{% set active = "cotizar" %}
+
+{% block title %}Cotizar — AROLUZ{% endblock %}
+
+{% block content %}
+
+<!-- ── BARRA DE TIPO (sticky) ── -->
+<div class="tipo-bar">
+  <div class="tipo-bar-btns">
+    <button class="tipo-btn active" data-tipo="bandeja" title="Alt+1">Bandeja</button>
+    <button class="tipo-btn" data-tipo="curva_horizontal" title="Alt+2">C. Horizontal</button>
+    <button class="tipo-btn" data-tipo="curva_vertical" title="Alt+3">C. Vertical</button>
+    <button class="tipo-btn" data-tipo="tee" title="Alt+4">TEE</button>
+    <button class="tipo-btn" data-tipo="cruz" title="Alt+5">Cruz</button>
+    <button class="tipo-btn" data-tipo="reduccion" title="Alt+6">Reducción</button>
+    <button class="tipo-btn" data-tipo="caja_pase" title="Alt+7">Caja de Pase</button>
+  </div>
+  <div id="indicador-recordar">
+    <button class="btn-recordar-bar" id="btn-recordar-bar" onclick="recordarMedidas()">
+      📌 Recordar medidas
+    </button>
+    <span class="chip-recordar" id="chip-recordar" style="display:none">
+      📌 <strong id="chip-recordar-nombre"></strong>
+      <button class="chip-recordar-x" onclick="limpiarRecordar()" title="Limpiar" aria-label="Limpiar medidas recordadas">×</button>
+    </span>
+  </div>
+</div>
+
+<!-- ── LAYOUT 3 PANELES ── -->
+<div class="cotizar-layout">
+
+  <!-- ── SIDEBAR CONFIG ── -->
+  <aside class="config-panel" id="config-panel">
+    <button class="config-toggle" id="config-toggle" title="Mostrar/ocultar configuración">
+      <span>⚙</span>
+      <span class="toggle-label">Configuración</span>
+      <span class="toggle-chevron" aria-hidden="true">‹</span>
+    </button>
+    <div class="config-content">
+
+      <fieldset class="config-section" style="border:none; margin:0; padding:0;">
+        <legend class="config-label">Galvanizado</legend>
+        <div class="chip-group" id="grupo-galv">
+          <label class="chip-label {% if config.galvanizado == 'GO' %}selected{% endif %}">
+            <input type="radio" name="galv" value="GO"
+              {% if config.galvanizado == 'GO' %}checked{% endif %}> GO — Origen
+          </label>
+          <label class="chip-label {% if config.galvanizado == 'GC' %}selected{% endif %}">
+            <input type="radio" name="galv" value="GC"
+              {% if config.galvanizado == 'GC' %}checked{% endif %}> GC — Caliente
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="config-section" style="border:none; margin:0; padding:0;">
+        <legend class="config-label">Ganancia</legend>
+        <div class="chip-group" id="grupo-ganancia">
+          <label class="chip-label {% if config.ganancia == '30' %}selected{% endif %}">
+            <input type="radio" name="ganancia" value="30"
+              {% if config.ganancia == '30' %}checked{% endif %}> 30% (×0.70)
+          </label>
+          <label class="chip-label {% if config.ganancia == '35' %}selected{% endif %}">
+            <input type="radio" name="ganancia" value="35"
+              {% if config.ganancia == '35' %}checked{% endif %}> 35% (×0.65)
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="config-section" style="border:none; margin:0; padding:0;">
+        <legend class="config-label">Superficie</legend>
+        <div class="chip-group" id="grupo-sup">
+          <label class="chip-label selected">
+            <input type="radio" name="sup" value="RANURADA" checked> Ranurada
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="sup" value="ESCALERILLA"> Escalerilla
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="sup" value="LISA"> Lisa
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="config-section">
+        <label class="config-label" for="esp-prod">Espesor Producto</label>
+        <select class="form-select-sm" id="esp-prod">
+          {% set ep = config.espesor_producto or '1.5' %}
+          <option value="1.2" {% if ep == '1.2' %}selected{% endif %}>1.2 mm</option>
+          <option value="1.5" {% if ep == '1.5' or ep not in ['1.2','2.0'] %}selected{% endif %}>1.5 mm</option>
+          <option value="2.0" {% if ep == '2.0' %}selected{% endif %}>2.0 mm</option>
+        </select>
+      </div>
+
+      <div class="config-section">
+        <label class="config-label" for="esp-tapa">Espesor Tapa</label>
+        <select class="form-select-sm" id="esp-tapa">
+          {% set et = config.espesor_tapa or '1.2' %}
+          <option value="1.2" {% if et == '1.2' or et not in ['1.5','2.0'] %}selected{% endif %}>1.2 mm</option>
+          <option value="1.5" {% if et == '1.5' %}selected{% endif %}>1.5 mm</option>
+          <option value="2.0" {% if et == '2.0' %}selected{% endif %}>2.0 mm</option>
+        </select>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ── PANEL CENTRAL ── -->
+  <div class="form-panel">
+    <div class="form-card">
+      <div class="form-card-header">
+        <div class="form-card-title" id="form-titulo">Bandeja</div>
+      </div>
+      <p id="msg-medidas" style="font-size:0.82rem; color:var(--texto-suave); margin-bottom:1rem;">
+        Ingresá las medidas para ver el precio al instante.
+      </p>
+
+      <!-- ── BANDEJA ── -->
+      <div class="form-producto" id="form-bandeja">
+        <div class="form-row cols-2">
+          <div class="form-group-v2">
+            <label for="b-ancho">Ancho (mm)</label>
+            <input type="number" class="form-input" id="b-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="b-alto">Alto (mm)</label>
+            <input type="number" class="form-input" id="b-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+          <label class="check-label-v2">
+            <input type="checkbox" id="b-ml"> Por metro lineal
+          </label>
+          <label class="check-label-v2">
+            <input type="checkbox" class="check-contapa" checked> Incluir tapa
+          </label>
+        </div>
+      </div>
+
+      <!-- ── CURVA HORIZONTAL ── -->
+      <div class="form-producto" id="form-curva_horizontal" style="display:none">
+        <div class="form-row cols-2">
+          <div class="form-group-v2">
+            <label for="ch-ancho">Ancho (mm)</label>
+            <input type="number" class="form-input" id="ch-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="ch-alto">Alto (mm)</label>
+            <input type="number" class="form-input" id="ch-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label-v2" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Incluir tapa
+        </label>
+      </div>
+
+      <!-- ── CURVA VERTICAL ── -->
+      <div class="form-producto" id="form-curva_vertical" style="display:none">
+        <fieldset class="config-section" style="margin-bottom:0.75rem; border:none; margin-left:0; padding:0;">
+          <legend class="config-label">Tipo de Curva</legend>
+          <div class="chip-group row" id="grupo-tipo-curva">
+            <label class="chip-label selected">
+              <input type="radio" name="tipo_curva" value="EXTERNA" checked> Externa
+            </label>
+            <label class="chip-label">
+              <input type="radio" name="tipo_curva" value="INTERNA"> Interna
+            </label>
+          </div>
+        </fieldset>
+        <div class="form-row cols-2">
+          <div class="form-group-v2">
+            <label for="cv-ancho">Ancho (mm)</label>
+            <input type="number" class="form-input" id="cv-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="cv-alto">Alto (mm)</label>
+            <input type="number" class="form-input" id="cv-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label-v2" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Incluir tapa
+        </label>
+      </div>
+
+      <!-- ── TEE ── -->
+      <div class="form-producto" id="form-tee" style="display:none">
+        <div class="form-row cols-2">
+          <div class="form-group-v2">
+            <label for="t-derecha">Derecha (mm)</label>
+            <input type="number" class="form-input" id="t-derecha" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="t-izquierda">Izquierda (mm)</label>
+            <input type="number" class="form-input" id="t-izquierda" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="t-abajo">Abajo (mm)</label>
+            <input type="number" class="form-input" id="t-abajo" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="t-alto">Alto (mm)</label>
+            <input type="number" class="form-input" id="t-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label-v2" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Incluir tapa
+        </label>
+      </div>
+
+      <!-- ── CRUZ ── -->
+      <div class="form-producto" id="form-cruz" style="display:none">
+        <div class="form-row cols-2">
+          <div class="form-group-v2">
+            <label for="c-ancho">Ancho (mm)</label>
+            <input type="number" class="form-input" id="c-ancho" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="c-alto">Alto (mm)</label>
+            <input type="number" class="form-input" id="c-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label-v2" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Incluir tapa
+        </label>
+      </div>
+
+      <!-- ── REDUCCIÓN ── -->
+      <div class="form-producto" id="form-reduccion" style="display:none">
+        <div class="form-row cols-3">
+          <div class="form-group-v2">
+            <label for="r-mayor">Ancho Mayor (mm)</label>
+            <input type="number" class="form-input" id="r-mayor" placeholder="ej: 300" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="r-menor">Ancho Menor (mm)</label>
+            <input type="number" class="form-input" id="r-menor" placeholder="ej: 200" min="1" step="1">
+          </div>
+          <div class="form-group-v2">
+            <label for="r-alto">Alto (mm)</label>
+            <input type="number" class="form-input" id="r-alto" placeholder="ej: 60" min="1" step="1">
+          </div>
+        </div>
+        <label class="check-label-v2" style="margin-top:0.4rem;">
+          <input type="checkbox" class="check-contapa" checked> Incluir tapa
+        </label>
+      </div>
+
+      <!-- ── CAJA DE PASE ── -->
+      <div class="form-producto" id="form-caja_pase" style="display:none">
+        <div class="alert-info-v2">
+          Medidas en <strong>centímetros</strong>. Se ordenan automáticamente. Tapa incluida en el precio.
+        </div>
+        <div class="form-row cols-3">
+          <div class="form-group-v2">
+            <label for="cp-d1">Dim 1 (cm)</label>
+            <input type="number" class="form-input" id="cp-d1" placeholder="ej: 30" min="1" step="0.5">
+          </div>
+          <div class="form-group-v2">
+            <label for="cp-d2">Dim 2 (cm)</label>
+            <input type="number" class="form-input" id="cp-d2" placeholder="ej: 20" min="1" step="0.5">
+          </div>
+          <div class="form-group-v2">
+            <label for="cp-d3">Dim 3 (cm)</label>
+            <input type="number" class="form-input" id="cp-d3" placeholder="ej: 15" min="1" step="0.5">
+          </div>
+        </div>
+        <div class="form-group-v2">
+          <label for="cp-salida">Tipo de Salida</label>
+          <select class="form-input" id="cp-salida" style="margin-top:0.3rem;">
+            <option value="CIEGA">Ciega</option>
+            <option value="1/2">1/2"</option>
+            <option value="3/4">3/4"</option>
+            <option value="1">1"</option>
+            <option value="1 1/4">1 1/4"</option>
+            <option value="1 1/2">1 1/2"</option>
+            <option value="2">2"</option>
+            <option value="2 1/2">2 1/2"</option>
+            <option value="3">3"</option>
+            <option value="4">4"</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ── RESULTADO INTEGRADO ── -->
+      <div class="resultado-box" id="resultado-box">
+
+        <!-- Sección Producto -->
+        <div class="resultado-item-sep" id="seccion-producto">
+          <div class="resultado-item-label">Producto</div>
+          <div class="resultado-desc-v2" id="resultado-desc">—</div>
+          <div class="resultado-main-v2">
+            <div>
+              <div class="resultado-precio-big" id="resultado-precio">S/ —</div>
+              <div class="resultado-peso-v2" id="resultado-peso">Peso: — kg/und</div>
+              <div class="resultado-subtotal" id="subtotal-prod" style="display:none">
+                × <span id="cant-display-prod">1</span> = <strong id="precio-total-prod">S/ —</strong>
+              </div>
+            </div>
+            <div class="resultado-acciones" id="acciones-prod-individual" style="display:none">
+              <div class="cant-ctrl-v2">
+                <button onclick="cambiarCant('prod',-1)" aria-label="Restar cantidad producto">−</button>
+                <input type="number" id="cant-prod" value="1" min="1" max="999" aria-label="Cantidad producto">
+                <button onclick="cambiarCant('prod',1)" aria-label="Sumar cantidad producto">+</button>
+              </div>
+              <button class="btn-agregar" id="btn-agregar-prod" onclick="agregarItem('prod')">+ Producto</button>
+            </div>
+          </div>
+          <div class="resultado-hint-v2" id="resultado-hint"></div>
+        </div>
+
+        <!-- Sección Tapa -->
+        <div class="resultado-item-sep" id="seccion-tapa" style="display:none">
+          <div class="resultado-item-label">Tapa</div>
+          <div class="resultado-desc-v2" id="resultado-tapa-desc">—</div>
+          <div class="resultado-main-v2">
+            <div>
+              <div class="resultado-precio-big" id="resultado-tapa-precio">S/ —</div>
+              <div class="resultado-peso-v2" id="resultado-tapa-peso">Peso: — kg/und</div>
+              <div class="resultado-subtotal" id="subtotal-tapa" style="display:none">
+                × <span id="cant-display-tapa">1</span> = <strong id="precio-total-tapa">S/ —</strong>
+              </div>
+            </div>
+            <div class="resultado-acciones" id="acciones-tapa-individual" style="display:none">
+              <div class="cant-ctrl-v2">
+                <button onclick="cambiarCant('tapa',-1)" aria-label="Restar cantidad tapa">−</button>
+                <input type="number" id="cant-tapa" value="1" min="1" max="999" aria-label="Cantidad tapa">
+                <button onclick="cambiarCant('tapa',1)" aria-label="Sumar cantidad tapa">+</button>
+              </div>
+              <button class="btn-agregar" id="btn-agregar-tapa" onclick="agregarItem('tapa')">+ Tapa</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer: cantidad compartida + agregar ambos + hint Enter -->
+        <div class="resultado-footer-row">
+          <div id="acciones-ambos" style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+            <div class="cant-ctrl-v2">
+              <button onclick="cambiarCant('main',-1)" aria-label="Restar cantidad">−</button>
+              <input type="number" id="cant-main" value="1" min="1" max="999" aria-label="Cantidad">
+              <button onclick="cambiarCant('main',1)" aria-label="Sumar cantidad">+</button>
+            </div>
+            <button class="btn-agregar" id="btn-agregar-ambos" onclick="agregarAmbos()">+ Carrito</button>
+            <div class="resultado-subtotal-main" id="subtotal-main" style="display:none">
+              × <span id="cant-display-main">1</span> = <strong id="precio-total-main">S/ —</strong>
+            </div>
+          </div>
+          <span class="enter-hint">↵ Enter</span>
+        </div>
+      </div>
+      <!-- fin resultado-box -->
+
+    </div><!-- fin form-card -->
+  </div><!-- fin form-panel -->
+
+  <!-- ── MINI CARRITO EN VIVO ── -->
+  <aside class="carrito-live-panel" id="carrito-live-panel">
+    <button class="carrito-toggle" id="carrito-toggle" title="Mostrar/ocultar carrito">
+      <span>🛒</span>
+      <span class="carrito-toggle-label">Esta sesión</span>
+      <span class="nav-badge" id="carrito-live-count">0</span>
+      <span class="carrito-chevron" aria-hidden="true">›</span>
+    </button>
+    <div class="carrito-live-content">
+      <div id="carrito-live-items">
+        <p class="carrito-live-empty">Todavía no agregaste productos.</p>
+      </div>
+      <div class="carrito-live-aviso" id="carrito-live-aviso" style="display:none">
+        ⚠ Este panel se borra al cerrar la pestaña
+      </div>
+      <div class="carrito-live-footer" id="carrito-live-footer" style="display:none">
+        <div>
+          <div id="carrito-live-total-txt" style="font-size:0.75rem;">0 ítems</div>
+          <strong id="carrito-live-total-soles">S/ 0.00</strong>
+        </div>
+        <a href="/carrito">Ver carrito →</a>
+      </div>
+    </div>
+  </aside>
+
+</div><!-- fin cotizar-layout -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Estado global ──
+let tipoActual    = 'bandeja';
+let calcTimer     = null;
+let calcAbort     = null; // AbortController para cancelar requests anteriores
+let _agregando    = false; // guard anti-doble-tap móvil
+let medidasRecordadas = null; // { tipo, ancho, alto }
+let _lastResult   = { prod: null, tapa: null }; // últimos resultados de la API
+// Si es F5/recarga, limpiar panel en vivo Y carrito real
+const _navType = performance.getEntriesByType('navigation')[0]?.type;
+if (_navType === 'reload') {
+  sessionStorage.removeItem('carritoLive');
+  fetch('/api/carrito/limpiar', { method: 'POST' }).then(() => {
+    const badge = document.getElementById('nav-badge-carrito');
+    if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+  });
+}
+const carritoSesion = JSON.parse(sessionStorage.getItem('carritoLive') || '[]');
+
+const TITULOS = {
+  bandeja: 'Bandeja', curva_horizontal: 'Curva Horizontal',
+  curva_vertical: 'Curva Vertical', tee: 'TEE', cruz: 'Cruz',
+  reduccion: 'Reducción', caja_pase: 'Caja de Pase',
+};
+
+// Campos ancho/alto representativos por tipo (para "arrastrar" dimensiones)
+const CAMPO_ANCHO = {
+  bandeja: 'b-ancho', curva_horizontal: 'ch-ancho', curva_vertical: 'cv-ancho',
+  tee: ['t-derecha','t-izquierda','t-abajo'], cruz: 'c-ancho',
+  reduccion: 'r-mayor', caja_pase: null,
+};
+const CAMPO_ALTO = {
+  bandeja: 'b-alto', curva_horizontal: 'ch-alto', curva_vertical: 'cv-alto',
+  tee: 't-alto', cruz: 'c-alto', reduccion: 'r-alto', caja_pase: null,
+};
+
+// Estado inicial sin FOUC: config colapsado bajo 720px
+// Los toggles manuales y el resize dinámico son gestionados por cotizar-layout.js
+if (window.innerWidth < 720) {
+  document.getElementById('config-panel')?.classList.add('collapsed');
+}
+
+// ── Selección de tipo de producto ──
+document.querySelectorAll('.tipo-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const tipo = this.dataset.tipo;
+    if (tipo === tipoActual) return;
+
+    // Capturar dimensiones antes de cambiar
+    const ancho = getAnchoActual();
+    const alto  = getAltoActual();
+
+    tipoActual = tipo;
+    document.querySelectorAll('.tipo-btn').forEach(b => b.classList.toggle('active', b === this));
+    document.querySelectorAll('.form-producto').forEach(f => f.style.display = 'none');
+    document.getElementById(`form-${tipo}`).style.display = '';
+    document.getElementById('form-titulo').textContent = TITULOS[tipo] || tipo;
+    ocultarResultado();
+
+    // Propagar dimensiones al nuevo tipo
+    if (medidasRecordadas) {
+      aplicarMedidasRecordadas(tipo);
+    } else {
+      aplicarDimensionesCompartidas(tipo, ancho, alto);
+    }
+
+    actualizarIndicador();
+    scheduleCalc();
+
+    // Auto-foco al primer campo de medidas del nuevo tipo
+    const primerInput = document.querySelector(`#form-${tipo} .form-input:not([type=checkbox])`);
+    if (primerInput) setTimeout(() => primerInput.focus(), 30);
+  });
+});
+
+// ── Chips de radio (sidebar + curva vertical) ──
+document.querySelectorAll('.chip-group').forEach(group => {
+  group.querySelectorAll('input[type=radio]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      group.querySelectorAll('.chip-label').forEach(l => l.classList.remove('selected'));
+      this.closest('.chip-label').classList.add('selected');
+      scheduleCalc();
+    });
+  });
+});
+
+// ── Auto-cálculo: dispara al cambiar inputs ──
+document.addEventListener('input', e => {
+  if (e.target.matches('.form-input, .form-select-sm, #esp-prod, #esp-tapa')) scheduleCalc();
+  if (e.target.matches('#cant-main, #cant-prod, #cant-tapa')) actualizarSubtotales();
+});
+document.addEventListener('change', e => {
+  if (e.target.matches('.form-input, .form-select-sm, #esp-prod, #esp-tapa, #b-ml')) scheduleCalc();
+  if (e.target.classList.contains('check-contapa')) actualizarQtyMode();
+});
+
+function scheduleCalc() {
+  clearTimeout(calcTimer);
+  // Dimear resultado visible para indicar que está recalculando
+  const box = document.getElementById('resultado-box');
+  if (box.classList.contains('visible')) box.classList.add('recalculando');
+  calcTimer = setTimeout(calcularReal, 200);
+}
+
+// ── Forzar cálculo inmediato si hay uno pendiente (evita el "fantasma" al agregar) ──
+async function ensureCalcFresh() {
+  if (calcTimer !== null) {
+    clearTimeout(calcTimer);
+    calcTimer = null;
+    await calcularReal();
+  }
+}
+
+// ── Leer configuración global ──
+function getGlobal() {
+  return {
+    galv:    document.querySelector('input[name=galv]:checked')?.value    || 'GO',
+    ganancia:document.querySelector('input[name=ganancia]:checked')?.value || '30',
+    sup:     document.querySelector('input[name=sup]:checked')?.value     || 'LISA',
+    espProd: document.getElementById('esp-prod').value,
+    espTapa: document.getElementById('esp-tapa').value,
+  };
+}
+
+// ── Helpers para dimensiones ──
+function getAnchoActual() {
+  const c = CAMPO_ANCHO[tipoActual];
+  if (!c) return null;
+  const id = Array.isArray(c) ? c[0] : c;
+  const v = +document.getElementById(id)?.value;
+  return v > 0 ? v : null;
+}
+function getAltoActual() {
+  const c = CAMPO_ALTO[tipoActual];
+  if (!c) return null;
+  const v = +document.getElementById(c)?.value;
+  return v > 0 ? v : null;
+}
+function aplicarDimensionesCompartidas(tipo, ancho, alto) {
+  if (ancho) {
+    const c = CAMPO_ANCHO[tipo];
+    if (c) (Array.isArray(c) ? c : [c]).forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = ancho;
+    });
+  }
+  if (alto) {
+    const c = CAMPO_ALTO[tipo];
+    if (c) { const el = document.getElementById(c); if (el) el.value = alto; }
+  }
+}
+
+// ── Medidas recordadas ──
+function getMedidasActuales() {
+  const n = id => { const v = +document.getElementById(id)?.value; return v > 0 ? v : null; };
+  if (tipoActual === 'bandeja')          return { ancho: n('b-ancho'),  alto: n('b-alto') };
+  if (tipoActual === 'curva_horizontal') return { ancho: n('ch-ancho'), alto: n('ch-alto') };
+  if (tipoActual === 'curva_vertical')   return { ancho: n('cv-ancho'), alto: n('cv-alto') };
+  if (tipoActual === 'tee')             return { ancho: n('t-derecha'), alto: n('t-alto') };
+  if (tipoActual === 'cruz')            return { ancho: n('c-ancho'),  alto: n('c-alto') };
+  if (tipoActual === 'reduccion')       return { ancho: n('r-mayor'),  alto: n('r-alto') };
+  return null;
+}
+function aplicarMedidasRecordadas(tipo) {
+  if (!medidasRecordadas || tipo === 'caja_pase') return;
+  const { ancho, alto } = medidasRecordadas;
+  const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  if      (tipo === 'bandeja')          { s('b-ancho', ancho);  s('b-alto', alto); }
+  else if (tipo === 'curva_horizontal') { s('ch-ancho', ancho); s('ch-alto', alto); }
+  else if (tipo === 'curva_vertical')   { s('cv-ancho', ancho); s('cv-alto', alto); }
+  else if (tipo === 'tee')             { s('t-derecha', ancho); s('t-izquierda', ancho); s('t-abajo', ancho); s('t-alto', alto); }
+  else if (tipo === 'cruz')            { s('c-ancho', ancho);  s('c-alto', alto); }
+  else if (tipo === 'reduccion')       { s('r-mayor', ancho);  s('r-menor', Math.max(ancho-100,1)); s('r-alto', alto); }
+}
+function recordarMedidas() {
+  if (tipoActual === 'caja_pase') return;
+  const m = getMedidasActuales();
+  if (!m || !m.ancho || !m.alto) { toast('Ingresá medidas antes de recordar', 'error'); return; }
+  medidasRecordadas = { tipo: tipoActual, ancho: m.ancho, alto: m.alto };
+  actualizarIndicador();
+}
+function limpiarRecordar() {
+  medidasRecordadas = null;
+  actualizarIndicador();
+}
+function actualizarIndicador() {
+  const btnBar  = document.getElementById('btn-recordar-bar');
+  const chip    = document.getElementById('chip-recordar');
+  const chipNom = document.getElementById('chip-recordar-nombre');
+  const esCaja  = tipoActual === 'caja_pase';
+  if (medidasRecordadas) {
+    btnBar.style.display = 'none';
+    chip.style.display   = 'inline-flex';
+    chipNom.textContent  = `${medidasRecordadas.ancho}×${medidasRecordadas.alto}mm`;
+  } else {
+    btnBar.style.display = esCaja ? 'none' : '';
+    chip.style.display   = 'none';
+  }
+  document.querySelectorAll('.tipo-btn').forEach(btn => {
+    btn.classList.toggle('tiene-record',
+      !!medidasRecordadas && btn.dataset.tipo === medidasRecordadas.tipo);
+  });
+}
+
+// ── Auto-recordar medidas al ingresar dimensiones ──
+function _autoRecordar() {
+  if (tipoActual === 'caja_pase') return;
+  const m = getMedidasActuales();
+  if (m && m.ancho && m.alto) recordarMedidas();
+}
+const _DIM_IDS = [
+  'b-ancho','b-alto','ch-ancho','ch-alto','cv-ancho','cv-alto',
+  't-derecha','t-izquierda','t-abajo','t-alto',
+  'c-ancho','c-alto','r-mayor','r-menor','r-alto',
+];
+document.addEventListener('DOMContentLoaded', () => {
+  _DIM_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', _autoRecordar);
+  });
+
+  // ── Teclado numérico + bloqueo de caracteres no numéricos ──
+  document.querySelectorAll('input[type=number]').forEach(inp => {
+    const isDecimal = parseFloat(inp.getAttribute('step') || '1') % 1 !== 0;
+    inp.setAttribute('inputmode', isDecimal ? 'decimal' : 'numeric');
+    inp.addEventListener('keydown', e => {
+      const nav = ['Backspace','Delete','Tab','Escape','Enter',
+                   'ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+      if (nav.includes(e.key) || e.ctrlKey || e.metaKey) return;
+      if (isDecimal && (e.key === '.' || e.key === ',')) return;
+      if (!/^\d$/.test(e.key)) e.preventDefault();
+    });
+  });
+});
+
+// ── Cálculo real con la API ──
+async function calcularReal() {
+  const g = getGlobal();
+  const n = id => { const v = +document.getElementById(id)?.value; return v > 0 ? v : null; };
+
+  let body = {
+    tipo_galvanizado: g.galv,
+    ganancia: g.ganancia,
+    tipo_superficie: g.sup,
+    espesor_producto: g.espProd,
+    espesor_tapa: g.espTapa,
+  };
+
+  if (tipoActual === 'bandeja') {
+    const ancho = n('b-ancho'), alto = n('b-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    body.ancho = ancho; body.alto = alto;
+    body.es_metro_lineal = document.getElementById('b-ml').checked;
+
+  } else if (tipoActual === 'curva_horizontal') {
+    const ancho = n('ch-ancho'), alto = n('ch-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    body.ancho = ancho; body.alto = alto;
+
+  } else if (tipoActual === 'curva_vertical') {
+    const ancho = n('cv-ancho'), alto = n('cv-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    body.ancho = ancho; body.alto = alto;
+    body.tipo_curva = document.querySelector('input[name=tipo_curva]:checked')?.value || 'EXTERNA';
+
+  } else if (tipoActual === 'tee') {
+    const d = n('t-derecha'), i = n('t-izquierda'), ab = n('t-abajo'), alto = n('t-alto');
+    if (!d || !i || !ab || !alto) return ocultarResultado();
+    body.derecha = d; body.izquierda = i; body.abajo = ab; body.alto = alto;
+
+  } else if (tipoActual === 'cruz') {
+    const ancho = n('c-ancho'), alto = n('c-alto');
+    if (!ancho || !alto) return ocultarResultado();
+    body.ancho = ancho; body.alto = alto;
+
+  } else if (tipoActual === 'reduccion') {
+    const mayor = n('r-mayor'), menor = n('r-menor'), alto = n('r-alto');
+    if (!mayor || !menor || !alto) return ocultarResultado();
+    body.ancho_mayor = mayor; body.ancho_menor = menor; body.alto = alto;
+
+  } else if (tipoActual === 'caja_pase') {
+    const d1 = n('cp-d1'), d2 = n('cp-d2'), d3 = n('cp-d3');
+    if (!d1 || !d2 || !d3) return ocultarResultado();
+    body.dim1 = d1; body.dim2 = d2; body.dim3 = d3;
+    body.tipo_salida = document.getElementById('cp-salida').value;
+  }
+
+  // Cancelar request anterior si sigue en vuelo
+  if (calcAbort) calcAbort.abort();
+  calcAbort = new AbortController();
+
+  try {
+    const resp = await fetch(`/api/cotizar/${tipoActual}`, {
+      method: 'POST',
+      body: formData(body),
+      signal: calcAbort.signal,
+    });
+    const data = await resp.json();
+    document.getElementById('resultado-box').classList.remove('recalculando');
+    if (data.ok && data.resultados?.length > 0) {
+      const prod = data.resultados[0];
+      const tapa = data.resultados.length > 1 ? data.resultados[1] : null;
+      _lastResult = { prod, tapa };
+      mostrarResultado(prod, tapa);
+    } else {
+      ocultarResultado();
+    }
+  } catch (e) {
+    document.getElementById('resultado-box').classList.remove('recalculando');
+    if (e.name !== 'AbortError') ocultarResultado();
+  }
+}
+
+// ── Mostrar resultado ──
+function mostrarResultado(prod, tapa) {
+  document.getElementById('resultado-box').classList.add('visible');
+  document.getElementById('resultado-desc').textContent        = prod.descripcion;
+  // Flash al actualizar precio (fix D)
+  const _precioEl = document.getElementById('resultado-precio');
+  _precioEl.textContent = `S/ ${prod.precio_unitario.toFixed(2)}`;
+  _precioEl.classList.remove('price-updated');
+  void _precioEl.offsetWidth; // reflow para reiniciar la animación
+  _precioEl.classList.add('price-updated');
+  document.getElementById('resultado-peso').textContent        = `Peso: ${prod.peso_unitario.toFixed(2)} kg/und`;
+  document.getElementById('resultado-hint').textContent        = prod.descripcion.includes('POR ML') ? 'Precio por metro lineal' : '';
+  document.getElementById('msg-medidas').style.display         = 'none';
+
+  const secTapa = document.getElementById('seccion-tapa');
+  if (tapa) {
+    secTapa.style.display = '';
+    document.getElementById('resultado-tapa-desc').textContent       = tapa.descripcion;
+    document.getElementById('resultado-tapa-precio').textContent     = `S/ ${tapa.precio_unitario.toFixed(2)}`;
+    document.getElementById('resultado-tapa-peso').textContent       = `Peso: ${tapa.peso_unitario.toFixed(2)} kg/und`;
+  } else {
+    secTapa.style.display = 'none';
+  }
+
+  actualizarQtyMode();
+}
+
+function ocultarResultado() {
+  _lastResult = { prod: null, tapa: null };
+  document.getElementById('resultado-box').classList.remove('visible');
+  document.getElementById('msg-medidas').style.display = '';
+}
+
+// ── Modo con/sin tapa ──
+function getConTapa() {
+  if (tipoActual === 'caja_pase') return false; // tapa incluida en precio, no se agrega por separado
+  if (!_lastResult.tapa) return false; // sin tapa en resultado
+  const cb = document.querySelector(`#form-${tipoActual} .check-contapa`);
+  return cb ? cb.checked : true;
+}
+
+function actualizarQtyMode() {
+  const con = getConTapa();
+  const hayTapa = !!_lastResult.tapa;
+
+  // Modo "juntos": una cantidad, un botón + Carrito
+  document.getElementById('acciones-ambos').style.display        = (con && hayTapa) ? 'flex' : 'none';
+  // Modo "separados": controles individuales por producto y tapa
+  document.getElementById('acciones-prod-individual').style.display = (!con) ? 'flex' : 'none';
+  document.getElementById('acciones-tapa-individual').style.display = (!con && hayTapa) ? 'flex' : 'none';
+
+  // Sincronizar valores de cantidad
+  if (!con) {
+    document.getElementById('cant-prod').value = document.getElementById('cant-main').value;
+    if (hayTapa) document.getElementById('cant-tapa').value = document.getElementById('cant-main').value;
+  }
+  actualizarSubtotales();
+}
+
+// ── Cantidad ──
+function cambiarCant(cual, delta) {
+  const ids = { prod: 'cant-prod', tapa: 'cant-tapa', main: 'cant-main' };
+  const inp = document.getElementById(ids[cual]);
+  if (inp) inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+  actualizarSubtotales();
+}
+
+// ── Agregar ítem individual (prod o tapa) ──
+async function agregarItem(cual) {
+  if (_agregando) return;
+  _agregando = true;
+  try {
+    await ensureCalcFresh();
+    const r = cual === 'prod' ? _lastResult.prod : _lastResult.tapa;
+    if (!r) return;
+    const g    = getGlobal();
+    const conTapa = getConTapa();
+    const cantId  = conTapa ? 'cant-main' : (cual === 'prod' ? 'cant-prod' : 'cant-tapa');
+    const cant    = parseInt(document.getElementById(cantId).value) || 1;
+
+    const data = await apiFetch('/api/carrito/agregar', {
+      method: 'POST',
+      body: formData({
+        tipo: r.tipo,
+        descripcion: r.descripcion,
+        precio_unitario: r.precio_unitario,
+        peso_unitario: r.peso_unitario,
+        cantidad: cant,
+        tipo_galvanizado: g.galv,
+        porcentaje_ganancia: g.ganancia,
+        unidad: r.descripcion.includes('POR ML') ? 'ML' : 'UND',
+      }),
+    });
+    if (data.ok) {
+      const btnId = cual === 'prod' ? 'btn-agregar-prod' : 'btn-agregar-tapa';
+      const lbl   = cual === 'prod' ? '+ Producto' : '+ Tapa';
+      flashBtn(btnId, lbl);
+      toast('Agregado al carrito');
+      const ctxKey = getContextKey();
+      const grupo = cual === 'prod'
+        ? { prod: { desc: r.descripcion, cant, precio: r.precio_unitario }, tapa: null }
+        : { prod: null, tapa: { desc: r.descripcion, cant, precio: r.precio_unitario } };
+      carritoSesion.push({ id: Date.now(), label: r.descripcion.split(' - ').slice(0,2).join(' - '), ctxKey, ...grupo, abierto: false });
+      document.getElementById(cantId).value = 1;
+      renderCarritoLive();
+      actualizarBadgeCarrito();
+      animarBadge();
+      // Volver el foco al primer campo de medidas
+      const primerInput = document.querySelector(`#form-${tipoActual} .form-input:not([type=checkbox])`);
+      if (primerInput) setTimeout(() => primerInput.focus(), 80);
+    } else {
+      toast('Error al agregar', 'error');
+    }
+  } finally {
+    _agregando = false;
+  }
+}
+
+// ── Agregar producto + tapa juntos ──
+async function agregarAmbos() {
+  if (_agregando) return;
+  _agregando = true;
+  try {
+    await ensureCalcFresh();
+    if (!document.getElementById('resultado-box').classList.contains('visible')) return;
+    const { prod, tapa } = _lastResult;
+    if (!prod) return;
+    const g    = getGlobal();
+    const cant = parseInt(document.getElementById('cant-main').value) || 1;
+
+    const r1 = await apiFetch('/api/carrito/agregar', {
+      method: 'POST',
+      body: formData({
+        tipo: prod.tipo, descripcion: prod.descripcion,
+        precio_unitario: prod.precio_unitario, peso_unitario: prod.peso_unitario,
+        cantidad: cant, tipo_galvanizado: g.galv, porcentaje_ganancia: g.ganancia,
+        unidad: prod.descripcion.includes('POR ML') ? 'ML' : 'UND',
+      }),
+    });
+    if (!r1.ok) { toast('Error al agregar producto', 'error'); return; }
+
+    let r2 = { ok: true };
+    if (tapa) {
+      r2 = await apiFetch('/api/carrito/agregar', {
+        method: 'POST',
+        body: formData({
+          tipo: tapa.tipo, descripcion: tapa.descripcion,
+          precio_unitario: tapa.precio_unitario, peso_unitario: tapa.peso_unitario,
+          cantidad: cant, tipo_galvanizado: g.galv, porcentaje_ganancia: g.ganancia,
+          unidad: tapa.descripcion.includes('POR ML') ? 'ML' : 'UND',
+        }),
+      });
+    }
+
+    if (r2.ok) {
+      flashBtn('btn-agregar-ambos', '+ Carrito');
+      toast(tapa ? 'Producto + tapa agregados' : 'Producto agregado');
+      document.getElementById('cant-main').value = 1;
+      const label = prod.descripcion.split(' - ').slice(0,2).join(' - ');
+      carritoSesion.push({
+        id: Date.now(), label, ctxKey: getContextKey(), abierto: false,
+        prod: { desc: prod.descripcion, cant, precio: prod.precio_unitario },
+        tapa: tapa ? { desc: tapa.descripcion, cant, precio: tapa.precio_unitario } : null,
+      });
+      renderCarritoLive();
+      actualizarBadgeCarrito();
+      animarBadge();
+      // Volver el foco al primer campo de medidas
+      const primerInputA = document.querySelector(`#form-${tipoActual} .form-input:not([type=checkbox])`);
+      if (primerInputA) setTimeout(() => primerInputA.focus(), 80);
+    } else {
+      toast('Error al agregar tapa', 'error');
+    }
+  } finally {
+    _agregando = false;
+  }
+}
+
+// ── Bounce en badge del carrito (fix E) ──
+function animarBadge() {
+  ['bn-badge-carrito', 'nav-badge-carrito'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b && b.style.display !== 'none') {
+      b.classList.remove('badge-bounce');
+      void b.offsetWidth;
+      b.classList.add('badge-bounce');
+    }
+  });
+}
+
+// ── Feedback visual en botón ──
+function flashBtn(id, textoOriginal) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.textContent = '✓'; btn.classList.add('ok');
+  setTimeout(() => { btn.textContent = textoOriginal; btn.classList.remove('ok'); }, 1200);
+}
+
+// ── Clave de contexto (para live panel) ──
+function getContextKey() {
+  const g = getGlobal();
+  const n = id => document.getElementById(id)?.value || '';
+  let dims = '';
+  if      (tipoActual === 'bandeja')           dims = `${n('b-ancho')}x${n('b-alto')}`;
+  else if (tipoActual === 'curva_horizontal')  dims = `${n('ch-ancho')}x${n('ch-alto')}`;
+  else if (tipoActual === 'curva_vertical')    dims = `${n('cv-ancho')}x${n('cv-alto')}|${document.querySelector('input[name=tipo_curva]:checked')?.value}`;
+  else if (tipoActual === 'tee')               dims = `${n('t-derecha')}x${n('t-izquierda')}x${n('t-abajo')}x${n('t-alto')}`;
+  else if (tipoActual === 'cruz')              dims = `${n('c-ancho')}x${n('c-alto')}`;
+  else if (tipoActual === 'reduccion')         dims = `${n('r-mayor')}x${n('r-menor')}x${n('r-alto')}`;
+  else if (tipoActual === 'caja_pase')         dims = `${n('cp-d1')}x${n('cp-d2')}x${n('cp-d3')}`;
+  return `${tipoActual}|${dims}|${g.galv}|${g.sup}`;
+}
+
+// ── Render del mini carrito en vivo ──
+function renderCarritoLive() {
+  const container = document.getElementById('carrito-live-items');
+  const footer    = document.getElementById('carrito-live-footer');
+  const countEl   = document.getElementById('carrito-live-count');
+  const totalEl   = document.getElementById('carrito-live-total-txt');
+
+  const aviso = document.getElementById('carrito-live-aviso');
+  countEl.textContent = carritoSesion.length;
+  sessionStorage.setItem('carritoLive', JSON.stringify(carritoSesion));
+
+  if (carritoSesion.length === 0) {
+    container.innerHTML = '<p class="carrito-live-empty">Todavía no agregaste productos.</p>';
+    footer.style.display = 'none';
+    if (aviso) aviso.style.display = 'none';
+    return;
+  }
+  if (aviso) aviso.style.display = '';
+
+  let html = '';
+  carritoSesion.forEach((g) => {
+    let tagHtml = '';
+    let cantDisplay = g.prod ? g.prod.cant : (g.tapa ? g.tapa.cant : 1);
+    if (g.prod && g.tapa)       tagHtml = '<span class="cli-tag ct">C/T</span>';
+    else if (g.prod && !g.tapa) tagHtml = '<span class="cli-tag st">S/T</span>';
+    else if (!g.prod && g.tapa) tagHtml = '<span class="cli-tag tapa">Solo Tapa</span>';
+
+    const labelEsc = g.label.replace(/"/g, '&quot;');
+    html += `<div class="cli-grupo">
+      <div class="cli-row" onclick="toggleGrupoLive(${g.id})">
+        <span class="cli-arrow${g.abierto ? ' open' : ''}">▶</span>
+        <span class="cli-label" title="${labelEsc}">${g.label}</span>
+        ${tagHtml}
+        <span class="cli-qty">×${cantDisplay}</span>
+        <button class="cli-del" onclick="event.stopPropagation(); deleteGrupoLive(${g.id})" title="Quitar">×</button>
+      </div>
+      <div class="cli-detail${g.abierto ? ' open' : ''}">`;
+    if (g.prod) html += `<div class="cli-detail-line"><span><strong>Producto:</strong> ×${g.prod.cant} = S/ ${(g.prod.cant * g.prod.precio).toFixed(2)}</span></div>`;
+    if (g.tapa) html += `<div class="cli-detail-line"><span><strong>Tapa:</strong> ×${g.tapa.cant} = S/ ${(g.tapa.cant * g.tapa.precio).toFixed(2)}</span></div>`;
+    html += `</div></div>`;
+  });
+
+  const totalUnds = carritoSesion.reduce((s, g) => s + (g.prod?.cant || 0) + (g.tapa?.cant || 0), 0);
+  const totalSoles = carritoSesion.reduce((s, g) =>
+    s + (g.prod ? g.prod.cant * g.prod.precio : 0)
+      + (g.tapa ? g.tapa.cant * g.tapa.precio : 0), 0);
+  container.innerHTML = html;
+  totalEl.textContent = `${totalUnds} ítem${totalUnds !== 1 ? 's' : ''}`;
+  document.getElementById('carrito-live-total-soles').textContent = `S/ ${totalSoles.toFixed(2)}`;
+  footer.style.display = '';
+}
+
+function toggleGrupoLive(id) {
+  const g = carritoSesion.find(x => x.id === id);
+  if (g) { g.abierto = !g.abierto; renderCarritoLive(); }
+}
+function deleteGrupoLive(id) {
+  const idx = carritoSesion.findIndex(x => x.id === id);
+  if (idx !== -1) carritoSesion.splice(idx, 1);
+  renderCarritoLive();
+  actualizarBadgeCarrito();
+}
+
+// ── Subtotales dinámicos ──
+function actualizarSubtotales() {
+  if (!_lastResult.prod) return; // sin resultado, nada que mostrar
+  const con = getConTapa();
+  const hayTapa = !!_lastResult.tapa;
+  const modoJuntos = con && hayTapa;
+
+  // Subtotal producto (modo separado)
+  const stProd = document.getElementById('subtotal-prod');
+  if (stProd) {
+    if (!modoJuntos && _lastResult.prod) {
+      const cantProd = parseInt(document.getElementById('cant-prod').value) || 1;
+      document.getElementById('cant-display-prod').textContent = cantProd;
+      document.getElementById('precio-total-prod').textContent = `S/ ${(cantProd * _lastResult.prod.precio_unitario).toFixed(2)}`;
+      stProd.style.display = cantProd > 1 ? '' : 'none';
+    } else {
+      stProd.style.display = 'none';
+    }
+  }
+
+  // Subtotal tapa (modo separado)
+  const stTapa = document.getElementById('subtotal-tapa');
+  if (stTapa) {
+    if (!modoJuntos && _lastResult.tapa) {
+      const cantTapa = parseInt(document.getElementById('cant-tapa').value) || 1;
+      document.getElementById('cant-display-tapa').textContent = cantTapa;
+      document.getElementById('precio-total-tapa').textContent = `S/ ${(cantTapa * _lastResult.tapa.precio_unitario).toFixed(2)}`;
+      stTapa.style.display = cantTapa > 1 ? '' : 'none';
+    } else {
+      stTapa.style.display = 'none';
+    }
+  }
+
+  // Subtotal combinado (modo juntos)
+  const stMain = document.getElementById('subtotal-main');
+  if (stMain) {
+    if (modoJuntos && _lastResult.prod) {
+      const cantMain = parseInt(document.getElementById('cant-main').value) || 1;
+      document.getElementById('cant-display-main').textContent = cantMain;
+      const precioTotal = cantMain * (_lastResult.prod.precio_unitario + (_lastResult.tapa?.precio_unitario || 0));
+      document.getElementById('precio-total-main').textContent = `S/ ${precioTotal.toFixed(2)}`;
+      stMain.style.display = cantMain > 1 ? '' : 'none';
+    } else {
+      stMain.style.display = 'none';
+    }
+  }
+}
+
+
+// ── Restaurar panel en vivo al cargar ──
+renderCarritoLive();
+
+// ── Aviso al cerrar/F5 si hay ítems (no al navegar internamente) ──
+let _navegandoInternamente = false;
+document.querySelectorAll('a[href^="/"]').forEach(a => {
+  a.addEventListener('click', () => { _navegandoInternamente = true; });
+});
+window.addEventListener('beforeunload', e => {
+  if (carritoSesion.length > 0 && !_navegandoInternamente) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+  setTimeout(() => { _navegandoInternamente = false; }, 200);
+});
+
+
+// ── Enter / Ctrl+Enter → agregar al carrito ──
+document.addEventListener('keydown', async e => {
+  if (e.key !== 'Enter') return;
+  if (document.activeElement.tagName === 'SELECT' || document.activeElement.tagName === 'BUTTON') return;
+  e.preventDefault();
+
+  if (e.ctrlKey || e.metaKey) {
+    // Ctrl+Enter: cancelar debounce pendiente, forzar cálculo ahora y agregar
+    clearTimeout(calcTimer);
+    calcTimer = null;
+    await calcularReal();
+    const conTapa = getConTapa();
+    if (conTapa && _lastResult.tapa) agregarAmbos();
+    else if (_lastResult.prod)       agregarItem('prod');
+  } else {
+    // Enter simple: solo agregar si el resultado ya está visible
+    if (document.getElementById('resultado-box').classList.contains('visible')) {
+      const conTapa = getConTapa();
+      if (conTapa && _lastResult.tapa) agregarAmbos();
+      else agregarItem('prod');
+    }
+  }
+});
+
+// ── Alt+1..7 → seleccionar tipo de producto (espeja desktop) ──
+const _TIPOS_ORDEN = [
+  'bandeja', 'curva_horizontal', 'curva_vertical',
+  'tee', 'cruz', 'reduccion', 'caja_pase'
+];
+document.addEventListener('keydown', e => {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  const idx = parseInt(e.key) - 1;
+  if (idx >= 0 && idx < _TIPOS_ORDEN.length) {
+    e.preventDefault();
+    const btn = document.querySelector(`.tipo-btn[data-tipo="${_TIPOS_ORDEN[idx]}"]`);
+    if (btn) btn.click();
+  }
+});
+
+// ── Tab en el último campo de medidas → salta al input de cantidad ──
+function bindTabEnMedidas(formId) {
+  const form = document.getElementById(formId);
+  if (!form) return;
+  const inputs = [...form.querySelectorAll('.form-input[type=number]')];
+  const ultimo = inputs[inputs.length - 1];
+  if (!ultimo) return;
+  ultimo.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || e.shiftKey) return;
+    const box = document.getElementById('resultado-box');
+    if (!box.classList.contains('visible')) return;
+    // Determinar qué input de cantidad es el activo según modo
+    const cantId = getConTapa() ? 'cant-main' : 'cant-prod';
+    const cantInput = document.getElementById(cantId);
+    if (cantInput) {
+      e.preventDefault();
+      cantInput.focus();
+      cantInput.select();
+    }
+  });
+}
+// Registrar para cada tipo
+['bandeja','curva_horizontal','curva_vertical','tee','cruz','reduccion','caja_pase']
+  .forEach(t => bindTabEnMedidas(`form-${t}`));
+
+// ── Tab en cant-main/prod/tapa → vuelve al primer campo del form actual ──
+function bindTabEnCantidad(cantId) {
+  const inp = document.getElementById(cantId);
+  if (!inp) return;
+  inp.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || e.shiftKey) return;
+    const primerInput = document.querySelector(
+      `#form-${tipoActual} .form-input:not([type=checkbox])`
+    );
+    if (primerInput) {
+      e.preventDefault();
+      primerInput.focus();
+      primerInput.select();
+    }
+  });
+}
+bindTabEnCantidad('cant-main');
+bindTabEnCantidad('cant-prod');
+bindTabEnCantidad('cant-tapa');
+</script>
+<script src="/static/cotizar-layout.js"></script>
+{% endblock %}

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cotización AROLUZ</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9pt;
+      color: #000000;
+      background: #ffffff;
+    }
+
+    .page {
+      width: 100%;
+      background: #ffffff;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .logo-text {
+      font-size: 28pt;
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .logo-text .rojo { color: #fe0202; }
+
+    .company-info {
+      text-align: right;
+      font-size: 7.5pt;
+      line-height: 1.6;
+    }
+
+    .company-info .company-name { font-weight: bold; }
+
+    /* ── TÍTULO COTIZACIÓN ── */
+    .cotizacion-header {
+      background-color: #088404;
+      padding: 2px 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: #ffffff;
+    }
+
+    .cotizacion-header .label {
+      font-weight: bold;
+      font-size: 9pt;
+      letter-spacing: 0.5px;
+    }
+
+    .cotizacion-header .numero { font-size: 10pt; }
+
+    /* ── FECHA ── */
+    .fecha-line {
+      text-align: right;
+      font-size: 8.5pt;
+      margin-bottom: 10px;
+    }
+
+    /* ── DATOS CLIENTE ── */
+    .datos-cliente {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 20px;
+      margin-bottom: 12px;
+      font-size: 8.5pt;
+    }
+
+    .datos-cliente .campo { display: flex; gap: 0px; }
+
+    .datos-cliente .campo .key {
+      font-weight: bold;
+      white-space: nowrap;
+      width: 75px;
+    }
+
+    .datos-cliente .campo .val {
+      flex: 1;
+      min-width: 80px;
+    }
+
+    /* ── SALUDO ── */
+    .saludo {
+      font-size: 8.5pt;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+
+    /* ── TABLA DE PRODUCTOS ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8pt;
+    }
+
+    table thead tr {
+      background-color: #008100;
+      color: #000000;
+    }
+
+    table thead th {
+      padding: 2px 4px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 8pt;
+      letter-spacing: 0.5px;
+      border: 1px solid #000000;
+    }
+
+    table thead th.desc { text-align: center; padding-left: 6px; }
+
+    table tbody tr { border-bottom: 1px solid #ccc; }
+
+    table tbody tr:nth-child(even) { background-color: #f5f5f5; }
+
+    table tbody td {
+      padding: 4px 4px;
+      border: 1px solid #000000;
+      vertical-align: middle;
+    }
+
+    td.num  { text-align: center; width: 28px; }
+    td.desc { text-align: left;   padding-left: 6px; }
+    td.und  { text-align: center; width: 50px; }
+    td.cant { text-align: center; width: 50px; }
+    td.punit{ text-align: right;  width: 65px; padding-right: 4px; }
+    td.total{ text-align: right;  width: 70px; padding-right: 4px; }
+
+    /* ── FILAS TOTALES ── */
+    .row-monto-letras td {
+      border: 1px solid #000000;
+      padding: 4px 8px;
+      font-size: 7.5pt;
+    }
+
+    .totales-label {
+      font-weight: bold;
+      font-size: 8pt;
+      text-align: center;
+      padding-right: 6px !important;
+    }
+
+    .totales-val {
+      text-align: right;
+      padding-right: 4px !important;
+      width: 70px;
+    }
+
+    /* ── PIE DE TABLA ── */
+    .pie-tabla {
+      font-size: 8pt;
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .fila-superior th {
+      background-color: #fff000;
+      border: none;
+      text-align: center;
+      font-weight: bold;
+      padding: 2px 0;
+    }
+
+    /* ════════════════════════════
+       PÁGINA 2 - TÉRMINOS
+    ════════════════════════════ */
+    .page-break {
+      page-break-before: always;
+      break-before: page;
+    }
+
+    .section-title {
+      background-color: #018500;
+      color: #fff;
+      font-weight: bold;
+      font-size: 9pt;
+      padding: 3px 8px;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .condiciones-comerciales {
+      display: grid;
+      grid-template-columns: 140px 150px;
+      column-gap: 10px;
+      margin-bottom: 10px;
+      font-size: 8.5pt;
+    }
+
+    .condiciones-comerciales .key { font-weight: bold; text-align: left; }
+
+    .condiciones-comerciales div:nth-child(2n) { text-align: right; }
+
+    .condiciones-generales {
+      font-size: 8pt;
+      line-height: 1.4;
+      margin-bottom: 50px;
+    }
+
+    .condiciones-generales p { margin-bottom: 3px; }
+
+    .cuentas-title {
+      background-color: #018500;
+      color: #fff;
+      font-weight: bold;
+      font-size: 9pt;
+      padding: 3px 8px;
+      text-align: center;
+      margin-bottom: 0;
+      letter-spacing: 0.5px;
+    }
+
+    .tabla-cuentas {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8pt;
+    }
+
+    .tabla-cuentas thead tr { background-color: #87bcd9; color: #000000; }
+
+    .tabla-cuentas thead th {
+      padding: 2px 6px;
+      text-align: center;
+      font-weight: bold;
+      border: 1px solid #000000;
+    }
+
+    .tabla-cuentas tbody td {
+      padding: 2px 8px;
+      border: 1px solid #000000;
+      text-align: center;
+    }
+
+    .tabla-cuentas tbody tr:nth-child(odd) { background-color: #e8e8e8; }
+
+    @page {
+      size: A4;
+      margin: 10mm 12mm;
+    }
+
+    .thead-spacer td {
+      height: 3mm;
+      padding: 0;
+      border: none !important;
+      background: white;
+    }
+
+    @media print {
+      body { background: #ffffff; }
+      .page { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     PÁGINA 1 — COTIZACIÓN
+══════════════════════════════════════ -->
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-area">
+      {% if logo_src %}
+        <img src="{{ logo_src }}" style="height:48px; width:auto; display:block; margin-left:12px;">
+      {% else %}
+        <div class="logo-text"><span class="rojo" style="font-style:italic;">AROLUZ</span> <span style="font-size:14pt; font-weight:400;">E.I.R.L.</span></div>
+      {% endif %}
+    </div>
+    <div class="company-info">
+      <div class="company-name">AROLUZ E.I.R.L. &nbsp; RUC: 20415540290</div>
+      <div>📍 Av. Paramonga Mz. B Lote. 7 Int. 2 - San Martín de Porres</div>
+      <div>📞 Cel.: 998335283 / 994178634</div>
+      <div>✉ Email: ventasaroluz@gmail.com</div>
+    </div>
+  </div>
+
+  <!-- COTIZACIÓN -->
+  <div class="cotizacion-header">
+    <span class="label">COTIZACIÓN &nbsp; {{ razon_social }} &nbsp; {{ proyecto }} &nbsp; {{ atencion }} &nbsp; {{ numero_cotizacion }}</span>
+  </div>
+
+  <!-- FECHA -->
+  <div class="fecha-line">{{ fecha_completa }}</div>
+
+  <!-- DATOS CLIENTE -->
+  <div class="datos-cliente">
+    <div class="campo"><span class="key">SEÑORES:</span><span class="val">{{ razon_social }}</span></div>
+    <div class="campo"><span class="key">RUC:</span><span class="val">{{ ruc }}</span></div>
+    <div class="campo"><span class="key">ATENCIÓN:</span><span class="val">{{ atencion }}</span></div>
+    <div class="campo"><span class="key">CORREO:</span><span class="val">{{ correo }}</span></div>
+    <div class="campo"><span class="key">PROYECTO:</span><span class="val">{{ proyecto }}</span></div>
+    <div class="campo"><span class="key">UBICACIÓN:</span><span class="val">{{ ubicacion }}</span></div>
+  </div>
+
+  <!-- SALUDO -->
+  <div class="saludo">
+    Reciba un cordial y afectuoso saludo. A través de la presente, nos complace presentarle la cotización que ha solicitado.
+  </div>
+
+  <!-- TABLA DE PRODUCTOS -->
+  <table>
+    <thead>
+      <tr class="thead-spacer"><td colspan="6"></td></tr>
+      <tr class="fila-superior">
+        <th colspan="6">{{ encabezado_tabla }}</th>
+      </tr>
+      <tr>
+        <th style="width:28px;">ÍTEM</th>
+        <th class="desc">DESCRIPCIÓN</th>
+        <th style="width:50px;">UND/ML</th>
+        <th style="width:50px;">CANT.</th>
+        <th style="width:65px;">P. UNIT.</th>
+        <th style="width:70px;">TOTAL</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in productos %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td class="desc">{{ item.descripcion }}</td>
+        <td class="und">{{ item.unidad }}</td>
+        <td class="cant">{{ item.cantidad }}</td>
+        <td class="punit">{{ item.precio_unitario }}</td>
+        <td class="total">{{ item.total }}</td>
+      </tr>
+      {% endfor %}
+
+      <!-- FILA MONTO EN LETRAS + SUBTOTAL -->
+      <tr class="row-monto-letras">
+        <td colspan="3" rowspan="3" style="text-align:center; font-size:8pt; vertical-align:middle; font-weight:bold;">
+          {{ monto_letras }}
+        </td>
+        <td colspan="2" class="totales-label">SUBTOTAL {{ sym_label }}</td>
+        <td class="totales-val">{{ subtotal }}</td>
+      </tr>
+      <tr>
+        <td colspan="2" class="totales-label">IGV 18%</td>
+        <td class="totales-val">{{ igv }}</td>
+      </tr>
+      <tr>
+        <td colspan="2" class="totales-label">TOTAL {{ sym_label }}</td>
+        <td class="totales-val" style="font-weight:bold;">{{ total }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pie-tabla">TÉRMINOS Y CONDICIONES EN PÁGINA SIGUIENTE</div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════
+     PÁGINA 2 — TÉRMINOS Y CONDICIONES
+══════════════════════════════════════ -->
+<div class="page page-break">
+
+  <!-- HEADER (igual que página 1) -->
+  <div class="header">
+    <div class="logo-area">
+      {% if logo_src %}
+        <img src="{{ logo_src }}" style="height:48px; width:auto; display:block; margin-left:12px;">
+      {% else %}
+        <div class="logo-text"><span class="rojo" style="font-style:italic;">AROLUZ</span> <span style="font-size:14pt; font-weight:400;">E.I.R.L.</span></div>
+      {% endif %}
+    </div>
+    <div class="company-info">
+      <div class="company-name">AROLUZ E.I.R.L. &nbsp; RUC: 20415540290</div>
+      <div>📍 Av. Paramonga Mz. B Lote. 7 Int. 2 - San Martín de Porres</div>
+      <div>📞 Cel.: 998335283 / 994178634</div>
+      <div>✉ Email: ventasaroluz@gmail.com</div>
+    </div>
+  </div>
+
+  <!-- CONDICIONES COMERCIALES -->
+  <div class="section-title">CONDICIONES COMERCIALES</div>
+  <div class="condiciones-comerciales">
+    <div class="key">MONEDA:</div>              <div>{{ moneda }}</div>
+    <div class="key">FORMA DE PAGO:</div>       <div>A TRATAR</div>
+    <div class="key">PLAZO DE ENTREGA:</div>    <div>FABRICACIÓN</div>
+    <div class="key">VALIDEZ DE LA OFERTA:</div><div>{{ validez }}</div>
+    <div class="key">GARANTÍA:</div>            <div>1 AÑO</div>
+    <div class="key">AGENCIA:</div>             <div>ENTREGA EN OBRA (LIMA)</div>
+  </div>
+
+  <!-- CONDICIONES GENERALES -->
+  <div class="section-title">CONDICIONES GENERALES</div>
+  <div class="condiciones-generales">
+    <p>• Los plazos de entrega están sujetos a variación, previa coordinación con el cliente.</p>
+    <p>• Los horarios de despacho y atención son de 8:30 am. hasta las 16:30 p.m. de lunes a viernes. El horario de refrigerio es de 12:00 p.m. a 1:00 p.m.</p>
+    <p>• La garantía de los productos es válida bajo el cumplimiento de las recomendaciones de manipulación, instalación y operación del fabricante. En caso contrario, esta garantía no procede.</p>
+    <p>• Los materiales son entregados con embalaje plástico tipo strech film. Cualquier otro tipo de embalaje debe ser solicitado expresamente por el cliente y se considerará parte de una oferta adicional. El cliente debe aceptar dicha oferta para proceder con el embalaje solicitado.</p>
+    <p>• Cualquier modificación y/o cambio de los diseños aprobados que sea solicitado con posterioridad dará derecho a la empresa a presentar ajustes por costos adicionales.</p>
+    <p>• Todo material se entrega con certificados y carta de garantía.</p>
+    <p>• En caso de que el tipo de cambio varíe para el segundo abono, se solicitará al cliente el pago en dólares. De lo contrario, se respetará el tipo de cambio del día, siempre y cuando no sea menor al del primer abono.</p>
+  </div>
+
+  <!-- CUENTAS BANCARIAS -->
+  <div class="cuentas-title">CUENTAS BANCARIAS</div>
+  <table class="tabla-cuentas">
+    <thead>
+      <tr>
+        <th>TITULAR</th>
+        <th>AROLUZ E.I.R.L.</th>
+        <th>RUC</th>
+        <th>20415540290</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>CUENTA AHORRO SOLES INTERBANK</strong></td>
+        <td>164-3027814451</td>
+        <td><strong>CCI</strong></td>
+        <td>003-164-013027814451-19</td>
+      </tr>
+      <tr>
+        <td><strong>CUENTA CORRIENTE DÓLARES INTERBANK</strong></td>
+        <td>898-3003900723</td>
+        <td><strong>CCI</strong></td>
+        <td>003-898-003003900723-49</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+
+</body>
+</html>
