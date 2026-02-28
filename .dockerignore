@@ -10,4 +10,6 @@ cotizador_config_backup.json
 temp/
 plantillas/
 *.xlsm
-.fly/
+*.xlsb
+.git/
+.claude/
