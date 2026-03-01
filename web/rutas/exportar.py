@@ -116,41 +116,16 @@ def _generar_pdf_reportlab(
     encabezado_tabla: str = "",
     cotizacion_id: int = 0,
 ) -> bytes:
-    """Genera PDF con ReportLab puro — sin navegador, funciona en Linux/cloud."""
-    import io as _io
-    from reportlab.platypus import (
-        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,
-    )
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.colors import HexColor, white, black
-    from reportlab.lib.units import mm
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
-
-    C_AZUL   = HexColor("#1A3A5C")
-    C_CLARO  = HexColor("#E8F0FE")
-    C_GRIS   = HexColor("#F0F4F8")
+    """Genera PDF con WeasyPrint usando cotizacion_pdf.html — sin navegador, funciona en Linux/cloud."""
+    import base64
+    from jinja2 import Environment, FileSystemLoader
+    from weasyprint import HTML as WeasyprintHTML
 
     es_usd = (moneda == "DOLARES")
     sym    = "$" if es_usd else "S/."
 
     def precio_display(p: float) -> float:
         return round(p / dolar, 2) if es_usd else p
-
-    def S(name, **kw):  # helper para crear ParagraphStyle
-        defaults = {"fontName": "Helvetica", "fontSize": 9, "leading": 11}
-        defaults.update(kw)
-        return ParagraphStyle(name, **defaults)
-
-    s_normal   = S("nm")
-    s_bold     = S("bd", fontName="Helvetica-Bold")
-    s_small    = S("sm", fontSize=8, leading=10)
-    s_sm_c     = S("sc", fontSize=8, leading=10, alignment=TA_CENTER)
-    s_sm_r     = S("sr", fontSize=8, leading=10, alignment=TA_RIGHT)
-    s_white_c  = S("wc", fontName="Helvetica-Bold", textColor=white, alignment=TA_CENTER)
-    s_blue_c   = S("bc", fontName="Helvetica-Bold", textColor=C_AZUL, fontSize=11, alignment=TA_CENTER)
-    s_blue_r   = S("br", fontName="Helvetica-Bold", textColor=C_AZUL, fontSize=10, alignment=TA_RIGHT)
-    s_letras   = S("lt", fontName="Helvetica-Oblique", fontSize=8, textColor=C_AZUL)
 
     # ── Número de cotización ──
     if cotizacion_id:
@@ -165,183 +140,65 @@ def _generar_pdf_reportlab(
         except Exception:
             numero_cotizacion = fecha
 
-    moneda_str = "DÓLARES AMERICANOS" if es_usd else "SOLES PERUANOS"
-    W = A4[0] - 24 * mm  # ancho disponible
-
-    buf = _io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=A4,
-        leftMargin=12*mm, rightMargin=12*mm,
-        topMargin=10*mm, bottomMargin=10*mm,
-        title=f"Cotización {numero_cotizacion}",
-    )
-
-    story = []
-
-    # ── CABECERA ──
-    logo_path = os.path.normpath(
-        os.path.join(os.path.dirname(__file__), "..", "static", "IMAGEN_LOGO_AROLUZEIRL_BARRITA.png")
-    )
-    logo_cell: object
-    if os.path.exists(logo_path):
-        try:
-            logo_cell = Image(logo_path, width=45*mm, height=14*mm, kind="proportional")
-        except Exception:
-            logo_cell = Paragraph("<b>AROLUZ</b>", S("al", fontName="Helvetica-Bold", fontSize=14, textColor=C_AZUL))
-    else:
-        logo_cell = Paragraph("<b>AROLUZ</b>", S("al", fontName="Helvetica-Bold", fontSize=14, textColor=C_AZUL))
-
-    empresa_lines = [
-        Paragraph("<b>AROLUZ E.I.R.L.</b>", S("en", fontName="Helvetica-Bold", fontSize=11, textColor=C_AZUL)),
-        Paragraph("Bandejado de Cable — Escalerillas y Accesorios", s_small),
-        Paragraph("San Martín de Porres, Lima — Perú", s_small),
-    ]
-    cot_lines = [
-        Paragraph("<b>COTIZACIÓN</b>", s_blue_c),
-        Paragraph(f"<b>N°: {numero_cotizacion}</b>", S("nc", fontName="Helvetica-Bold", fontSize=10, textColor=C_AZUL, alignment=TA_CENTER)),
-        Paragraph(_fecha_larga(fecha), S("fc", fontSize=8, alignment=TA_CENTER)),
-    ]
-
-    cab_w = [42*mm, W - 42*mm - 58*mm, 58*mm]
-    cab_table = Table([[logo_cell, empresa_lines, cot_lines]], colWidths=cab_w)
-    cab_table.setStyle(TableStyle([
-        ("VALIGN",      (0, 0), (-1, -1), "MIDDLE"),
-        ("LINEBELOW",   (0, 0), (-1, -1), 1.5, C_AZUL),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    story.append(cab_table)
-    story.append(Spacer(1, 4*mm))
-
-    # ── DATOS DEL CLIENTE ──
-    cli_filas = [
-        [Paragraph("<b>DATOS DEL CLIENTE</b>", s_white_c), ""],
-        [Paragraph("Razón Social:", s_bold), Paragraph(cliente_nombre or cliente or "—", s_normal)],
-        [Paragraph("RUC:", s_bold), Paragraph(cliente_ruc or "—", s_normal)],
-        [Paragraph("Dirección:", s_bold), Paragraph(cliente_ubicacion or "—", s_normal)],
-        [Paragraph("Atención:", s_bold), Paragraph(atencion or "—", s_normal)],
-        [Paragraph("Correo:", s_bold), Paragraph(atencion_email or "—", s_normal)],
-        [Paragraph("Proyecto:", s_bold), Paragraph(proyecto or "—", s_normal)],
-    ]
-    cli_table = Table(cli_filas, colWidths=[28*mm, W - 28*mm])
-    cli_ts = [
-        ("SPAN",       (0, 0), (1, 0)),
-        ("BACKGROUND", (0, 0), (1, 0), C_AZUL),
-        ("FONTNAME",   (0, 0), (1, 0), "Helvetica-Bold"),
-        ("FONTSIZE",   (0, 0), (1, 0), 9),
-        ("TEXTCOLOR",  (0, 0), (1, 0), white),
-        ("PADDING",    (0, 0), (-1, -1), 4),
-        ("GRID",       (0, 1), (-1, -1), 0.3, HexColor("#CCCCCC")),
-        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
-    ]
-    for i in range(1, len(cli_filas)):
-        if i % 2 == 0:
-            cli_ts.append(("BACKGROUND", (0, i), (1, i), C_GRIS))
-    cli_table.setStyle(TableStyle(cli_ts))
-    story.append(cli_table)
-    story.append(Spacer(1, 4*mm))
-
-    # ── ENCABEZADO TABLA OPCIONAL ──
-    if encabezado_tabla.strip():
-        story.append(Paragraph(
-            encabezado_tabla.strip().upper(),
-            S("ht", fontName="Helvetica-Bold", fontSize=9, textColor=C_AZUL),
-        ))
-        story.append(Spacer(1, 2*mm))
-
-    # ── TABLA DE PRODUCTOS ──
-    prod_header = [
-        Paragraph("#", s_white_c),
-        Paragraph("DESCRIPCIÓN", s_white_c),
-        Paragraph("UND", s_white_c),
-        Paragraph("CANT.", s_white_c),
-        Paragraph(f"P.U. ({sym})", s_white_c),
-        Paragraph(f"P.T. ({sym})", s_white_c),
-    ]
-    prod_rows = [prod_header]
+    # ── Productos formateados para el template ──
+    productos = []
     subtotal_soles = 0.0
-    for i, item in enumerate(carrito):
+    for item in carrito:
         pu_s = _num(item.get("precio_unitario", 0))
         cant = _num(item.get("cantidad", 1))
         pt_s = pu_s * cant
         subtotal_soles += pt_s
-        pu_d = precio_display(pu_s)
-        pt_d = precio_display(pt_s)
-        prod_rows.append([
-            Paragraph(str(i + 1), s_sm_c),
-            Paragraph(item.get("descripcion", ""), s_small),
-            Paragraph(item.get("unidad", "UND"), s_sm_c),
-            Paragraph(str(int(cant)), s_sm_c),
-            Paragraph(f"{pu_d:,.2f}", s_sm_r),
-            Paragraph(f"{pt_d:,.2f}", s_sm_r),
-        ])
+        productos.append({
+            "descripcion":     item.get("descripcion", ""),
+            "unidad":          item.get("unidad", "UND"),
+            "cantidad":        int(cant),
+            "precio_unitario": f"{precio_display(pu_s):,.2f}",
+            "total":           f"{precio_display(pt_s):,.2f}",
+        })
 
     subtotal = precio_display(subtotal_soles)
     igv      = round(subtotal * 0.18, 2)
     total    = round(subtotal + igv, 2)
+    moneda_str = "DÓLARES AMERICANOS" if es_usd else "SOLES PERUANOS"
 
-    desc_w = W - 10*mm - 18*mm - 14*mm - 22*mm - 22*mm
-    prod_table = Table(prod_rows, colWidths=[10*mm, desc_w, 18*mm, 14*mm, 22*mm, 22*mm], repeatRows=1)
-    prod_ts = [
-        ("BACKGROUND",    (0, 0), (-1, 0), C_AZUL),
-        ("TEXTCOLOR",     (0, 0), (-1, 0), white),
-        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE",      (0, 0), (-1, 0), 9),
-        ("GRID",          (0, 0), (-1, -1), 0.3, HexColor("#CCCCCC")),
-        ("PADDING",       (0, 0), (-1, -1), 4),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-    ]
-    for i in range(1, len(prod_rows)):
-        if i % 2 == 0:
-            prod_ts.append(("BACKGROUND", (0, i), (-1, i), C_GRIS))
-    prod_table.setStyle(TableStyle(prod_ts))
-    story.append(prod_table)
-    story.append(Spacer(1, 2*mm))
-
-    # ── TOTALES ──
-    fill_w = W - 52*mm - 28*mm
-    tot_rows = [
-        [Paragraph(_monto_en_letras(total, es_usd), s_letras),
-         Paragraph("Sub Total:", s_normal), Paragraph(f"{sym} {subtotal:,.2f}", s_sm_r)],
-        ["",
-         Paragraph("IGV (18%):", s_normal), Paragraph(f"{sym} {igv:,.2f}", s_sm_r)],
-        ["",
-         Paragraph("<b>TOTAL:</b>", s_blue_r), Paragraph(f"<b>{sym} {total:,.2f}</b>", s_blue_r)],
-    ]
-    tot_table = Table(tot_rows, colWidths=[fill_w, 28*mm, 52*mm])
-    tot_table.setStyle(TableStyle([
-        ("SPAN",       (0, 0), (0, 2)),
-        ("VALIGN",     (0, 0), (0, -1), "MIDDLE"),
-        ("GRID",       (1, 0), (-1, -1), 0.3, HexColor("#CCCCCC")),
-        ("BACKGROUND", (1, 2), (-1, 2), C_CLARO),
-        ("LINEABOVE",  (1, 2), (-1, 2), 1, C_AZUL),
-        ("PADDING",    (0, 0), (-1, -1), 4),
-        ("VALIGN",     (1, 0), (-1, -1), "MIDDLE"),
-    ]))
-    story.append(tot_table)
-    story.append(Spacer(1, 3*mm))
-
-    # ── MONEDA + VALIDEZ ──
-    story.append(Paragraph(
-        f"<b>Moneda:</b> {moneda_str}   |   <b>Validez de la oferta:</b> {validez.upper()}",
-        s_small,
-    ))
-    story.append(Spacer(1, 8*mm))
-
-    # ── FIRMA ──
-    firma_table = Table(
-        [["_______________________________", ""], ["Firma y sello", ""], ["AROLUZ E.I.R.L.", ""]],
-        colWidths=[W // 2, W // 2],
+    # ── Logo en base64 (WeasyPrint no resuelve rutas relativas en string HTML) ──
+    logo_src = None
+    logo_path = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "static", "IMAGEN_LOGO_AROLUZEIRL_BARRITA.png")
     )
-    firma_table.setStyle(TableStyle([
-        ("ALIGN",   (0, 0), (0, -1), "CENTER"),
-        ("FONTNAME",(0, 0), (0, -1), "Helvetica"),
-        ("FONTSIZE",(0, 0), (0, -1), 9),
-        ("PADDING", (0, 0), (-1, -1), 2),
-    ]))
-    story.append(firma_table)
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as _f:
+            logo_src = "data:image/png;base64," + base64.b64encode(_f.read()).decode()
 
-    doc.build(story)
-    return buf.getvalue()
+    # ── Renderizar template HTML ──
+    template_dir = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "templates")
+    )
+    env  = Environment(loader=FileSystemLoader(template_dir))
+    tmpl = env.get_template("cotizacion_pdf.html")
+    html_str = tmpl.render(
+        numero_cotizacion = numero_cotizacion,
+        fecha_completa    = _fecha_larga(fecha),
+        razon_social      = cliente_nombre or cliente or "—",
+        ruc               = cliente_ruc or "—",
+        atencion          = atencion or "—",
+        correo            = atencion_email or "—",
+        proyecto          = proyecto or "—",
+        ubicacion         = cliente_ubicacion or "—",
+        encabezado_tabla  = encabezado_tabla.strip().upper(),
+        productos         = productos,
+        monto_letras      = _monto_en_letras(total, es_usd),
+        subtotal          = f"{subtotal:,.2f}",
+        igv               = f"{igv:,.2f}",
+        total             = f"{total:,.2f}",
+        sym_label         = sym,
+        moneda            = moneda_str,
+        validez           = validez.upper(),
+        logo_src          = logo_src,
+    )
+
+    # ── Convertir HTML → PDF con WeasyPrint (sin navegador) ──
+    return WeasyprintHTML(string=html_str).write_pdf()
 
 
 # ─────────────────────────────────────────────
@@ -687,17 +544,83 @@ def _generar_pdf_html(
     encabezado_tabla: str = "",
     cotizacion_id: int = 0,
 ) -> bytes:
-    """Genera PDF con Playwright (Chromium propio) → sin cabeceras ni pies de página.
+    """Fallback: genera PDF con Playwright usando cotizacion_pdf.html.
 
-    Playwright usa su Chromium interno que sí soporta page.pdf(display_header_footer=False).
-    Se ejecuta en un ThreadPoolExecutor para no bloquear el event loop de FastAPI.
+    Sólo se usa si WeasyPrint no está disponible (Windows local sin GTK+).
+    Requiere: pip install playwright && playwright install chromium
     """
+    import base64
     import concurrent.futures
+    from jinja2 import Environment, FileSystemLoader
 
-    html = _construir_html_cotizacion(
-        carrito, cliente, atencion, moneda, proyecto, fecha,
-        cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
-        dolar, validez, encabezado_tabla, cotizacion_id,
+    # Renderizar la misma plantilla que usa WeasyPrint
+    es_usd = (moneda == "DOLARES")
+    sym    = "$" if es_usd else "S/."
+
+    def precio_display(p: float) -> float:
+        return round(p / dolar, 2) if es_usd else p
+
+    if cotizacion_id:
+        try:
+            año = datetime.strptime(fecha, "%d/%m/%Y").year
+        except Exception:
+            año = datetime.now().year
+        numero_cotizacion = f"COT-{año}-{cotizacion_id:05d}"
+    else:
+        try:
+            numero_cotizacion = datetime.strptime(fecha, "%d/%m/%Y").strftime("%d-%m-%Y")
+        except Exception:
+            numero_cotizacion = fecha
+
+    productos = []
+    subtotal_soles = 0.0
+    for item in carrito:
+        pu_s = _num(item.get("precio_unitario", 0))
+        cant = _num(item.get("cantidad", 1))
+        pt_s = pu_s * cant
+        subtotal_soles += pt_s
+        productos.append({
+            "descripcion":     item.get("descripcion", ""),
+            "unidad":          item.get("unidad", "UND"),
+            "cantidad":        int(cant),
+            "precio_unitario": f"{precio_display(pu_s):,.2f}",
+            "total":           f"{precio_display(pt_s):,.2f}",
+        })
+
+    subtotal = precio_display(subtotal_soles)
+    igv      = round(subtotal * 0.18, 2)
+    total    = round(subtotal + igv, 2)
+    moneda_str = "DÓLARES AMERICANOS" if es_usd else "SOLES PERUANOS"
+
+    logo_src = None
+    logo_path = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "static", "IMAGEN_LOGO_AROLUZEIRL_BARRITA.png")
+    )
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as _f:
+            logo_src = "data:image/png;base64," + base64.b64encode(_f.read()).decode()
+
+    template_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "templates"))
+    env  = Environment(loader=FileSystemLoader(template_dir))
+    html = env.get_template("cotizacion_pdf.html").render(
+        numero_cotizacion = numero_cotizacion,
+        fecha_completa    = _fecha_larga(fecha),
+        razon_social      = cliente_nombre or cliente or "—",
+        ruc               = cliente_ruc or "—",
+        atencion          = atencion or "—",
+        correo            = atencion_email or "—",
+        proyecto          = proyecto or "—",
+        ubicacion         = cliente_ubicacion or "—",
+        encabezado_tabla  = encabezado_tabla.strip().upper(),
+        productos         = productos,
+        monto_letras      = _monto_en_letras(total, es_usd),
+        subtotal          = f"{subtotal:,.2f}",
+        igv               = f"{igv:,.2f}",
+        total             = f"{total:,.2f}",
+        sym_label         = sym,
+        moneda            = moneda_str,
+        validez           = validez.upper(),
+        logo_src          = logo_src,
     )
 
     def _run_playwright() -> bytes:
@@ -716,8 +639,6 @@ def _generar_pdf_html(
             browser.close()
         return pdf_bytes
 
-    # Ejecutar en hilo propio: sync_playwright crea su propio event loop,
-    # lo que entraría en conflicto con el de FastAPI si se llama directamente.
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(_run_playwright).result(timeout=60)
 
@@ -738,21 +659,30 @@ def _generar_pdf(
     encabezado_tabla: str = "",
     cotizacion_id: int = 0,
 ) -> bytes:
-    """Intenta PDF vía Edge/Chrome headless + HTML template; cae a ReportLab si falla."""
+    """Genera PDF usando cotizacion_pdf.html.
+
+    Orden de intentos:
+    1. WeasyPrint  — funciona en Linux/cloud (Fly.io). Requiere libpango/libcairo.
+    2. Playwright  — fallback para Windows local (si playwright está instalado).
+    """
+    import sys
+
+    # 1. WeasyPrint (Linux / Fly.io)
     try:
-        return _generar_pdf_html(
-            carrito, cliente, atencion, moneda, proyecto, fecha,
-            cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
-            dolar, validez, encabezado_tabla, cotizacion_id,
-        )
-    except Exception as e:
-        import sys
-        print(f"[exportar] HTML→PDF falló ({type(e).__name__}: {e}) — usando ReportLab", file=sys.stderr)
         return _generar_pdf_reportlab(
             carrito, cliente, atencion, moneda, proyecto, fecha,
             cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
             dolar, validez, encabezado_tabla=encabezado_tabla, cotizacion_id=cotizacion_id,
         )
+    except Exception as e:
+        print(f"[exportar] WeasyPrint falló ({type(e).__name__}: {e}) — intentando Playwright", file=sys.stderr)
+
+    # 2. Playwright (Windows local)
+    return _generar_pdf_html(
+        carrito, cliente, atencion, moneda, proyecto, fecha,
+        cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
+        dolar, validez, encabezado_tabla, cotizacion_id,
+    )
 
 
 # ─────────────────────────────────────────────
