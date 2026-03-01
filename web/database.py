@@ -313,6 +313,52 @@ def listar_usuarios() -> List[Dict]:
     return [dict(r) for r in rows]
 
 
+def editar_usuario(username: str, nombre: str, rol: str) -> bool:
+    """Edita nombre y rol de un usuario existente."""
+    if rol not in ("ADMIN", "USER"):
+        rol = "USER"
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE usuarios SET nombre=?, rol=? WHERE username=?",
+            (nombre, rol, username),
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
+def toggle_activo_usuario(username: str) -> dict:
+    """Alterna el estado activo/inactivo de un usuario."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        row = conn.execute("SELECT activo FROM usuarios WHERE username=?", (username,)).fetchone()
+        if not row:
+            conn.close()
+            return {"ok": False, "error": "Usuario no encontrado"}
+        nuevo = 0 if row[0] else 1
+        conn.execute("UPDATE usuarios SET activo=? WHERE username=?", (nuevo, username))
+        conn.commit()
+        conn.close()
+        return {"ok": True, "activo": bool(nuevo)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def eliminar_usuario(username: str) -> bool:
+    """Elimina un usuario permanentemente."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("DELETE FROM usuarios WHERE username=?", (username,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
 # ─────────────────────────────────────────────
 # Configuración
 # ─────────────────────────────────────────────

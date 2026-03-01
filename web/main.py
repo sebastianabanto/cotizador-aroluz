@@ -34,6 +34,7 @@ from web.database import (
     editar_cliente, editar_atencion,
     obtener_cliente, obtener_atenciones_de_cliente,
     crear_usuario, cambiar_password, listar_usuarios,
+    editar_usuario, toggle_activo_usuario, eliminar_usuario,
 )
 from web.rutas import cotizar as rutas_cotizar
 from web.rutas import carrito as rutas_carrito
@@ -778,6 +779,47 @@ async def cfg_cambiar_password(
     if not ver(usuario["u"], password_actual):
         return JSONResponse({"ok": False, "error": "Contraseña actual incorrecta"}, status_code=401)
     ok = cambiar_password(usuario["u"], password_nuevo)
+    return JSONResponse({"ok": ok})
+
+
+@app.put("/configuracion/usuario/{username}")
+async def cfg_editar_usuario(
+    username: str,
+    usuario: dict = Depends(require_admin),
+    nombre: str = Form(""),
+    rol: str = Form("USER"),
+):
+    if rol not in ("ADMIN", "USER"):
+        rol = "USER"
+    ok = editar_usuario(username, nombre, rol)
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/configuracion/usuario/{username}/toggle_activo")
+async def cfg_toggle_activo(username: str, usuario: dict = Depends(require_admin)):
+    if username == usuario["u"]:
+        return JSONResponse({"ok": False, "error": "No puedes desactivar tu propia cuenta"}, status_code=422)
+    result = toggle_activo_usuario(username)
+    return JSONResponse(result)
+
+
+@app.delete("/configuracion/usuario/{username}")
+async def cfg_eliminar_usuario(username: str, usuario: dict = Depends(require_admin)):
+    if username == usuario["u"]:
+        return JSONResponse({"ok": False, "error": "No puedes eliminar tu propia cuenta"}, status_code=422)
+    ok = eliminar_usuario(username)
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/configuracion/usuario/{username}/reset_password")
+async def cfg_reset_password(
+    username: str,
+    usuario: dict = Depends(require_admin),
+    password_nuevo: str = Form(...),
+):
+    if not password_nuevo or len(password_nuevo) < 4:
+        return JSONResponse({"ok": False, "error": "La contraseña debe tener al menos 4 caracteres"}, status_code=422)
+    ok = cambiar_password(username, password_nuevo)
     return JSONResponse({"ok": ok})
 
 

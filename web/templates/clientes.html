@@ -10,6 +10,21 @@
     <h1 class="page-title" style="margin:0;">Clientes y Atenciones</h1>
   </div>
 
+  <!-- Tarjeta importar / exportar Excel -->
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-title" style="font-size:0.9rem; margin-bottom:0.75rem;">Importar / Exportar Excel</div>
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+      <a href="/configuracion/contactos/exportar" class="btn btn-secondary btn-sm">
+        ↓ Descargar XLSX
+      </a>
+      <div style="display:flex; gap:0.4rem; align-items:center; flex:1; min-width:220px;">
+        <input type="file" id="file-contactos" accept=".xlsx" class="form-control" style="font-size:0.82rem;">
+        <button class="btn btn-primary btn-sm" onclick="importarContactos()">Importar</button>
+      </div>
+    </div>
+    <div id="result-contactos" style="margin-top:0.5rem; font-size:0.82rem; min-height:1rem; color:var(--texto-suave);"></div>
+  </div>
+
   <div class="clientes-layout">
 
     <!-- Panel izquierdo: lista de clientes -->
@@ -78,7 +93,6 @@
   margin-bottom: 1.25rem;
   flex-wrap: wrap;
 }
-
 /* ── Layout: auto-fit — 2 cols cuando caben ≥ 300px c/u, 1 col si no ── */
 .clientes-layout {
   display: grid;
@@ -471,6 +485,37 @@ async function crearCliente() {
     await cargarCliente(codigo);
   } else {
     toast(data.error || 'El cliente ya existe o hubo un error', 'error');
+  }
+}
+
+// ── Importar contactos desde Excel ────────────────────────────────────────
+
+async function importarContactos() {
+  const fileInput = document.getElementById('file-contactos');
+  const result    = document.getElementById('result-contactos');
+  if (!fileInput.files.length) { toast('Seleccioná un archivo .xlsx', 'error'); return; }
+  const fd = new FormData();
+  fd.append('archivo', fileInput.files[0]);
+  result.textContent = 'Importando…';
+  result.style.color = 'var(--texto-suave)';
+  try {
+    const resp = await fetch('/configuracion/contactos/importar', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (data.ok) {
+      result.textContent = `✓ ${data.conteo.clientes} clientes · ${data.conteo.atenciones} atenciones`;
+      result.style.color = '#1a8a4a';
+      toast('Contactos importados correctamente', 'success');
+      fileInput.value = '';
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      result.textContent = data.error || 'Error al importar';
+      result.style.color = 'var(--rojo)';
+      toast(data.error || 'Error al importar', 'error');
+    }
+  } catch {
+    result.textContent = 'Error de red';
+    result.style.color = 'var(--rojo)';
+    toast('Error de red', 'error');
   }
 }
 
