@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+{% set active = "mi-config" %}
+
+{% block title %}Configuración — AROLUZ{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Configuración</h1>
+
+  <!-- ── Tab bar ── -->
+  <div class="cfg-tabs">
+    <button class="cfg-tab active" onclick="switchTab('precios', this)">
+      <span class="cfg-tab-icon">💰</span> Precios
+    </button>
+    <button class="cfg-tab" onclick="switchTab('cuenta', this)">
+      <span class="cfg-tab-icon">👤</span> Mi Cuenta
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- Panel: Precios de Planchas                     -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="cfg-panel" id="panel-precios">
+
+    <!-- Precios de planchas -->
+    <div class="cfg-card">
+      <div class="cfg-card-header">
+        <span class="cfg-card-icon" style="background:#fef3e2; color:#b45309;">▦</span>
+        <span>Precios de Planchas (S/ por plancha)</span>
+      </div>
+      <div class="cfg-card-body">
+        <div class="precio-table-wrap">
+          <table class="precio-table">
+            <thead>
+              <tr>
+                <th class="pt-head-label">Tipo</th>
+                <th>1.2 mm</th>
+                <th>1.5 mm</th>
+                <th>2.0 mm</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="pt-row-go">
+                <td class="precio-table-label">
+                  <span class="pt-badge pt-badge-go">GO</span>
+                  <span class="pt-label-text">Origen</span>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="go-12" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_go['1.2'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="go-15" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_go['1.5'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="go-20" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_go['2.0'] }}">
+                  </div>
+                </td>
+              </tr>
+              <tr class="pt-row-gc">
+                <td class="precio-table-label">
+                  <span class="pt-badge pt-badge-gc">GC</span>
+                  <span class="pt-label-text">Caliente</span>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="gc-12" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_gc['1.2'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="gc-15" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_gc['1.5'] }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <span class="pt-prefix">S/</span>
+                    <input type="number" id="gc-20" step="0.01" min="0"
+                      value="{{ config.valores_defecto.precios_gc['2.0'] }}">
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="cfg-save-row">
+      <button class="btn btn-primary" onclick="pedirConfirmacion()" style="min-width:160px;">
+        Guardar cambios
+      </button>
+    </div>
+
+  </div><!-- /panel-precios -->
+
+  <!-- ── Modal de confirmación guardar precios ── -->
+  <div id="modal-confirm-cfg" style="display:none; position:fixed; inset:0; z-index:9000;
+    background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:1.75rem 2rem; max-width:420px;
+      width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <div style="font-size:1.5rem; margin-bottom:0.5rem;">⚠️</div>
+      <h3 style="margin:0 0 0.75rem; font-size:1.05rem; color:#1a3a5c;">
+        ¿Guardar cambios de configuración?
+      </h3>
+      <p style="margin:0 0 1.25rem; font-size:0.9rem; color:#6b7280; line-height:1.5;">
+        Los nuevos valores de precio afectarán <strong>todas las cotizaciones futuras</strong>.
+        Las cotizaciones ya guardadas en el historial no se modifican.
+      </p>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="cerrarModalConfig()">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmarGuardar()">Sí, guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- Panel: Mi Cuenta                               -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="cfg-panel oculto" id="panel-cuenta">
+    <div class="cfg-row-2">
+
+      <!-- Columna: info de cuenta -->
+      <div>
+        <div class="cfg-card">
+          <div class="cfg-card-header">
+            <span class="cfg-card-icon" style="background:#e8f4fd; color:#1a6fad;">👤</span>
+            <span>Datos de la Cuenta</span>
+          </div>
+          <div class="cfg-card-body">
+            <div class="cfg-field">
+              <label class="cfg-label">Usuario</label>
+              <div style="font-weight:600; font-size:1rem; padding:0.4rem 0;">{{ usuario.u }}</div>
+            </div>
+            {% if usuario.n %}
+            <div class="cfg-field">
+              <label class="cfg-label">Nombre</label>
+              <div style="font-size:0.9rem; color:var(--texto-suave); padding:0.4rem 0;">{{ usuario.n }}</div>
+            </div>
+            {% endif %}
+            <div class="cfg-field">
+              <label class="cfg-label">Rol</label>
+              <span class="badge-rol badge-user">Usuario</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna: cambiar contraseña -->
+      <div>
+        <div class="cfg-card">
+          <div class="cfg-card-header">
+            <span class="cfg-card-icon" style="background:#fff3e0; color:#c27500;">🔑</span>
+            <span>Mi Contraseña</span>
+          </div>
+          <div class="cfg-card-body">
+            <div class="cfg-field">
+              <label class="cfg-label" for="pwd-actual">Contraseña actual</label>
+              <input type="password" id="pwd-actual" class="form-control" autocomplete="current-password">
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label" for="pwd-nuevo">Contraseña nueva</label>
+              <input type="password" id="pwd-nuevo" class="form-control" autocomplete="new-password">
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label" for="pwd-confirmar">Confirmar nueva</label>
+              <input type="password" id="pwd-confirmar" class="form-control" autocomplete="new-password">
+            </div>
+            <div class="cfg-btn-row" style="margin-top:0.25rem;">
+              <button class="btn btn-warning" onclick="cambiarPassword()">Cambiar contraseña</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /panel-cuenta -->
+
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<style>
+/*
+ * Mi Configuración — mismos estilos que configuracion.html
+ */
+.cfg-tabs, .cfg-tab, .cfg-panel,
+.cfg-row-2, .cfg-card, .cfg-card-header, .cfg-card-body,
+.cfg-save-row, .cfg-btn-row {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.cfg-card input:not([type=radio]):not([type=checkbox]),
+.cfg-card select {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+/* ── Tabs ── */
+.cfg-tabs {
+  display: flex;
+  gap: 0.375rem;
+  margin-bottom: 1.5rem;
+  background: #f0f4f8;
+  padding: 0.375rem;
+  border-radius: 10px;
+  width: 100%;
+}
+.cfg-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.2rem, 1vw, 0.4rem);
+  padding: 0.55rem clamp(0.35rem, 2vw, 1.25rem);
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  font-size: clamp(0.78rem, 1.8vw, 0.9rem);
+  font-weight: 500;
+  color: var(--texto-suave);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.cfg-tab:hover  { background: #e2e8f0; color: var(--texto-principal); }
+.cfg-tab.active {
+  background: #fff;
+  color: var(--primario);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.cfg-tab-icon { font-size: clamp(0.82rem, 1.8vw, 1rem); flex-shrink: 0; }
+
+/* ── Panels ── */
+.cfg-panel.oculto { display: none; }
+
+/* ── Layout 2 cols ── */
+.cfg-row-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+/* ── Cards ── */
+.cfg-card {
+  background: #fff;
+  border: 1px solid var(--gris-borde);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cfg-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding:
+    clamp(0.6rem, 2vw, 0.8rem)
+    clamp(0.75rem, 2.5vw, 1.1rem);
+  background: #fafbfc;
+  border-bottom: 1px solid var(--gris-borde);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.cfg-card-icon {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; font-weight: 700;
+  flex-shrink: 0;
+}
+.cfg-card-body {
+  padding:
+    clamp(0.75rem, 2.5vw, 1rem)
+    clamp(0.75rem, 2.5vw, 1.1rem);
+}
+
+/* ── Fields ── */
+.cfg-field { margin-bottom: 0.9rem; }
+.cfg-field:last-child { margin-bottom: 0; }
+.cfg-label {
+  display: block;
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+}
+
+/* ── Tabla de planchas ── */
+.precio-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.precio-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 320px;
+}
+.precio-table thead tr { background: #f5f7fa; }
+.precio-table th {
+  text-align: center;
+  font-size: clamp(0.72rem, 1.5vw, 0.82rem);
+  font-weight: 700; color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0.55rem clamp(0.3rem, 1.5vw, 0.9rem);
+  border-bottom: 2px solid #e2e8f0;
+}
+.precio-table th.pt-head-label { text-align: left; padding-left: 1rem; }
+.precio-table td {
+  padding: 0.55rem clamp(0.2rem, 1vw, 0.6rem);
+  vertical-align: middle;
+}
+.pt-row-go { background: #f0f7ff; }
+.pt-row-gc { background: #fff8f0; }
+.pt-row-go:hover { background: #e3f0fd; }
+.pt-row-gc:hover { background: #fef2e4; }
+.pt-row-go td { border-bottom: 1px solid #e2e8f0; }
+.precio-table-label {
+  white-space: nowrap;
+  padding-left: 1rem !important;
+  padding-right: clamp(0.5rem, 2vw, 1.25rem) !important;
+}
+.pt-label-text {
+  font-size: clamp(0.78rem, 1.5vw, 0.875rem);
+  font-weight: 600; color: var(--texto-principal);
+}
+.pt-badge {
+  display: inline-block;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+.pt-badge-go { background: #dbeafe; color: #1d4ed8; }
+.pt-badge-gc { background: #fde68a; color: #92400e; }
+.pt-input-wrap {
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  overflow: hidden;
+  width: clamp(90px, 12vw, 130px);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pt-input-wrap:focus-within {
+  border-color: var(--primario);
+  box-shadow: 0 0 0 3px rgba(26,111,173,0.12);
+}
+.pt-prefix {
+  padding: 0 0.4rem;
+  font-size: 0.75rem; font-weight: 700; color: var(--texto-suave);
+  background: #f0f4f8;
+  border-right: 1px solid #d1d9e0;
+  display: flex; align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pt-input-wrap input {
+  border: none;
+  background: transparent;
+  text-align: right;
+  padding: 0.4rem 0.5rem;
+  width: 100%;
+  font-size: 0.875rem;
+  outline: none;
+  min-width: 0;
+}
+.pt-input-wrap input[type=number] { max-width: none; }
+
+/* ── Badges de rol ── */
+.badge-rol {
+  font-size: 0.7rem; font-weight: 700;
+  padding: 0.15rem 0.5rem; border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-user { color: #1a6fad; background: #e8f4fd; }
+
+/* ── Botones de acción ── */
+.cfg-save-row {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--primario);
+  color: var(--primario);
+  border-radius: 6px;
+  padding: 0.45rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-outline:hover { background: #e8f4fd; }
+.cfg-btn-row {
+  display: flex;
+  justify-content: flex-end;
+}
+.cfg-save-row .btn,
+.cfg-btn-row .btn {
+  min-width: min(160px, 100%);
+}
+</style>
+
+<script>
+// ── Tabs ──
+function switchTab(nombre, btn) {
+  document.querySelectorAll('.cfg-panel').forEach(p => p.classList.add('oculto'));
+  document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + nombre).classList.remove('oculto');
+  btn.classList.add('active');
+}
+
+// ── Valores por defecto de planchas ──
+const DEFAULTS_PLANCHAS = {
+  go_12: 150, go_15: 180, go_20: 220,
+  gc_12: 140, gc_15: 170, gc_20: 210,
+};
+
+// ── Modal de confirmación guardar ──
+function pedirConfirmacion() {
+  const m = document.getElementById('modal-confirm-cfg');
+  m.style.display = 'flex';
+  m.style.alignItems = 'center';
+  m.style.justifyContent = 'center';
+}
+function cerrarModalConfig() {
+  document.getElementById('modal-confirm-cfg').style.display = 'none';
+}
+async function confirmarGuardar() {
+  cerrarModalConfig();
+  await guardarPlanchas();
+}
+document.getElementById('modal-confirm-cfg')?.addEventListener('click', function(e) {
+  if (e.target === this) cerrarModalConfig();
+});
+
+// ── Restaurar por defecto ──
+function restaurarDefecto() {
+  const d = DEFAULTS_PLANCHAS;
+  document.getElementById('go-12').value = d.go_12;
+  document.getElementById('go-15').value = d.go_15;
+  document.getElementById('go-20').value = d.go_20;
+  document.getElementById('gc-12').value = d.gc_12;
+  document.getElementById('gc-15').value = d.gc_15;
+  document.getElementById('gc-20').value = d.gc_20;
+  toast('Valores restaurados — haz clic en Guardar para confirmar', 'info');
+}
+
+// ── Guardar precios de planchas ──
+async function guardarPlanchas() {
+  const fd = formData({
+    go_12: document.getElementById('go-12').value,
+    go_15: document.getElementById('go-15').value,
+    go_20: document.getElementById('go-20').value,
+    gc_12: document.getElementById('gc-12').value,
+    gc_15: document.getElementById('gc-15').value,
+    gc_20: document.getElementById('gc-20').value,
+  });
+  const data = await apiFetch('/mi-config/guardar_planchas', { method: 'POST', body: fd });
+  toast(data.ok ? 'Precios de planchas guardados' : (data.error || 'Error al guardar'), data.ok ? 'success' : 'error');
+}
+
+// ── Cambiar contraseña ──
+async function cambiarPassword() {
+  const actual    = document.getElementById('pwd-actual').value;
+  const nuevo     = document.getElementById('pwd-nuevo').value;
+  const confirmar = document.getElementById('pwd-confirmar').value;
+  if (!actual || !nuevo) { toast('Complete los campos', 'error'); return; }
+  if (nuevo !== confirmar) { toast('Las contraseñas nuevas no coinciden', 'error'); return; }
+  if (nuevo.length < 4) { toast('La contraseña debe tener al menos 4 caracteres', 'error'); return; }
+  const data = await apiFetch('/mi-config/cambiar_password', {
+    method: 'POST', body: formData({ password_actual: actual, password_nuevo: nuevo, password_confirmar: confirmar })
+  });
+  toast(data.ok ? 'Contraseña actualizada' : (data.error || 'Error'), data.ok ? 'success' : 'error');
+  if (data.ok) {
+    document.getElementById('pwd-actual').value = '';
+    document.getElementById('pwd-nuevo').value = '';
+    document.getElementById('pwd-confirmar').value = '';
+  }
+}
+</script>
+{% endblock %}

@@ -824,6 +824,58 @@ async def cfg_reset_password(
 
 
 # ─────────────────────────────────────────────
+# Página Mi Configuración (accesible para todos los roles)
+# Solo permite editar precios de plancha y cambiar contraseña
+# ─────────────────────────────────────────────
+
+@app.get("/mi-config", response_class=HTMLResponse)
+async def mi_config_page(request: Request, usuario: dict = Depends(require_login)):
+    config = cargar_config()
+    return templates.TemplateResponse(
+        "mi_config.html",
+        ctx(request, usuario, config=config),
+    )
+
+
+@app.post("/mi-config/guardar_planchas")
+async def mi_config_guardar_planchas(
+    usuario: dict = Depends(require_login),
+    go_12: float = Form(...),
+    go_15: float = Form(...),
+    go_20: float = Form(...),
+    gc_12: float = Form(...),
+    gc_15: float = Form(...),
+    gc_20: float = Form(...),
+):
+    valores = [go_12, go_15, go_20, gc_12, gc_15, gc_20]
+    if any(v <= 0 for v in valores):
+        return JSONResponse({"ok": False, "error": "Los precios deben ser mayores a cero"}, status_code=422)
+    config = cargar_config()
+    config["valores_defecto"]["precios_go"] = {"1.2": go_12, "1.5": go_15, "2.0": go_20}
+    config["valores_defecto"]["precios_gc"] = {"1.2": gc_12, "1.5": gc_15, "2.0": gc_20}
+    ok = guardar_config(config)
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/mi-config/cambiar_password")
+async def mi_config_cambiar_password(
+    usuario: dict = Depends(require_login),
+    password_actual: str = Form(...),
+    password_nuevo: str = Form(...),
+    password_confirmar: str = Form(...),
+):
+    from web.database import verificar_usuario as ver
+    if password_nuevo != password_confirmar:
+        return JSONResponse({"ok": False, "error": "Las contraseñas nuevas no coinciden"}, status_code=422)
+    if len(password_nuevo) < 4:
+        return JSONResponse({"ok": False, "error": "La contraseña debe tener al menos 4 caracteres"}, status_code=422)
+    if not ver(usuario["u"], password_actual):
+        return JSONResponse({"ok": False, "error": "Contraseña actual incorrecta"}, status_code=401)
+    ok = cambiar_password(usuario["u"], password_nuevo)
+    return JSONResponse({"ok": ok})
+
+
+# ─────────────────────────────────────────────
 # Página Mi Cuenta (accesible para todos los roles)
 # ─────────────────────────────────────────────
 

@@ -33,6 +33,10 @@
     <a href="/configuracion" class="nav-link {% if active == 'configuracion' %}active{% endif %}" title="Alt+G">
       Config
     </a>
+    {% else %}
+    <a href="/mi-config" class="nav-link {% if active == 'mi-config' %}active{% endif %}">
+      Config
+    </a>
     {% endif %}
     <span class="navbar-user">
       <a href="/cuenta" style="color:inherit; text-decoration:none;" title="Mi cuenta">{{ usuario.n or usuario.u }}</a>
@@ -114,6 +118,11 @@ async function actualizarBadgeCarrito() {
   </a>
   {% if usuario.r == "ADMIN" %}
   <a href="/configuracion" class="bottom-nav-item {% if active == 'configuracion' %}active{% endif %}">
+    <span class="bn-emoji">⚙️</span>
+    <span class="bn-label">Config</span>
+  </a>
+  {% else %}
+  <a href="/mi-config" class="bottom-nav-item {% if active == 'mi-config' %}active{% endif %}">
     <span class="bn-emoji">⚙️</span>
     <span class="bn-label">Config</span>
   </a>
