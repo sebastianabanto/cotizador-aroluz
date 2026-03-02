@@ -389,6 +389,7 @@ let calcAbort     = null; // AbortController para cancelar requests anteriores
 let _agregando    = false; // guard anti-doble-tap móvil
 let medidasRecordadas = null; // { tipo, ancho, alto }
 let _lastResult   = { prod: null, tapa: null }; // últimos resultados de la API
+let _prevConTapa  = null; // para detectar cambio de modo juntos↔separado
 // Si es F5/recarga, limpiar panel en vivo Y carrito real
 const _navType = performance.getEntriesByType('navigation')[0]?.type;
 if (_navType === 'reload') {
@@ -744,11 +745,13 @@ function actualizarQtyMode() {
   document.getElementById('acciones-prod-individual').style.display = (!con) ? 'flex' : 'none';
   document.getElementById('acciones-tapa-individual').style.display = (!con && hayTapa) ? 'flex' : 'none';
 
-  // Sincronizar valores de cantidad
-  if (!con) {
+  // Sincronizar cantidad SOLO al cambiar de modo "juntos" → "separado"
+  // (nunca en cada recalc, para no pisar lo que el usuario ya escribió)
+  if (_prevConTapa === true && !con) {
     document.getElementById('cant-prod').value = document.getElementById('cant-main').value;
     if (hayTapa) document.getElementById('cant-tapa').value = document.getElementById('cant-main').value;
   }
+  _prevConTapa = con;
   actualizarSubtotales();
 }
 
