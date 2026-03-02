@@ -578,28 +578,29 @@ def cotizar_caja_de_pase(precio_pl_producto, precio_pl_tapa, espesor_producto, e
     alto_mm = alto * 10
     
     # CÁLCULOS CUERPO
-    area_cuerpo = (((alto_mm * 2) + largo_mm) + 20) * ancho_mm
+    # El cuerpo es una U: pared izq + fondo + pared der, sheet width = largo
+    area_cuerpo = (((alto_mm * 2) + ancho_mm) + 20) * largo_mm
     precio_cuerpo = calcular_precio(area_cuerpo, pl_undmm2_producto)
     peso_cuerpo = calcular_peso(area_cuerpo, espesor_producto)
-    
+
     # CÁLCULOS CABECERA (2 unidades)
     area_cabecera = (alto_mm + 20) * (ancho_mm + 20) * 2
     precio_cabecera = calcular_precio(area_cabecera, pl_undmm2_producto)
     peso_cabecera = calcular_peso(area_cabecera, espesor_producto)
-    
+
     # CÁLCULOS TAPA
     area_tapa = largo_mm * ancho_mm
     precio_tapa = calcular_precio(area_tapa, pl_undmm2_tapa)
     peso_tapa = calcular_peso(area_tapa, espesor_tapa)
-    
+
     # TOTALES CAJA
     precio_costo_total = precio_cuerpo + precio_cabecera + precio_tapa
     precio_venta_total = precio_costo_total * 2
     peso_total_caja = peso_cuerpo + peso_cabecera + peso_tapa
-    
+
     # Aplicar galvanizado si es GC (con precio fijo 3 USD/kg)
     precio_con_galvanizado = aplicar_costo_galvanizado(precio_venta_total, peso_total_caja)
-    
+
     # Aplicar ganancia según el porcentaje seleccionado
     if porcentaje_seleccionado == "30":
         precio_final = precio_con_galvanizado * 1.01
@@ -607,7 +608,7 @@ def cotizar_caja_de_pase(precio_pl_producto, precio_pl_tapa, espesor_producto, e
         precio_final = (precio_con_galvanizado * 1.01) / 0.95
     else:
         precio_final = aplicar_ganancia(precio_con_galvanizado, None)
-    
+
     descripcion_caja = f"{tipo_galvanizado} - CAJA DE PASE {ancho:.0f}X{largo:.0f}X{alto:.0f}CM {espesor_producto:.1f}MM (COMPLETA)"
     
     resultados.append({
@@ -1059,8 +1060,8 @@ def cotizar_caja_de_pase_con_tipo(precio_pl_producto, precio_pl_tapa, espesor_pr
     alto_mm = alto * 10
     
     # CÁLCULOS CUERPO
-    # Fórmula corregida: perímetro de la base + altura, multiplicado por el ancho
-    area_cuerpo = (((alto_mm * 2) + largo_mm) + 20) * ancho_mm
+    # El cuerpo es una U: pared izq + fondo + pared der, sheet width = largo
+    area_cuerpo = (((alto_mm * 2) + ancho_mm) + 20) * largo_mm
     precio_cuerpo = calcular_precio(area_cuerpo, pl_undmm2_producto)
     peso_cuerpo = calcular_peso(area_cuerpo, espesor_producto)
     

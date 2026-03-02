@@ -205,7 +205,8 @@ async def api_cotizar_caja_pase(
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
-    pt = _precios_plancha(espesor_tapa, tipo_galvanizado, config)
+    # Caja de pase: cuerpo y tapa siempre del mismo espesor
+    pt = pp
 
-    resultados = cotizar_caja_pase(cfg, pp, pt, espesor_producto, espesor_tapa, dim1, dim2, dim3, tipo_salida)
+    resultados = cotizar_caja_pase(cfg, pp, pt, espesor_producto, espesor_producto, dim1, dim2, dim3, tipo_salida)
     return JSONResponse({"ok": True, "resultados": resultados})

@@ -470,7 +470,8 @@ def cotizar_caja_pase(
     largo_mm = largo * 10
     alto_mm = alto * 10
 
-    area_cuerpo = ((alto_mm * 2 + largo_mm) + 20) * ancho_mm
+    # El cuerpo es una U: pared izq + fondo + pared der, sheet width = largo
+    area_cuerpo = ((alto_mm * 2 + ancho_mm) + 20) * largo_mm
     precio_cuerpo = calcular_precio(area_cuerpo, pl_undmm2_p)
     peso_cuerpo = calcular_peso(area_cuerpo, espesor_producto)
 
