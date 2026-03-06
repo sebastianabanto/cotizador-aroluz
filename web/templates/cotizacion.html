@@ -102,6 +102,34 @@
         </select>
       </div>
 
+      <div class="config-section">
+        <label class="config-label">
+          Precios Plancha (S/)
+          <span class="galv-badge {% if config.galvanizado == 'GC' %}gc{% else %}go{% endif %}" id="plancha-badge">{{ config.galvanizado or 'GO' }}</span>
+        </label>
+        <div class="sb-plancha-grid">
+          <div class="sb-plancha-col">
+            <span class="sb-plancha-lbl">1.2 mm</span>
+            <input type="number" class="form-input plancha-input" id="plancha-12"
+                   step="0.01" min="0"
+                   value="{{ config.precios_gc['1.2'] if config.galvanizado == 'GC' else config.precios_go['1.2'] }}">
+          </div>
+          <div class="sb-plancha-col">
+            <span class="sb-plancha-lbl">1.5 mm</span>
+            <input type="number" class="form-input plancha-input" id="plancha-15"
+                   step="0.01" min="0"
+                   value="{{ config.precios_gc['1.5'] if config.galvanizado == 'GC' else config.precios_go['1.5'] }}">
+          </div>
+          <div class="sb-plancha-col">
+            <span class="sb-plancha-lbl">2.0 mm</span>
+            <input type="number" class="form-input plancha-input" id="plancha-20"
+                   step="0.01" min="0"
+                   value="{{ config.precios_gc['2.0'] if config.galvanizado == 'GC' else config.precios_go['2.0'] }}">
+          </div>
+        </div>
+        <p class="sb-plancha-nota">Solo para esta sesión. Al recargar se restauran los valores de Configuración.</p>
+      </div>
+
     </div>
   </aside>
 
@@ -267,16 +295,10 @@
         <div class="form-group-v2">
           <label for="cp-salida">Tipo de Salida</label>
           <select class="form-input" id="cp-salida" style="margin-top:0.3rem;">
-            <option value="CIEGA">Ciega</option>
+            <option value="CIEGA" selected>Ciega</option>
             <option value="1/2">1/2"</option>
             <option value="3/4">3/4"</option>
-            <option value="1">1"</option>
-            <option value="1 1/4">1 1/4"</option>
-            <option value="1 1/2">1 1/2"</option>
-            <option value="2">2"</option>
-            <option value="2 1/2">2 1/2"</option>
-            <option value="3">3"</option>
-            <option value="4">4"</option>
+            <option value="MIXTO 1/2 Y 3/4">MIXTO 1/2" y 3/4"</option>
           </select>
         </div>
       </div>
@@ -463,10 +485,33 @@ document.querySelectorAll('.chip-group').forEach(group => {
     radio.addEventListener('change', function() {
       group.querySelectorAll('.chip-label').forEach(l => l.classList.remove('selected'));
       this.closest('.chip-label').classList.add('selected');
+      if (this.name === 'galv') actualizarPreciosPlancha(this.value);
       scheduleCalc();
     });
   });
 });
+
+// ── Precios de plancha (por galvanizado) ──
+const PLANCHA_GO = { '1.2': {{ config.precios_go['1.2'] }}, '1.5': {{ config.precios_go['1.5'] }}, '2.0': {{ config.precios_go['2.0'] }} };
+const PLANCHA_GC = { '1.2': {{ config.precios_gc['1.2'] }}, '1.5': {{ config.precios_gc['1.5'] }}, '2.0': {{ config.precios_gc['2.0'] }} };
+
+function getPreciosPlancha() {
+  return {
+    '1.2': parseFloat(document.getElementById('plancha-12').value) || PLANCHA_GO['1.2'],
+    '1.5': parseFloat(document.getElementById('plancha-15').value) || PLANCHA_GO['1.5'],
+    '2.0': parseFloat(document.getElementById('plancha-20').value) || PLANCHA_GO['2.0'],
+  };
+}
+
+function actualizarPreciosPlancha(galv) {
+  const precios = galv === 'GC' ? PLANCHA_GC : PLANCHA_GO;
+  document.getElementById('plancha-12').value = precios['1.2'];
+  document.getElementById('plancha-15').value = precios['1.5'];
+  document.getElementById('plancha-20').value = precios['2.0'];
+  const badge = document.getElementById('plancha-badge');
+  badge.textContent = galv;
+  badge.className = 'galv-badge ' + (galv === 'GC' ? 'gc' : 'go');
+}
 
 // ── Auto-cálculo: dispara al cambiar inputs ──
 document.addEventListener('input', e => {
@@ -498,11 +543,12 @@ async function ensureCalcFresh() {
 // ── Leer configuración global ──
 function getGlobal() {
   return {
-    galv:    document.querySelector('input[name=galv]:checked')?.value    || 'GO',
-    ganancia:document.querySelector('input[name=ganancia]:checked')?.value || '30',
-    sup:     document.querySelector('input[name=sup]:checked')?.value     || 'LISA',
-    espProd: document.getElementById('esp-prod').value,
-    espTapa: document.getElementById('esp-tapa').value,
+    galv:          document.querySelector('input[name=galv]:checked')?.value    || 'GO',
+    ganancia:      document.querySelector('input[name=ganancia]:checked')?.value || '30',
+    sup:           document.querySelector('input[name=sup]:checked')?.value     || 'LISA',
+    espProd:       document.getElementById('esp-prod').value,
+    espTapa:       document.getElementById('esp-tapa').value,
+    planchaPrecios: getPreciosPlancha(),
   };
 }
 
@@ -627,6 +673,8 @@ async function calcularReal() {
     tipo_superficie: g.sup,
     espesor_producto: g.espProd,
     espesor_tapa: g.espTapa,
+    precio_plancha_producto: g.planchaPrecios[g.espProd],
+    precio_plancha_tapa: g.planchaPrecios[g.espTapa],
   };
 
   if (tipoActual === 'bandeja') {
@@ -1121,6 +1169,24 @@ function bindTabEnCantidad(cantId) {
 bindTabEnCantidad('cant-main');
 bindTabEnCantidad('cant-prod');
 bindTabEnCantidad('cant-tapa');
+
+// ── Inicializar badge de plancha con el galvanizado por defecto ──
+(function() {
+  const galvInit = document.querySelector('input[name=galv]:checked')?.value || 'GO';
+  const badge = document.getElementById('plancha-badge');
+  if (badge) badge.className = 'galv-badge ' + (galvInit === 'GC' ? 'gc' : 'go');
+})();
 </script>
+<style>
+.sb-plancha-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:6px; width:100%; box-sizing:border-box; }
+.sb-plancha-col  { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.sb-plancha-lbl  { font-size:0.7rem; color:var(--texto-suave); text-align:center; }
+.sb-plancha-col .form-input { width:100%; box-sizing:border-box; padding:4px 4px; font-size:0.78rem; text-align:center; min-width:0; }
+.galv-badge { display:inline-block; font-size:0.68rem; font-weight:700; padding:1px 5px;
+              border-radius:8px; margin-left:5px; vertical-align:middle; line-height:1.4; }
+.galv-badge.go { background:#dbeafe; color:#1d4ed8; }
+.galv-badge.gc { background:#fef3c7; color:#92400e; }
+.sb-plancha-nota { font-size:0.65rem; color:var(--texto-suave); margin-top:5px; line-height:1.35; }
+</style>
 <script src="/static/cotizar-layout.js"></script>
 {% endblock %}

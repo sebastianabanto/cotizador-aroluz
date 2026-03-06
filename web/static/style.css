@@ -123,17 +123,96 @@ body {
   font-family: var(--f-mono);
 }
 
-.navbar-user {
-  font-size: 0.78rem;
-  color: rgba(255,255,255,0.6);
-  padding: 0.4rem 0.75rem;
-  border-left: 1px solid rgba(255,255,255,0.18);
+/* ── User dropdown ── */
+.user-dropdown {
+  position: relative;
   margin-left: 0.5rem;
-  font-family: var(--f-mono);
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  border-left: 1px solid rgba(255,255,255,0.18);
+  padding-left: 0.5rem;
+}
+.user-dropdown-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,0.78);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  border-radius: 5px;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
   white-space: nowrap;
+}
+.user-dropdown-trigger:hover,
+.user-dropdown-trigger[aria-expanded="true"] { background: rgba(255,255,255,0.12); color: white; }
+.user-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 8px;
+  min-width: 180px;
+  z-index: 200;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.14);
+  overflow: hidden;
+}
+.user-dropdown-menu.open { display: block; }
+.user-dropdown-item {
+  display: block;
+  padding: 10px 16px;
+  color: var(--texto);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: background 0.12s;
+}
+.user-dropdown-item:hover { background: var(--gris-bg); }
+.user-dropdown-divider { height: 1px; background: var(--gris-borde); margin: 4px 0; }
+.user-dropdown-logout { color: var(--rojo); }
+.user-dropdown-logout:hover { background: #fdecea; }
+
+/* ── Sub-navegación de Cotización ── */
+.subnav {
+  background: var(--blanco);
+  border-bottom: 1px solid var(--gris-borde);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1.5rem;
+  height: var(--subnav-h);
+  position: sticky;
+  top: var(--navbar-h);
+  z-index: 99;
+  gap: 0.25rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.subnav-link {
+  color: var(--texto-suave);
+  text-decoration: none;
+  padding: 0.3rem 0.75rem;
+  border-radius: 5px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: background 0.15s, color 0.15s;
+}
+.subnav-link:hover { background: var(--gris-bg); color: var(--texto); }
+.subnav-link.active {
+  background: #e8eef8;
+  color: var(--navy);
+  font-weight: 600;
+}
+.subnav-badge {
+  background: var(--acento);
+  color: white;
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-family: var(--f-mono);
 }
 
 /* ── Layout ── */
@@ -596,6 +675,7 @@ details[open] summary { margin-bottom: 0.75rem; }
 
 :root {
   --navbar-h: 56px;
+  --subnav-h: 40px;
   --tipobar-h: 48px;
 }
 
@@ -606,7 +686,7 @@ details[open] summary { margin-bottom: 0.75rem; }
   border-bottom: 2px solid var(--gris-borde);
   box-shadow: var(--sombra);
   position: sticky;
-  top: var(--navbar-h);
+  top: calc(var(--navbar-h) + var(--subnav-h));
   z-index: 90;
   display: flex;
   align-items: center;
@@ -706,7 +786,7 @@ details[open] summary { margin-bottom: 0.75rem; }
 .cotizar-layout {
   display: flex;
   align-items: flex-start;
-  min-height: calc(100dvh - var(--navbar-h) - var(--tipobar-h));
+  min-height: calc(100dvh - var(--navbar-h) - var(--subnav-h) - var(--tipobar-h));
 }
 
 /* ── Sidebar de configuración ── */
@@ -715,8 +795,8 @@ details[open] summary { margin-bottom: 0.75rem; }
   background: var(--blanco);
   border-right: 1px solid var(--gris-borde);
   position: sticky;
-  top: calc(var(--navbar-h) + var(--tipobar-h));
-  height: calc(100dvh - var(--navbar-h) - var(--tipobar-h));
+  top: calc(var(--navbar-h) + var(--subnav-h) + var(--tipobar-h));
+  height: calc(100dvh - var(--navbar-h) - var(--subnav-h) - var(--tipobar-h));
   overflow-y: auto; overflow-x: hidden;
   overscroll-behavior: contain;
   transition: width 0.25s ease, min-width 0.25s ease;
@@ -1023,8 +1103,8 @@ details[open] summary { margin-bottom: 0.75rem; }
   background: var(--blanco);
   border-left: 1px solid var(--gris-borde);
   position: sticky;
-  top: calc(var(--navbar-h) + var(--tipobar-h));
-  height: calc(100dvh - var(--navbar-h) - var(--tipobar-h));
+  top: calc(var(--navbar-h) + var(--subnav-h) + var(--tipobar-h));
+  height: calc(100dvh - var(--navbar-h) - var(--subnav-h) - var(--tipobar-h));
   overscroll-behavior: contain;
   flex-shrink: 0;
   display: flex;
@@ -1226,6 +1306,8 @@ details[open] summary { margin-bottom: 0.75rem; }
   }
   /* Superficie ocupa ancho completo (tiene 3 chips) */
   .config-panel .config-content > :nth-child(3) { grid-column: 1 / -1; }
+  /* Precios Plancha ocupa ancho completo (grid de 3 inputs) */
+  .config-panel .config-content > :nth-child(6) { grid-column: 1 / -1; }
 }
 
 /* ── Compact web ≥600px — 3 paneles visibles ── */
@@ -1265,20 +1347,22 @@ details[open] summary { margin-bottom: 0.75rem; }
    RESPONSIVE MÓVIL — Hamburger + Card-tables
 ───────────────────────────────────────────── */
 
-/* ── Logout móvil ── */
-.navbar-logout-movil {
+/* ── Home móvil (reemplaza logout en mobile) ── */
+.navbar-home-movil {
   display: none;
   margin-left: auto;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255,255,255,0.78);
   text-decoration: none;
-  padding: 0.3rem 0.7rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   align-items: center;
   gap: 0.3rem;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
 }
-.navbar-logout-movil:hover { background: rgba(255,255,255,0.15); color: white; }
+.navbar-home-movil:hover { background: rgba(255,255,255,0.15); color: white; }
 
 /* ── Bottom navigation bar ── */
 .bottom-nav {
@@ -1310,7 +1394,7 @@ details[open] summary { margin-bottom: 0.75rem; }
   background: rgba(255,255,255,0.12);
 }
 .bn-emoji { font-size: 1.3rem; line-height: 1; }
-.bn-label { font-family: var(--f-semi); font-size: 0.58rem; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; }
+.bn-label { font-family: var(--f-semi); font-size: 0.79rem; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; }
 .bn-badge {
   position: absolute;
   top: 5px;
@@ -1325,6 +1409,11 @@ details[open] summary { margin-bottom: 0.75rem; }
   min-width: 16px;
   text-align: center;
 }
+
+/* ── Bottom-nav 5 ítems (sección cotización) ── */
+.bottom-nav-5 .bottom-nav-item { padding: 0.2rem 0; }
+.bottom-nav-5 .bn-emoji { font-size: 1.1rem; }
+.bottom-nav-5 .bn-label { font-size: 0.79rem; letter-spacing: 0; }
 
 /* ── Animación bounce en badge del carrito (fix E) ── */
 @keyframes badge-bounce {
@@ -1343,10 +1432,13 @@ details[open] summary { margin-bottom: 0.75rem; }
    (tablet angosta y móvil — previene overflow del navbar)
 ───────────────────────────────────────────── */
 @media (max-width: 599px) {
-  .navbar-nav          { display: none; }
-  .navbar-logout-movil { display: flex; }
-  .bottom-nav          { display: flex; }
+  .navbar-nav         { display: none; }
+  .navbar-home-movil  { display: flex; }
+  .bottom-nav         { display: flex; }
+  .subnav             { display: none; }
   body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+  /* Fix: subnav oculto en mobile → tipo-bar debe pegar justo bajo la navbar */
+  .tipo-bar { top: var(--navbar-h); }
 }
 
 /* ─────────────────────────────────────────────
@@ -1356,8 +1448,9 @@ details[open] summary { margin-bottom: 0.75rem; }
 
   /* Navbar → bottom-nav (ya aplicado en 599px; se mantiene por especificidad) */
   .navbar-nav { display: none; }
-  .navbar-logout-movil { display: flex; }
+  .navbar-home-movil { display: flex; }
   .bottom-nav { display: flex; }
+  .subnav { display: none; }
   body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
 
   /* tipo-bar: botones centrados y distribuidos a lo ancho en mobile */
@@ -1781,3 +1874,5 @@ details[open] summary { margin-bottom: 0.75rem; }
     grid-column: span 2;
   }
 }
+
+/* (Dropdowns de Config eliminados — reemplazados por subnav sticky y nav de 4 secciones) */

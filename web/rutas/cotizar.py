@@ -58,6 +58,13 @@ def _precios_plancha(espesor: float, tipo_galvanizado: str, config: dict) -> flo
     return float(precios.get(esp_str, 150.0))
 
 
+def _resolve_pp(override: Optional[float], espesor: float, tipo_galv: str, config: dict) -> float:
+    """Usa el precio override del frontend si se recibió; si no, lee la configuración."""
+    if override is not None and override > 0:
+        return override
+    return _precios_plancha(espesor, tipo_galv, config)
+
+
 @router.post("/bandeja")
 async def api_cotizar_bandeja(
     request: Request,
@@ -70,11 +77,13 @@ async def api_cotizar_bandeja(
     alto: float = Form(...),
     tipo_superficie: str = Form("LISA"),
     es_metro_lineal: bool = Form(False),
+    precio_plancha_producto: Optional[float] = Form(None),
+    precio_plancha_tapa: Optional[float] = Form(None),
 ):
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
-    pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
-    pt = _precios_plancha(espesor_tapa, tipo_galvanizado, config)
+    pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
+    pt = _resolve_pp(precio_plancha_tapa, espesor_tapa, tipo_galvanizado, config)
 
     resultados = cotizar_bandeja(cfg, pp, pt, espesor_producto, espesor_tapa, ancho, alto, tipo_superficie, es_metro_lineal)
     return JSONResponse({"ok": True, "resultados": resultados})
@@ -91,11 +100,13 @@ async def api_cotizar_curva_horizontal(
     ancho: float = Form(...),
     alto: float = Form(...),
     tipo_superficie: str = Form("LISA"),
+    precio_plancha_producto: Optional[float] = Form(None),
+    precio_plancha_tapa: Optional[float] = Form(None),
 ):
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
-    pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
-    pt = _precios_plancha(espesor_tapa, tipo_galvanizado, config)
+    pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
+    pt = _resolve_pp(precio_plancha_tapa, espesor_tapa, tipo_galvanizado, config)
 
     resultados = cotizar_curva_horizontal(cfg, pp, pt, espesor_producto, espesor_tapa, ancho, alto, tipo_superficie)
     return JSONResponse({"ok": True, "resultados": resultados})
@@ -113,11 +124,13 @@ async def api_cotizar_curva_vertical(
     alto: float = Form(...),
     tipo_curva: str = Form("EXTERNA"),
     tipo_superficie: str = Form("LISA"),
+    precio_plancha_producto: Optional[float] = Form(None),
+    precio_plancha_tapa: Optional[float] = Form(None),
 ):
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
-    pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
-    pt = _precios_plancha(espesor_tapa, tipo_galvanizado, config)
+    pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
+    pt = _resolve_pp(precio_plancha_tapa, espesor_tapa, tipo_galvanizado, config)
 
     resultados = cotizar_curva_vertical(cfg, pp, pt, espesor_producto, espesor_tapa, ancho, alto, tipo_curva, tipo_superficie)
     return JSONResponse({"ok": True, "resultados": resultados})
@@ -136,11 +149,13 @@ async def api_cotizar_tee(
     abajo: float = Form(...),
     alto: float = Form(...),
     tipo_superficie: str = Form("LISA"),
+    precio_plancha_producto: Optional[float] = Form(None),
+    precio_plancha_tapa: Optional[float] = Form(None),
 ):
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
-    pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
-    pt = _precios_plancha(espesor_tapa, tipo_galvanizado, config)
+    pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
+    pt = _resolve_pp(precio_plancha_tapa, espesor_tapa, tipo_galvanizado, config)
 
     resultados = cotizar_tee(cfg, pp, pt, espesor_producto, espesor_tapa, derecha, izquierda, abajo, alto, tipo_superficie)
     return JSONResponse({"ok": True, "resultados": resultados})
@@ -157,11 +172,13 @@ async def api_cotizar_cruz(
     ancho: float = Form(...),
     alto: float = Form(...),
     tipo_superficie: str = Form("LISA"),
+    precio_plancha_producto: Optional[float] = Form(None),
+    precio_plancha_tapa: Optional[float] = Form(None),
 ):
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
-    pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
-    pt = _precios_plancha(espesor_tapa, tipo_galvanizado, config)
+    pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
+    pt = _resolve_pp(precio_plancha_tapa, espesor_tapa, tipo_galvanizado, config)
 
     resultados = cotizar_cruz(cfg, pp, pt, espesor_producto, espesor_tapa, ancho, alto, tipo_superficie)
     return JSONResponse({"ok": True, "resultados": resultados})
@@ -179,11 +196,13 @@ async def api_cotizar_reduccion(
     alto: float = Form(...),
     ancho_menor: float = Form(...),
     tipo_superficie: str = Form("LISA"),
+    precio_plancha_producto: Optional[float] = Form(None),
+    precio_plancha_tapa: Optional[float] = Form(None),
 ):
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
-    pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
-    pt = _precios_plancha(espesor_tapa, tipo_galvanizado, config)
+    pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
+    pt = _resolve_pp(precio_plancha_tapa, espesor_tapa, tipo_galvanizado, config)
 
     resultados = cotizar_reduccion(cfg, pp, pt, espesor_producto, espesor_tapa, ancho_mayor, alto, ancho_menor, tipo_superficie)
     return JSONResponse({"ok": True, "resultados": resultados})
@@ -201,10 +220,11 @@ async def api_cotizar_caja_pase(
     dim2: float = Form(...),
     dim3: float = Form(...),
     tipo_salida: str = Form("CIEGA"),
+    precio_plancha_producto: Optional[float] = Form(None),
 ):
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
-    pp = _precios_plancha(espesor_producto, tipo_galvanizado, config)
+    pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
     # Caja de pase: cuerpo y tapa siempre del mismo espesor
     pt = pp
 

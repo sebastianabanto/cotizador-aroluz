@@ -12,40 +12,61 @@
 </head>
 <body>
 
+{# ── Derivar sección principal ── #}
+{% if active in ['home', 'cuenta'] %}{% set section = 'home' %}
+{% elif active == 'asistencias' %}{% set section = 'asistencias' %}
+{% elif active == 'usuarios' %}{% set section = '' %}
+{% else %}{% set section = 'cotizacion' %}{% endif %}
+
 <nav class="navbar">
-  <a href="/cotizar" class="navbar-brand">⚡ AROLUZ</a>
+  <a href="/home" class="navbar-brand">⚡ AROLUZ</a>
 
   <div class="navbar-nav">
-    <a href="/cotizar" class="nav-link {% if active == 'cotizar' %}active{% endif %}" title="Alt+C">
-      Cotizar
+    <a href="/home" class="nav-link {% if section == 'home' %}active{% endif %}">
+      Home
     </a>
-    <a href="/carrito" class="nav-link {% if active == 'carrito' %}active{% endif %}" title="Alt+R">
-      Carrito
-      <span class="nav-badge" id="nav-badge-carrito"{% if n_carrito == 0 %} style="display:none"{% endif %}>{{ n_carrito }}</span>
+    <a href="/cotizar" class="nav-link {% if section == 'cotizacion' %}active{% endif %}">
+      Cotización
     </a>
-    <a href="/catalogo" class="nav-link {% if active == 'catalogo' %}active{% endif %}" title="Alt+K">
-      Catálogo
-    </a>
-    <a href="/historial" class="nav-link {% if active == 'historial' %}active{% endif %}" title="Alt+H">
-      Historial
-    </a>
-    {% if usuario.r == "ADMIN" %}
-    <a href="/configuracion" class="nav-link {% if active == 'configuracion' %}active{% endif %}" title="Alt+G">
-      Config
-    </a>
-    {% else %}
-    <a href="/mi-config" class="nav-link {% if active == 'mi-config' %}active{% endif %}">
-      Config
+    {% if usuario.r == 'ADMIN' or usuario.va %}
+    <a href="/asistencias/" class="nav-link {% if section == 'asistencias' %}active{% endif %}">
+      Asistencias
     </a>
     {% endif %}
-    <span class="navbar-user">
-      <a href="/cuenta" style="color:inherit; text-decoration:none;" title="Mi cuenta">{{ usuario.n or usuario.u }}</a>
-    </span>
-    <a href="/logout" class="nav-link" title="Cerrar sesión" aria-label="Cerrar sesión">✕</a>
+    <div class="user-dropdown" id="user-dropdown">
+      <button class="user-dropdown-trigger" onclick="toggleUserDropdown()" aria-expanded="false">
+        {{ usuario.n or usuario.u }} ▾
+      </button>
+      <div class="user-dropdown-menu" id="user-dropdown-menu">
+        <a href="/cuenta"   class="user-dropdown-item">👤 Mi cuenta</a>
+        {% if usuario.r == 'ADMIN' %}
+        <a href="/usuarios" class="user-dropdown-item">🔑 Usuarios</a>
+        {% endif %}
+        <div class="user-dropdown-divider"></div>
+        <a href="/logout"   class="user-dropdown-item user-dropdown-logout">✕ Cerrar sesión</a>
+      </div>
+    </div>
   </div>
 
-  <a href="/logout" class="navbar-logout-movil" title="Cerrar sesión" aria-label="Cerrar sesión">✕ Salir</a>
+  <a href="/home" class="navbar-home-movil" aria-label="Ir al inicio">🏠 Home</a>
 </nav>
+
+{% if section == 'cotizacion' %}
+<nav class="subnav">
+  <a href="/cotizar"   class="subnav-link {% if active == 'cotizar' %}active{% endif %}">Cotizar</a>
+  <a href="/carrito"   class="subnav-link {% if active == 'carrito' %}active{% endif %}">
+    Carrito
+    <span class="subnav-badge" id="nav-badge-carrito"{% if n_carrito == 0 %} style="display:none"{% endif %}>{{ n_carrito }}</span>
+  </a>
+  <a href="/catalogo"  class="subnav-link {% if active == 'catalogo' %}active{% endif %}">Catálogo</a>
+  <a href="/historial" class="subnav-link {% if active == 'historial' %}active{% endif %}">Historial</a>
+  {% if usuario.r == 'ADMIN' %}
+  <a href="/configuracion" class="subnav-link {% if active == 'configuracion' %}active{% endif %}">Configuración</a>
+  {% else %}
+  <a href="/mi-config"     class="subnav-link {% if active == 'mi-config'     %}active{% endif %}">Configuración</a>
+  {% endif %}
+</nav>
+{% endif %}
 
 <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
 
@@ -96,35 +117,74 @@ async function actualizarBadgeCarrito() {
     });
   } catch (_) {}
 }
+
+// ── User dropdown ──
+function toggleUserDropdown() {
+  const menu = document.getElementById('user-dropdown-menu');
+  const btn  = document.querySelector('.user-dropdown-trigger');
+  const open = menu.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open);
+}
+document.addEventListener('click', e => {
+  const dd = document.getElementById('user-dropdown');
+  if (dd && !dd.contains(e.target)) {
+    document.getElementById('user-dropdown-menu')?.classList.remove('open');
+    document.querySelector('.user-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+  }
+});
 </script>
 
-<nav class="bottom-nav">
-  <a href="/cotizar" class="bottom-nav-item {% if active == 'cotizar' %}active{% endif %}">
+<nav class="bottom-nav {% if section == 'cotizacion' %}bottom-nav-5{% endif %}">
+  {% if section == 'cotizacion' %}
+  {# ── 5 ítems: subnav de cotización ── #}
+  <a href="/cotizar"   class="bottom-nav-item {% if active == 'cotizar'   %}active{% endif %}">
     <span class="bn-emoji">📐</span>
     <span class="bn-label">Cotizar</span>
   </a>
-  <a href="/carrito" class="bottom-nav-item {% if active == 'carrito' %}active{% endif %}">
+  <a href="/carrito"   class="bottom-nav-item {% if active == 'carrito'   %}active{% endif %}">
     <span class="bn-emoji">🛒</span>
     <span class="bn-label">Carrito</span>
     <span class="bn-badge" id="bn-badge-carrito"{% if n_carrito == 0 %} style="display:none"{% endif %}>{{ n_carrito }}</span>
   </a>
-  <a href="/catalogo" class="bottom-nav-item {% if active == 'catalogo' %}active{% endif %}">
+  <a href="/catalogo"  class="bottom-nav-item {% if active == 'catalogo'  %}active{% endif %}">
     <span class="bn-emoji">📋</span>
     <span class="bn-label">Catálogo</span>
   </a>
   <a href="/historial" class="bottom-nav-item {% if active == 'historial' %}active{% endif %}">
-    <span class="bn-emoji">📄</span>
+    <span class="bn-emoji">📜</span>
     <span class="bn-label">Historial</span>
   </a>
-  {% if usuario.r == "ADMIN" %}
+  {% if usuario.r == 'ADMIN' %}
   <a href="/configuracion" class="bottom-nav-item {% if active == 'configuracion' %}active{% endif %}">
     <span class="bn-emoji">⚙️</span>
     <span class="bn-label">Config</span>
   </a>
   {% else %}
-  <a href="/mi-config" class="bottom-nav-item {% if active == 'mi-config' %}active{% endif %}">
+  <a href="/mi-config"     class="bottom-nav-item {% if active == 'mi-config'     %}active{% endif %}">
     <span class="bn-emoji">⚙️</span>
     <span class="bn-label">Config</span>
+  </a>
+  {% endif %}
+  {% else %}
+  {# ── 4 ítems: nav principal ── #}
+  <a href="/home" class="bottom-nav-item {% if section == 'home' %}active{% endif %}">
+    <span class="bn-emoji">🏠</span>
+    <span class="bn-label">Home</span>
+  </a>
+  <a href="/cotizar" class="bottom-nav-item">
+    <span class="bn-emoji">📐</span>
+    <span class="bn-label">Cotización</span>
+    <span class="bn-badge" id="bn-badge-carrito"{% if n_carrito == 0 %} style="display:none"{% endif %}>{{ n_carrito }}</span>
+  </a>
+  {% if usuario.r == 'ADMIN' or usuario.va %}
+  <a href="/asistencias/" class="bottom-nav-item {% if section == 'asistencias' %}active{% endif %}">
+    <span class="bn-emoji">🕐</span>
+    <span class="bn-label">Asistencias</span>
+  </a>
+  {% endif %}
+  <a href="/cuenta" class="bottom-nav-item {% if active in ['cuenta', 'usuarios'] %}active{% endif %}">
+    <span class="bn-emoji">👤</span>
+    <span class="bn-label">Cuenta</span>
   </a>
   {% endif %}
 </nav>

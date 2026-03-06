@@ -176,8 +176,11 @@ def init_db():
     _add_column_if_missing(conn, "cotizaciones", "validez", "TEXT NOT NULL DEFAULT '30 días'")
     _add_column_if_missing(conn, "cotizaciones", "encabezado_tabla", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "usuarios", "rol", "TEXT NOT NULL DEFAULT 'USER'")
+    _add_column_if_missing(conn, "usuarios", "ver_asistencias", "INTEGER NOT NULL DEFAULT 0")
     # Promover al usuario admin a ADMIN si aún no lo es
     conn.execute("UPDATE usuarios SET rol='ADMIN' WHERE username='admin' AND rol='USER'")
+    # ADMIN siempre tiene acceso a asistencias
+    conn.execute("UPDATE usuarios SET ver_asistencias=1 WHERE rol='ADMIN'")
     conn.commit()
 
     # Crear usuario admin por defecto si no hay usuarios
@@ -225,11 +228,12 @@ def _seed_desde_json(conn):
         )
 
 
-def _crear_usuario(conn, username: str, password: str, nombre: str = "", rol: str = "USER"):
+def _crear_usuario(conn, username: str, password: str, nombre: str = "", rol: str = "USER", ver_asistencias: bool = False):
     ph = _hash_password(password)
+    va = 1 if (rol == "ADMIN" or ver_asistencias) else 0
     conn.execute(
-        "INSERT OR IGNORE INTO usuarios (username, password_hash, nombre, rol) VALUES (?, ?, ?, ?)",
-        (username, ph, nombre, rol),
+        "INSERT OR IGNORE INTO usuarios (username, password_hash, nombre, rol, ver_asistencias) VALUES (?, ?, ?, ?, ?)",
+        (username, ph, nombre, rol, va),
     )
     conn.commit()
 
@@ -252,7 +256,7 @@ def verificar_usuario(username: str, password: str) -> Optional[Dict]:
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute(
-        "SELECT id, username, password_hash, nombre, rol FROM usuarios WHERE username=? AND activo=1",
+        "SELECT id, username, password_hash, nombre, rol, ver_asistencias FROM usuarios WHERE username=? AND activo=1",
         (username,),
     )
     row = c.fetchone()
@@ -276,14 +280,14 @@ def verificar_usuario(username: str, password: str) -> Optional[Dict]:
     conn.close()
     if not ok:
         return None
-    return {"id": row["id"], "username": row["username"], "nombre": row["nombre"], "rol": row["rol"]}
+    return {"id": row["id"], "username": row["username"], "nombre": row["nombre"], "rol": row["rol"], "ver_asistencias": bool(row["ver_asistencias"])}
 
 
-def crear_usuario(username: str, password: str, nombre: str = "", rol: str = "USER") -> bool:
+def crear_usuario(username: str, password: str, nombre: str = "", rol: str = "USER", ver_asistencias: bool = False) -> bool:
     """Crea un nuevo usuario. Retorna True si fue exitoso."""
     try:
         conn = sqlite3.connect(DB_PATH)
-        _crear_usuario(conn, username, password, nombre, rol)
+        _crear_usuario(conn, username, password, nombre, rol, ver_asistencias)
         conn.close()
         return True
     except sqlite3.IntegrityError:
@@ -308,20 +312,21 @@ def cambiar_password(username: str, nueva_password: str) -> bool:
 def listar_usuarios() -> List[Dict]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("SELECT id, username, nombre, activo, rol FROM usuarios").fetchall()
+    rows = conn.execute("SELECT id, username, nombre, activo, rol, ver_asistencias FROM usuarios").fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    return [{**dict(r), "ver_asistencias": bool(r["ver_asistencias"])} for r in rows]
 
 
-def editar_usuario(username: str, nombre: str, rol: str) -> bool:
-    """Edita nombre y rol de un usuario existente."""
+def editar_usuario(username: str, nombre: str, rol: str, ver_asistencias: bool = False) -> bool:
+    """Edita nombre, rol y permisos de un usuario existente."""
     if rol not in ("ADMIN", "USER"):
         rol = "USER"
+    va = 1 if (rol == "ADMIN" or ver_asistencias) else 0
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.execute(
-            "UPDATE usuarios SET nombre=?, rol=? WHERE username=?",
-            (nombre, rol, username),
+            "UPDATE usuarios SET nombre=?, rol=?, ver_asistencias=? WHERE username=?",
+            (nombre, rol, va, username),
         )
         conn.commit()
         conn.close()

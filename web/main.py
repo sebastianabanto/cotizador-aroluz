@@ -24,7 +24,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from web.auth import require_login, require_admin, get_session, verificar_usuario, set_session_cookie, clear_session_cookie
+from web.auth import require_login, require_admin, require_asistencias, get_session, verificar_usuario, set_session_cookie, clear_session_cookie
 from web.database import (
     cargar_config, guardar_config, obtener_catalogo,
     importar_catalogo_desde_excel, importar_catalogo_desde_json,
@@ -41,6 +41,7 @@ from web.rutas import carrito as rutas_carrito
 from web.rutas import exportar as rutas_exportar
 from web.rutas import historial as rutas_historial
 from web.rutas.carrito import get_carrito
+from asistencias.main import router as asistencias_router
 
 # ─────────────────────────────────────────────
 # Configurar app
@@ -70,6 +71,14 @@ app.include_router(rutas_cotizar.router)
 app.include_router(rutas_carrito.router)
 app.include_router(rutas_exportar.router)
 app.include_router(rutas_historial.router)
+app.include_router(asistencias_router, prefix="/asistencias")
+
+# Static de asistencias (CSS/imágenes propias del módulo)
+_ASISTENCIAS_STATIC = Path(__file__).parent.parent / "asistencias" / "static"
+if _ASISTENCIAS_STATIC.exists():
+    app.mount("/asistencias/static",
+              StaticFiles(directory=str(_ASISTENCIAS_STATIC)),
+              name="asistencias_static")
 
 
 # ─────────────────────────────────────────────
@@ -97,7 +106,7 @@ def ctx(request: Request, usuario: dict, **kwargs) -> dict:
 async def login_page(request: Request):
     session = get_session(request)
     if session:
-        return RedirectResponse("/cotizar", status_code=302)
+        return RedirectResponse("/home", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
 
 
@@ -115,8 +124,8 @@ async def login_post(
             {"request": request, "error": "Usuario o contraseña incorrectos"},
             status_code=401,
         )
-    response = RedirectResponse("/cotizar", status_code=302)
-    set_session_cookie(response, user["username"], user.get("nombre", ""), user.get("rol", "USER"))
+    response = RedirectResponse("/home", status_code=302)
+    set_session_cookie(response, user["username"], user.get("nombre", ""), user.get("rol", "USER"), user.get("ver_asistencias", False))
     return response
 
 
@@ -135,8 +144,17 @@ async def logout(request: Request):
 async def root(request: Request):
     session = get_session(request)
     if session:
-        return RedirectResponse("/cotizar", status_code=302)
+        return RedirectResponse("/home", status_code=302)
     return RedirectResponse("/login", status_code=302)
+
+
+# ─────────────────────────────────────────────
+# Página Home
+# ─────────────────────────────────────────────
+
+@app.get("/home", response_class=HTMLResponse)
+async def home_page(request: Request, usuario: dict = Depends(require_login)):
+    return templates.TemplateResponse("home.html", ctx(request, usuario, active="home"))
 
 
 # ─────────────────────────────────────────────
@@ -219,10 +237,9 @@ async def catalogo_page(request: Request, usuario: dict = Depends(require_login)
 async def configuracion_page(request: Request, usuario: dict = Depends(require_admin)):
     config = cargar_config()
     catalogo = obtener_catalogo()
-    usuarios = listar_usuarios()
     return templates.TemplateResponse(
         "configuracion.html",
-        ctx(request, usuario, config=config, catalogo=catalogo, usuarios=usuarios),
+        ctx(request, usuario, config=config, catalogo=catalogo),
     )
 
 
@@ -762,10 +779,11 @@ async def cfg_crear_usuario(
     password: str = Form(...),
     nombre: str = Form(""),
     rol: str = Form("USER"),
+    ver_asistencias: str = Form(""),
 ):
     if rol not in ("ADMIN", "USER"):
         rol = "USER"
-    ok = crear_usuario(username, password, nombre, rol)
+    ok = crear_usuario(username, password, nombre, rol, ver_asistencias=bool(ver_asistencias))
     return JSONResponse({"ok": ok, "error": "El usuario ya existe" if not ok else None})
 
 
@@ -788,10 +806,11 @@ async def cfg_editar_usuario(
     usuario: dict = Depends(require_admin),
     nombre: str = Form(""),
     rol: str = Form("USER"),
+    ver_asistencias: str = Form(""),
 ):
     if rol not in ("ADMIN", "USER"):
         rol = "USER"
-    ok = editar_usuario(username, nombre, rol)
+    ok = editar_usuario(username, nombre, rol, ver_asistencias=bool(ver_asistencias))
     return JSONResponse({"ok": ok})
 
 
@@ -873,6 +892,19 @@ async def mi_config_cambiar_password(
         return JSONResponse({"ok": False, "error": "Contraseña actual incorrecta"}, status_code=401)
     ok = cambiar_password(usuario["u"], password_nuevo)
     return JSONResponse({"ok": ok})
+
+
+# ─────────────────────────────────────────────
+# Página Usuarios (solo ADMIN)
+# ─────────────────────────────────────────────
+
+@app.get("/usuarios", response_class=HTMLResponse)
+async def usuarios_page(request: Request, usuario: dict = Depends(require_admin)):
+    usuarios = listar_usuarios()
+    return templates.TemplateResponse(
+        "usuarios.html",
+        ctx(request, usuario, usuarios=usuarios),
+    )
 
 
 # ─────────────────────────────────────────────

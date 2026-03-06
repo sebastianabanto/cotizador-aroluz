@@ -27,9 +27,9 @@ SESSION_MAX_AGE = 60 * 60 * 24 * 7  # 7 días en segundos
 _serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 
-def crear_token(username: str, nombre: str = "", rol: str = "USER") -> str:
+def crear_token(username: str, nombre: str = "", rol: str = "USER", ver_asistencias: bool = False) -> str:
     """Crea un token firmado con datos del usuario."""
-    payload = {"u": username, "n": nombre, "r": rol}
+    payload = {"u": username, "n": nombre, "r": rol, "va": ver_asistencias}
     return _serializer.dumps(payload, salt="login")
 
 
@@ -65,9 +65,9 @@ def require_login(request: Request) -> dict:
     return session
 
 
-def set_session_cookie(response: RedirectResponse, username: str, nombre: str = "", rol: str = "USER"):
+def set_session_cookie(response: RedirectResponse, username: str, nombre: str = "", rol: str = "USER", ver_asistencias: bool = False):
     """Establece la cookie de sesión en la respuesta."""
-    token = crear_token(username, nombre, rol)
+    token = crear_token(username, nombre, rol, ver_asistencias)
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
@@ -86,6 +86,18 @@ def require_admin(request: Request) -> dict:
     if not session:
         raise HTTPException(status_code=303, headers={"Location": "/login"})
     if session.get("r") != "ADMIN":
+        raise HTTPException(status_code=303, headers={"Location": "/cotizar?msg=nopermiso"})
+    return session
+
+
+def require_asistencias(request: Request) -> dict:
+    """
+    Dependency de FastAPI — permite acceso a ADMIN o usuarios con ver_asistencias=True.
+    """
+    session = get_session(request)
+    if not session:
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
+    if not (session.get("r") == "ADMIN" or session.get("va")):
         raise HTTPException(status_code=303, headers={"Location": "/cotizar?msg=nopermiso"})
     return session
 

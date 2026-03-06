@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AROLUZ — Control de Asistencias</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="header">
+    <div>
+        <div class="sub">AROLUZ E.I.R.L.</div>
+        <h1>Control de Asistencias</h1>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- ── Upload / Reprocesar ── -->
+    <div class="card">
+        <h2>Reporte biométrico</h2>
+
+        {% if ultimo_archivo %}
+        <div class="reporte-guardado">
+            <div class="reporte-guardado-info">
+                <span class="reporte-icon">📄</span>
+                <span>{{ ultimo_archivo }}</span>
+            </div>
+            <a href="/reprocesar" class="btn">Procesar</a>
+        </div>
+        <div class="upload-sep">— o subir un archivo diferente —</div>
+        {% endif %}
+
+        <form class="upload-form" method="post" action="/procesar" enctype="multipart/form-data">
+            <input type="file" name="archivo" accept=".xls,application/vnd.ms-excel" {% if not ultimo_archivo %}required{% endif %}>
+            <button type="submit" class="btn {% if ultimo_archivo %}btn-outline{% endif %}">
+                {% if ultimo_archivo %}Subir nuevo archivo{% else %}Subir y procesar{% endif %}
+            </button>
+        </form>
+    </div>
+
+    <!-- ── Configuración de excepciones ── -->
+    <details class="card card-config" {% if not resultado %}open{% endif %}>
+        <summary>
+            <span>Reglas especiales</span>
+            {% if excepciones %}
+            <span class="badge badge-naranja" style="margin-left:8px">
+                {{ excepciones | length }} empleado{% if excepciones | length != 1 %}s{% endif %}
+            </span>
+            {% endif %}
+        </summary>
+        <div class="config-body">
+            <p class="config-desc">Empleados que <strong>no cuentan sábados</strong> (ni entrada, ni salida, ni horas):</p>
+            {% if excepciones %}
+            {% for exc in excepciones %}
+            <div class="excepcion-item">
+                <span class="exc-nombre">{{ exc.nombre }}</span>
+                <span class="exc-id">ID {{ exc.id }}</span>
+                <form method="post" action="/excepciones/toggle" style="display:inline">
+                    <input type="hidden" name="emp_id" value="{{ exc.id }}">
+                    <input type="hidden" name="nombre" value="{{ exc.nombre }}">
+                    <button type="submit" class="btn btn-outline btn-sm">Quitar</button>
+                </form>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="config-vacio">Sin excepciones configuradas.</p>
+            {% endif %}
+            {% if resultado %}
+            <p class="config-hint">Usa el botón <strong>"Sin sáb"</strong> en la tabla de resultados para agregar empleados.</p>
+            {% else %}
+            <p class="config-hint">Procesa un reporte para agregar empleados a esta lista.</p>
+            {% endif %}
+        </div>
+    </details>
+
+    <!-- ── Cómo funciona ── -->
+    <details class="card card-info">
+        <summary>¿Cómo funciona el cálculo?</summary>
+        <div class="info-body">
+
+            <div class="info-bloque">
+                <div class="info-titulo">Días hábiles y sábados</div>
+                <p>Los días <strong>lunes a viernes</strong> son días hábiles. Un día hábil sin ninguna marca biométrica se cuenta como <span class="chip chip-rojo">ausencia</span>.</p>
+                <p>Los <strong>sábados</strong> aparecen en el detalle y sus horas se suman al total, pero <em>no generan ausencia</em> si el empleado no asistió — simplemente no se contabilizan como día hábil.</p>
+                <p>Los <strong>domingos</strong> se muestran como fin de semana y nunca cuentan como falta ni como horas.</p>
+            </div>
+
+            <div class="info-bloque">
+                <div class="info-titulo">Estimación por promedio <span class="chip chip-naranja">* estimado</span></div>
+                <p>El reloj biométrico registra cada marca de forma individual. Si un empleado solo tiene <strong>una marca en el día</strong> (olvidó marcar entrada o salida), el sistema la clasifica así:</p>
+                <ul>
+                    <li>Si la marca es <strong>antes de las 14:00</strong> → se interpreta como <em>entrada</em>. La salida se estima con el promedio de sus salidas de los demás días.</li>
+                    <li>Si la marca es <strong>después de las 14:00</strong> → se interpreta como <em>salida</em>. La entrada se estima con el promedio de sus entradas.</li>
+                </ul>
+                <p>Para sábados el umbral es <strong>13:00</strong> (horario reducido). La hora estimada aparece en <span style="color:var(--naranja);font-style:italic">naranja con asterisco</span> para distinguirla de la hora real.</p>
+                <p>Si el empleado aún no tiene días completos suficientes para calcular un promedio, el día se marca como ausente en lugar de estimarse.</p>
+            </div>
+
+            <div class="info-bloque">
+                <div class="info-titulo">Regla "Sin sáb"</div>
+                <p>Algunos empleados tienen horario estrictamente de lunes a viernes. Activando <strong>Sin sáb</strong> en su fila, todas las marcas del sábado se ignoran por completo: no suman horas, no se usan para calcular promedios y no aparecen en el detalle.</p>
+                <p>Esta regla es útil cuando el biométrico registra por error entradas/salidas en sábado para empleados que no trabajan ese día.</p>
+            </div>
+
+            <div class="info-bloque">
+                <div class="info-titulo">Columna "Días estimados"</div>
+                <p>Indica cuántos días del período tuvieron al menos una hora completada por promedio. Es un indicador de calidad del reporte: a mayor cantidad de días estimados, más marcas le faltan al empleado en el biométrico.</p>
+            </div>
+
+        </div>
+    </details>
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    {% if resultado %}
+
+    <!-- ── Metadatos ── -->
+    <div class="meta">
+        <span><strong>Periodo:</strong> {{ resultado.periodo }}</span>
+        <span><strong>Exportado:</strong> {{ resultado.fecha_exportacion }}</span>
+        <span><strong>Empleados encontrados:</strong> {{ resultado.empleados | length }}</span>
+    </div>
+
+    <!-- ── Controles de filtro ── -->
+    <div class="controls">
+        <div class="controles-grupo">
+            <span class="controles-label">Mostrar:</span>
+            <button class="btn btn-sm" id="btn-solo-trabajadores" onclick="filtrarDepartamento('Trabajador')">Solo Trabajadores</button>
+            <button class="btn btn-outline btn-sm" id="btn-solo-empresa" onclick="filtrarDepartamento('Empresa')">Solo Empresa</button>
+            <button class="btn btn-outline btn-sm" id="btn-ver-todos" onclick="filtrarDepartamento('todos')">Todos</button>
+        </div>
+        <span class="controles-sep"></span>
+        <div class="controles-grupo">
+            <span class="controles-label">Detalle:</span>
+            <button class="btn btn-sm btn-outline" id="btn-q1" onclick="filtrarQuincena(1)">1ª Quincena</button>
+            <button class="btn btn-sm btn-outline" id="btn-q2" onclick="filtrarQuincena(2)">2ª Quincena</button>
+            <button class="btn btn-sm" id="btn-qtodo" onclick="filtrarQuincena(0)">Todo el mes</button>
+        </div>
+        <span class="controles-sep"></span>
+        <div class="controles-grupo">
+            <span class="controles-label">Descarga:</span>
+            <button class="btn btn-sm btn-outline" onclick="descargarPdfTodos(false)">↓ PDF simple</button>
+            <button class="btn btn-sm btn-outline" onclick="descargarPdfTodos(true)">↓ PDF detalle</button>
+        </div>
+    </div>
+
+    <!-- ── Tabla resumen ── -->
+    <div class="card">
+        <div class="tabla-wrap">
+            <table id="tabla-resumen">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Nombre</th>
+                        <th>ID</th>
+                        <th>Depto</th>
+                        <th class="center">Días<br>asistidos<span class="th-periodo" id="th-periodo-asistidos"></span></th>
+                        <th class="center">Ausencias<br>hábiles<span class="th-periodo" id="th-periodo-ausencias"></span></th>
+                        <th class="center">Horas<br>trabajadas<span class="th-periodo" id="th-periodo-horas"></span></th>
+                        <th class="center">Días<br>estimados<span class="th-periodo" id="th-periodo-estimados"></span></th>
+                        <th class="center">Sábados</th>
+                        <th class="center">Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for emp in resultado.empleados %}
+                {% set en_excepcion = emp.id in ids_sin_sabados %}
+                <tr class="fila-empleado"
+                    data-depto="{{ emp.departamento }}"
+                    data-id="{{ loop.index }}"
+                    data-asistidos="{{ emp.dias_asistidos }}"
+                    data-asistidos-total="{{ emp.dias_asistidos }}"
+                    data-emp-id="{{ emp.id }}"
+                    data-detalle="{{ emp.detalle | tojson }}">
+                    <td class="center td-estado">
+                        {% if emp.dias_habiles_ausentes == 0 %}
+                            <span class="badge badge-verde">✓</span>
+                        {% elif emp.dias_habiles_ausentes <= 2 %}
+                            <span class="badge badge-naranja">{{ emp.dias_habiles_ausentes }}</span>
+                        {% else %}
+                            <span class="badge badge-rojo">{{ emp.dias_habiles_ausentes }}</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ emp.nombre }}</strong></td>
+                    <td class="num">{{ emp.id }}</td>
+                    <td>
+                        {% if emp.departamento == "Trabajador" %}
+                            <span class="badge badge-verde">{{ emp.departamento }}</span>
+                        {% else %}
+                            <span class="badge badge-gris">{{ emp.departamento }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="center num td-asistidos">{{ emp.dias_asistidos }}</td>
+                    <td class="center num td-ausencias">
+                        {% if emp.dias_habiles_ausentes > 0 %}
+                            <span style="color:var(--rojo); font-weight:600">{{ emp.dias_habiles_ausentes }}</span>
+                        {% else %}
+                            0
+                        {% endif %}
+                    </td>
+                    <td class="center num td-horas">{{ emp.horas_trabajadas_fmt }}</td>
+                    <td class="center num td-estimados">
+                        {% if emp.dias_estimados > 0 %}
+                            <span class="badge badge-naranja">{{ emp.dias_estimados }} *</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="center">
+                        <button class="btn btn-sm btn-sabado {% if en_excepcion %}btn-excepcion-activa{% else %}btn-outline{% endif %}"
+                                onclick="toggleSabado('{{ emp.id }}', '{{ emp.nombre }}')"
+                                title="{% if en_excepcion %}Activo: sábados ignorados. Click para desactivar.{% else %}Click para ignorar sábados.{% endif %}">
+                            {% if en_excepcion %}Sin sáb ✓{% else %}Sin sáb{% endif %}
+                        </button>
+                    </td>
+                    <td class="center">
+                        <button class="toggle-btn" onclick="toggleDetalle({{ loop.index }})">▶ Ver</button>
+                    </td>
+                </tr>
+                <!-- Fila de detalle -->
+                <tr class="detalle-row" id="detalle-{{ loop.index }}">
+                    <td colspan="10">
+                        <div class="detalle-inner">
+                            <div class="alert alert-info alerta-excepcion" style="margin-bottom:10px; font-size:12px; {% if not en_excepcion %}display:none{% endif %}">
+                                Regla activa: sábados no contabilizados para este empleado.
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Día</th>
+                                        <th>Entrada</th>
+                                        <th>Salida</th>
+                                        <th class="center">Horas</th>
+                                        <th class="center">Nota</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="detalle-tbody">
+                                {% for d in emp.detalle %}
+                                <tr class="{% if d.es_fin_semana %}finsemana-row{% endif %}" data-dia="{{ d.dia }}">
+                                    <td>
+                                        {{ d.fecha }}
+                                        {% if d.es_fin_semana %}
+                                            <span class="badge badge-gris" style="font-size:10px">F/S</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="{% if d.estimado_entrada %}estimado-cell{% endif %}">
+                                        {% if d.entrada %}
+                                            {{ d.entrada }}{% if d.estimado_entrada %}*{% endif %}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td class="{% if d.estimado_salida %}estimado-cell{% endif %}">
+                                        {% if d.salida %}
+                                            {{ d.salida }}{% if d.estimado_salida %}*{% endif %}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td class="center num {% if d.estimado %}estimado-cell{% endif %}">
+                                        {% if d.horas_fmt %}
+                                            {{ d.horas_fmt }}
+                                        {% elif d.ausente and not d.es_fin_semana %}
+                                            <span class="ausente-cell">AUSENTE</span>
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
+                                    <td class="center">
+                                        {% if d.estimado %}
+                                            <span class="badge badge-naranja" title="Hora completada con promedio del empleado">* estimado</span>
+                                        {% elif d.ausente and not d.es_fin_semana %}
+                                            <span class="badge badge-rojo">falta</span>
+                                        {% elif d.es_fin_semana and not d.ausente %}
+                                            <span class="badge badge-gris">no hábil</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                            <div class="leyenda">
+                                <span><span class="dot dot-est"></span> * Hora completada con promedio del empleado</span>
+                                <span><span class="dot dot-aus"></span> AUSENTE = falta en día hábil</span>
+                                <span><span class="dot dot-fs"></span> F/S = Fin de semana (no cuenta como falta)</span>
+                            </div>
+                            <div style="margin-top:10px">
+                                <button class="btn btn-sm btn-outline" onclick="descargarPdfEmpleado('{{ emp.id }}')">↓ PDF empleado</button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% endif %}
+
+    <div class="footer">AROLUZ E.I.R.L. — Sistema de Control de Asistencias</div>
+</div>
+
+
+<script>
+let quincenaActiva = 0;
+let deptoActivo = "Trabajador";
+// Último día real del período (calculado servidor-side para reflejar el mes correcto)
+{% if resultado and resultado.empleados and resultado.empleados[0].detalle %}
+const _ultimoDiaMes = {{ resultado.empleados[0].detalle[-1].dia }};
+{% else %}
+const _ultimoDiaMes = 31;
+{% endif %}
+
+function filtrarQuincena(q) {
+    quincenaActiva = q;
+
+    // Botones
+    const mapa = {0: "btn-qtodo", 1: "btn-q1", 2: "btn-q2"};
+    Object.entries(mapa).forEach(function([key, btnId]) {
+        const el = document.getElementById(btnId);
+        if (el) el.classList.toggle("btn-outline", parseInt(key) !== q);
+    });
+
+    // Indicadores en headers (usa el último día real del mes)
+    const textoIndicador = q === 1 ? "días 1–15" : q === 2 ? "días 16–" + _ultimoDiaMes : "";
+    ["asistidos", "ausencias", "horas", "estimados"].forEach(function(id) {
+        const span = document.getElementById("th-periodo-" + id);
+        if (!span) return;
+        span.textContent = textoIndicador;
+        span.style.display = textoIndicador ? "" : "none";
+    });
+
+    // Por cada empleado: filtrar filas + recalcular
+    document.querySelectorAll(".fila-empleado").forEach(function(filaEmp) {
+        const loopIdx    = filaEmp.getAttribute("data-id");
+        const detalleRaw = filaEmp.getAttribute("data-detalle");
+        if (!detalleRaw) return;
+
+        let detalle;
+        try { detalle = JSON.parse(detalleRaw); } catch(e) { return; }
+
+        // Filtrar filas DOM del detalle
+        const detalleRow = document.getElementById("detalle-" + loopIdx);
+        if (detalleRow) {
+            detalleRow.querySelectorAll(".detalle-tbody tr[data-dia]").forEach(function(row) {
+                const dia     = parseInt(row.getAttribute("data-dia"), 10);
+                const visible = (q === 0) || (q === 1 && dia <= 15) || (q === 2 && dia >= 16);
+                row.style.display = visible ? "" : "none";
+            });
+        }
+
+        // Calcular totales del período
+        let asistidos = 0, ausencias = 0, totalMin = 0, estimados = 0;
+        detalle.forEach(function(d) {
+            const enPeriodo = (q === 0) || (q === 1 && d.dia <= 15) || (q === 2 && d.dia >= 16);
+            if (!enPeriodo) return;
+            if (!d.ausente)                                        asistidos += 1;
+            if (d.ausente && !d.es_fin_semana)                     ausencias += 1;
+            if (d.horas !== null && d.horas !== undefined)         totalMin  += Math.round(d.horas * 60);
+            if (d.estimado)                                        estimados += 1;
+        });
+
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        const horasFmt = h + "h " + String(m).padStart(2, "0") + "m";
+
+        // Badge estado
+        const tdEstado = filaEmp.querySelector(".td-estado");
+        if (tdEstado) {
+            if (ausencias === 0) {
+                tdEstado.innerHTML = '<span class="badge badge-verde">✓</span>';
+            } else if (ausencias <= 2) {
+                tdEstado.innerHTML = `<span class="badge badge-naranja">${ausencias}</span>`;
+            } else {
+                tdEstado.innerHTML = `<span class="badge badge-rojo">${ausencias}</span>`;
+            }
+        }
+
+        filaEmp.setAttribute("data-asistidos", asistidos);
+        filaEmp.querySelector(".td-asistidos").textContent = asistidos;
+
+        const tdAus = filaEmp.querySelector(".td-ausencias");
+        if (ausencias > 0) {
+            tdAus.innerHTML = `<span style="color:var(--rojo);font-weight:600">${ausencias}</span>`;
+        } else {
+            tdAus.textContent = "0";
+        }
+
+        filaEmp.querySelector(".td-horas").textContent = horasFmt;
+
+        const tdEst = filaEmp.querySelector(".td-estimados");
+        if (estimados > 0) {
+            tdEst.innerHTML = `<span class="badge badge-naranja">${estimados} *</span>`;
+        } else {
+            tdEst.textContent = "—";
+        }
+    });
+}
+
+function toggleDetalle(id) {
+    const row = document.getElementById("detalle-" + id);
+    const btn = row.previousElementSibling.querySelector(".toggle-btn");
+    if (row.classList.contains("abierto")) {
+        row.classList.remove("abierto");
+        btn.textContent = "▶ Ver";
+    } else {
+        row.classList.add("abierto");
+        btn.textContent = "▼ Ocultar";
+        // Aplicar filtro de quincena actual a las filas recién visibles
+        filtrarQuincena(quincenaActiva);
+    }
+}
+
+function descargarPdfTodos(conDetalle) {
+    const base = `/exportar/pdf?quincena=${quincenaActiva}&depto=${deptoActivo}`;
+    window.open(conDetalle ? base + '&detalle=true' : base, '_blank');
+}
+function descargarPdfEmpleado(empId) {
+    window.open(`/exportar/pdf/${empId}?quincena=${quincenaActiva}`, '_blank');
+}
+
+function filtrarDepartamento(depto) {
+    deptoActivo = depto;
+    document.querySelectorAll(".fila-empleado").forEach(function(fila) {
+        const filaDepto = fila.getAttribute("data-depto");
+        const id = fila.getAttribute("data-id");
+        const asistidos = parseInt(fila.getAttribute("data-asistidos-total") || "0", 10);
+        const detalleRow = document.getElementById("detalle-" + id);
+        const deptoOk = (depto === "todos" || filaDepto === depto);
+
+        if (deptoOk && asistidos > 0) {
+            fila.style.display = "";
+        } else {
+            fila.style.display = "none";
+            if (detalleRow) {
+                detalleRow.classList.remove("abierto");
+                detalleRow.style.display = "none";
+            }
+        }
+    });
+
+    const btns = { "Trabajador": "btn-solo-trabajadores", "Empresa": "btn-solo-empresa", "todos": "btn-ver-todos" };
+    Object.entries(btns).forEach(function([key, btnId]) {
+        const el = document.getElementById(btnId);
+        if (el) el.classList.toggle("btn-outline", key !== depto);
+    });
+}
+
+// ── Render de una fila de detalle (replica la lógica Jinja2) ──────────────
+function renderFilaDetalle(d) {
+    const clsFin = d.es_fin_semana ? "finsemana-row" : "";
+    const fsTag  = d.es_fin_semana
+        ? ' <span class="badge badge-gris" style="font-size:10px">F/S</span>' : "";
+
+    const clsEntrada   = d.estimado_entrada ? "estimado-cell" : "";
+    const entradaHtml  = d.entrada
+        ? d.entrada + (d.estimado_entrada ? "*" : "") : "—";
+
+    const clsSalida    = d.estimado_salida ? "estimado-cell" : "";
+    const salidaHtml   = d.salida
+        ? d.salida + (d.estimado_salida ? "*" : "") : "—";
+
+    const clsHoras = "center num" + (d.estimado ? " estimado-cell" : "");
+    let horasHtml;
+    if (d.horas_fmt) {
+        horasHtml = d.horas_fmt;
+    } else if (d.ausente && !d.es_fin_semana) {
+        horasHtml = '<span class="ausente-cell">AUSENTE</span>';
+    } else {
+        horasHtml = "—";
+    }
+
+    let notaHtml = "";
+    if (d.estimado) {
+        notaHtml = '<span class="badge badge-naranja" title="Hora completada con promedio del empleado">* estimado</span>';
+    } else if (d.ausente && !d.es_fin_semana) {
+        notaHtml = '<span class="badge badge-rojo">falta</span>';
+    } else if (d.es_fin_semana && !d.ausente) {
+        notaHtml = '<span class="badge badge-gris">no hábil</span>';
+    }
+
+    return `<tr class="${clsFin}" data-dia="${d.dia}">
+        <td>${d.fecha}${fsTag}</td>
+        <td class="${clsEntrada}">${entradaHtml}</td>
+        <td class="${clsSalida}">${salidaHtml}</td>
+        <td class="${clsHoras}">${horasHtml}</td>
+        <td class="center">${notaHtml}</td>
+    </tr>`;
+}
+
+// ── Toggle sábado sin recargar ────────────────────────────────────────────
+function toggleSabado(empId, nombre) {
+    const fd = new FormData();
+    fd.append("emp_id", empId);
+    fd.append("nombre", nombre);
+
+    fetch("/excepciones/toggle-ajax", { method: "POST", body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            const activo   = data.activo;
+            const empleado = data.empleado;
+            if (!empleado) return;
+
+            // Fila resumen
+            const filaEmp = document.querySelector(`.fila-empleado[data-emp-id="${empId}"]`);
+            if (!filaEmp) return;
+            const loopIdx = filaEmp.getAttribute("data-id");
+
+            // Botón
+            const btn = filaEmp.querySelector(".btn-sabado");
+            if (activo) {
+                btn.textContent = "Sin sáb ✓";
+                btn.classList.remove("btn-outline");
+                btn.classList.add("btn-excepcion-activa");
+                btn.title = "Activo: sábados ignorados. Click para desactivar.";
+            } else {
+                btn.textContent = "Sin sáb";
+                btn.classList.remove("btn-excepcion-activa");
+                btn.classList.add("btn-outline");
+                btn.title = "Click para ignorar sábados.";
+            }
+
+            // data-asistidos (para el filtro)
+            filaEmp.setAttribute("data-asistidos", empleado.dias_asistidos);
+
+            // Badge estado
+            const tdEstado = filaEmp.querySelector(".td-estado");
+            if (empleado.dias_habiles_ausentes === 0) {
+                tdEstado.innerHTML = '<span class="badge badge-verde">✓</span>';
+            } else if (empleado.dias_habiles_ausentes <= 2) {
+                tdEstado.innerHTML = `<span class="badge badge-naranja">${empleado.dias_habiles_ausentes}</span>`;
+            } else {
+                tdEstado.innerHTML = `<span class="badge badge-rojo">${empleado.dias_habiles_ausentes}</span>`;
+            }
+
+            // Días asistidos
+            filaEmp.querySelector(".td-asistidos").textContent = empleado.dias_asistidos;
+
+            // Ausencias
+            const tdAus = filaEmp.querySelector(".td-ausencias");
+            if (empleado.dias_habiles_ausentes > 0) {
+                tdAus.innerHTML = `<span style="color:var(--rojo);font-weight:600">${empleado.dias_habiles_ausentes}</span>`;
+            } else {
+                tdAus.textContent = "0";
+            }
+
+            // Horas
+            filaEmp.querySelector(".td-horas").textContent = empleado.horas_trabajadas_fmt;
+
+            // Días estimados
+            const tdEst = filaEmp.querySelector(".td-estimados");
+            if (empleado.dias_estimados > 0) {
+                tdEst.innerHTML = `<span class="badge badge-naranja">${empleado.dias_estimados} *</span>`;
+            } else {
+                tdEst.textContent = "—";
+            }
+
+            // Alert en detalle
+            const detalleRow = document.getElementById("detalle-" + loopIdx);
+            const alerta = detalleRow.querySelector(".alerta-excepcion");
+            if (alerta) alerta.style.display = activo ? "" : "none";
+
+            // Tabla de detalle
+            const tbody = detalleRow.querySelector(".detalle-tbody");
+            if (tbody) {
+                tbody.innerHTML = empleado.detalle.map(renderFilaDetalle).join("");
+                // Actualizar data-detalle con el JSON recibido del servidor
+                filaEmp.setAttribute("data-detalle", JSON.stringify(empleado.detalle));
+                // Re-aplicar filtro de quincena (filtra filas + recalcula resumen)
+                filtrarQuincena(quincenaActiva);
+            }
+        })
+        .catch(function(err) { console.error("Error al toggle sábado:", err); });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    {% if resultado %}
+    // Normalizar URL a "/" para que F5 recargue la página vacía (sin resultados)
+    if (history.replaceState) {
+        history.replaceState(null, document.title, "/");
+    }
+    filtrarDepartamento("Trabajador");
+    {% endif %}
+});
+</script>
+
+</body>
+</html>

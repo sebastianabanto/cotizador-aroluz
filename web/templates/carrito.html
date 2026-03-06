@@ -267,6 +267,7 @@ function guardarFormulario() {
     proyecto:         document.getElementById('proyecto')?.value || '',
     moneda:           document.getElementById('moneda')?.value || 'SOLES',
     encabezadoTabla:  document.getElementById('encabezado-tabla')?.value || '',
+    validez:          document.getElementById('validez')?.value || '30 días',
   }));
 }
 
@@ -333,7 +334,7 @@ function onClienteInput() {
 function onClienteFocus() {
   // Al enfocar: limpiar el texto para que el usuario pueda escribir o ver toda la lista
   document.getElementById('cliente-input').value = '';
-  document.getElementById('cliente').value = '';
+  // No limpiar el hidden 'cliente' aqui; se limpia en onClienteInput() al escribir
   renderLista(CLIENTES);
 }
 
@@ -344,6 +345,7 @@ function onClienteBlur() {
     if (!inp.value.trim() && _clienteActual.codigo) {
       inp.value = `${_clienteActual.codigo} — ${_clienteActual.nombre}`;
       document.getElementById('cliente').value = _clienteActual.codigo;
+      guardarFormulario();
     }
   }, 200); // demora para que mousedown de la lista se ejecute primero
 }
@@ -626,6 +628,11 @@ function restaurarFormulario() {
     document.getElementById('moneda').value = f.moneda;
     if (document.getElementById('th-pu')) cambiarMoneda();
   }
+  // Validez
+  if (f.validez) {
+    const vs = document.getElementById('validez');
+    if (vs) vs.value = f.validez;
+  }
 }
 
 // Guardar automáticamente en cada cambio
@@ -634,6 +641,9 @@ document.getElementById('proyecto')?.addEventListener('input', guardarFormulario
 document.getElementById('encabezado-tabla')?.addEventListener('input', guardarFormulario);
 document.getElementById('atencion')?.addEventListener('change', guardarFormulario);
 document.getElementById('moneda')?.addEventListener('change', guardarFormulario);
+document.getElementById('validez')?.addEventListener('change', guardarFormulario);
+// Guardar al salir de la página (navegar a otra sección) como red de seguridad
+window.addEventListener('pagehide', guardarFormulario);
 
 // ── Vaciar carrito real Y panel en vivo si el usuario hace F5 ──
 const _navType = performance.getEntriesByType('navigation')[0]?.type;
@@ -643,25 +653,13 @@ sessionStorage.removeItem('_reloadProgramatico');
 
 // ── Banner: editando copia desde historial ──
 const _editandoDesdeId = sessionStorage.getItem('editando_desde_cotizacion_id');
-// Siempre restaurar validez si hay valor guardado (persiste entre cotizar ↔ carrito)
-const _fvValidez = JSON.parse(sessionStorage.getItem('carrito_form_v1') || 'null');
-if (_fvValidez?.validez) {
-  const vs = document.getElementById('validez');
-  if (vs) vs.value = _fvValidez.validez;
-}
-
-if (_editandoDesdeId || _esProgramatico) {
-  // Restaurar formulario cuando se viene de editar desde historial O tras recarga programática
-  restaurarFormulario();
-  if (_editandoDesdeId) {
-    const banner = document.createElement('div');
-    banner.className = 'banner-editando';
-    banner.innerHTML = `✏️ Editando copia de cotización <strong>#${_editandoDesdeId}</strong> — al guardar al historial se creará una <strong>nueva cotización</strong>. <button onclick="this.parentElement.remove(); sessionStorage.removeItem('editando_desde_cotizacion_id')" style="margin-left:auto; background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--texto-suave);" title="Cerrar aviso">✕</button>`;
-    document.querySelector('.container')?.prepend(banner);
-  }
-} else {
-  // Visita fresca al carrito: limpiar datos previos para que no haya campos pre-llenados
-  sessionStorage.removeItem('carrito_form_v1');
+// Restaurar formulario siempre que haya datos guardados (incluye volver desde catálogo u otra página)
+restaurarFormulario();
+if (_editandoDesdeId) {
+  const banner = document.createElement('div');
+  banner.className = 'banner-editando';
+  banner.innerHTML = `✏️ Editando copia de cotización <strong>#${_editandoDesdeId}</strong> — al guardar al historial se creará una <strong>nueva cotización</strong>. <button onclick="this.parentElement.remove(); sessionStorage.removeItem('editando_desde_cotizacion_id')" style="margin-left:auto; background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--texto-suave);" title="Cerrar aviso">✕</button>`;
+  document.querySelector('.container')?.prepend(banner);
 }
 if (_navType === 'reload' && !_yaVaciado && !_esProgramatico) {
   sessionStorage.setItem('carritoVaciadoPorF5', '1');

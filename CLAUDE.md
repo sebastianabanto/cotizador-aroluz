@@ -181,3 +181,4 @@ A backup is kept at `cotizador_config_backup.json`.
 - **Language** — always respond to the user in **Español**.
 - **Never touch `gui/logica.py`** — web logic lives exclusively in `web/motor.py`.
 - **Install packages** always via `venv\Scripts\python.exe -m pip install <package>` (never `pip.exe` directly).
+- **NUNCA cambiar el formato/diseño del PDF exportado** — la plantilla oficial es `web/templates/cotizacion_pdf.html`. Si hay un problema técnico con el generador de PDF (Playwright, WeasyPrint, etc.), se debe cambiar el motor de renderizado, NUNCA el diseño/estructura del template ni sustituirlo por otra implementación (ej. ReportLab programático). El aspecto visual del PDF es decisión exclusiva del usuario.

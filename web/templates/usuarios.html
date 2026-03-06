@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+{% set active = "usuarios" %}
+
+{% block title %}Usuarios — AROLUZ{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Layout ── */
+.cfg-row-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+/* ── Cards ── */
+.cfg-card {
+  background: #fff;
+  border: 1px solid var(--gris-borde);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cfg-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: clamp(0.6rem, 2vw, 0.8rem) clamp(0.75rem, 2.5vw, 1.1rem);
+  background: #fafbfc;
+  border-bottom: 1px solid var(--gris-borde);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.cfg-card-icon {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; font-weight: 700;
+  flex-shrink: 0;
+}
+.cfg-card-badge {
+  margin-left: auto;
+  font-size: 0.78rem; font-weight: 400;
+  color: var(--texto-suave);
+  background: #f0f4f8;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.cfg-card-body {
+  padding: clamp(0.75rem, 2.5vw, 1rem) clamp(0.75rem, 2.5vw, 1.1rem);
+}
+/* ── Fields ── */
+.cfg-field { margin-bottom: 0.9rem; }
+.cfg-field:last-child { margin-bottom: 0; }
+.cfg-label {
+  display: block;
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+}
+.cfg-btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.cfg-hint {
+  font-size: 0.85rem; color: var(--texto-suave);
+  margin-bottom: 1rem; line-height: 1.5;
+}
+/* ── Usuarios — filas ── */
+.cfg-user-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.875rem;
+}
+.cfg-user-row:last-child { border-bottom: none; }
+.cfg-user-info { min-width: 0; word-break: break-word; }
+.cfg-user-sub  { color: var(--texto-suave); }
+.cfg-user-badges {
+  display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0;
+}
+.cfg-user-actions {
+  display: flex; gap: 0.25rem; align-items: center; flex-shrink: 0;
+}
+.cfg-badge-activo {
+  flex-shrink: 0;
+  font-size: 0.72rem; font-weight: 600;
+  color: #1a8a4a; background: #e8f9f0;
+  padding: 0.15rem 0.5rem; border-radius: 20px;
+}
+.cfg-badge-inactivo {
+  flex-shrink: 0;
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--rojo); background: #fdecea;
+  padding: 0.15rem 0.5rem; border-radius: 20px;
+}
+/* Badges de rol */
+.badge-rol {
+  font-size: 0.7rem; font-weight: 700;
+  padding: 0.15rem 0.5rem; border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-admin { color: #7c3aed; background: #ede9fe; }
+.badge-user  { color: #1a6fad; background: #e8f4fd; }
+/* Botones de acción por usuario */
+.uact-btn {
+  width: 28px; height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.13s, border-color 0.13s;
+  flex-shrink: 0;
+}
+.uact-edit:hover   { background: #e8f4fd; border-color: #bcd8f0; }
+.uact-toggle:hover { background: #fef3e2; border-color: #f0d9a8; }
+.uact-delete:hover { background: #fdecea; border-color: #f0b4af; }
+.uact-self-label {
+  font-size: 0.7rem; color: var(--texto-suave);
+  padding: 0 0.25rem;
+  font-style: italic;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="page-title">Usuarios</h1>
+
+  <div class="cfg-row-2">
+
+    <!-- Columna izquierda: lista + crear -->
+    <div>
+
+      <!-- Lista de usuarios -->
+      <div class="cfg-card" style="margin-bottom:1rem;">
+        <div class="cfg-card-header">
+          <span class="cfg-card-icon" style="background:#e8f4fd; color:#1a6fad;">👥</span>
+          <span>Usuarios del Sistema</span>
+          <span class="cfg-card-badge">{{ usuarios|length }} usuario{{ 's' if usuarios|length != 1 else '' }}</span>
+        </div>
+        <div class="cfg-card-body" style="padding-top:0.5rem;">
+          {% for u in usuarios %}
+          <div class="cfg-user-row" id="urow-{{ u.username }}"
+               data-username="{{ u.username }}"
+               data-nombre="{{ u.nombre or '' }}"
+               data-rol="{{ u.rol }}"
+               data-va="{{ 'true' if u.ver_asistencias else 'false' }}">
+            <div class="cfg-user-info">
+              <strong>{{ u.username }}</strong>
+              {% if u.nombre %}<span class="cfg-user-sub"> · {{ u.nombre }}</span>{% endif %}
+            </div>
+            <div class="cfg-user-badges">
+              {% if u.rol == 'ADMIN' %}
+              <span class="badge-rol badge-admin">Admin</span>
+              {% else %}
+              <span class="badge-rol badge-user">Usuario</span>
+              {% endif %}
+              {% if not u.activo %}
+              <span class="cfg-badge-inactivo" id="badge-activo-{{ u.username }}">inactivo</span>
+              {% else %}
+              <span class="cfg-badge-activo" id="badge-activo-{{ u.username }}">activo</span>
+              {% endif %}
+            </div>
+            <div class="cfg-user-actions">
+              <button class="uact-btn uact-edit"
+                title="Editar usuario"
+                onclick="abrirEditarUsuarioDesdeRow(this)">
+                ✏
+              </button>
+              {% if u.username != usuario.u %}
+              <button class="uact-btn uact-toggle"
+                title="{{ 'Desactivar' if u.activo else 'Activar' }}"
+                id="btn-toggle-{{ u.username }}"
+                onclick="toggleActivoUsuario('{{ u.username }}')">
+                {{ '⏸' if u.activo else '▶' }}
+              </button>
+              <button class="uact-btn uact-delete"
+                title="Eliminar usuario"
+                onclick="confirmarEliminar('{{ u.username }}')">
+                🗑
+              </button>
+              {% else %}
+              <span class="uact-self-label">tú</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Crear usuario -->
+      <div class="cfg-card">
+        <div class="cfg-card-header">
+          <span class="cfg-card-icon" style="background:#e8f9f0; color:#1a8a4a;">+</span>
+          <span>Crear Nuevo Usuario</span>
+        </div>
+        <div class="cfg-card-body">
+          <div class="cfg-field">
+            <label class="cfg-label" for="new-username">Usuario</label>
+            <input type="text" id="new-username" class="form-control"
+              placeholder="nombre de usuario" autocomplete="username">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="new-nombre">Nombre completo</label>
+            <input type="text" id="new-nombre" class="form-control"
+              placeholder="opcional" autocomplete="name">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="new-pwd">Contraseña</label>
+            <input type="password" id="new-pwd" class="form-control" autocomplete="new-password">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="new-rol">Rol</label>
+            <select id="new-rol" class="form-control" onchange="syncNuevoRolPermisos()">
+              <option value="USER">Usuario (limitado)</option>
+              <option value="ADMIN">Administrador</option>
+            </select>
+          </div>
+          <div class="cfg-field" id="new-va-field">
+            <label class="cfg-label" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+              <input type="checkbox" id="new-ver-asistencias" style="width:16px; height:16px;">
+              Acceso a Asistencias
+            </label>
+          </div>
+          <div class="cfg-btn-row" style="margin-top:0.25rem;">
+            <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Columna derecha: resetear contraseña -->
+    <div>
+
+      <div class="cfg-card">
+        <div class="cfg-card-header">
+          <span class="cfg-card-icon" style="background:#fdecea; color:#b91c1c;">🔒</span>
+          <span>Resetear Contraseña</span>
+        </div>
+        <div class="cfg-card-body">
+          <p class="cfg-hint" style="margin-bottom:0.9rem;">
+            Establece una nueva contraseña para cualquier usuario sin necesitar la contraseña actual.
+          </p>
+          <div class="cfg-field">
+            <label class="cfg-label" for="reset-usuario">Usuario</label>
+            <select id="reset-usuario" class="form-control">
+              {% for u in usuarios %}
+              {% if u.username != usuario.u %}
+              <option value="{{ u.username }}">{{ u.username }}{% if u.nombre %} — {{ u.nombre }}{% endif %}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="reset-pwd">Nueva contraseña</label>
+            <input type="password" id="reset-pwd" class="form-control" autocomplete="new-password"
+              placeholder="mínimo 4 caracteres">
+          </div>
+          <div class="cfg-btn-row" style="margin-top:0.25rem;">
+            <button class="btn btn-outline" style="border-color:#b91c1c; color:#b91c1c;"
+              onclick="resetearPassword()">Resetear contraseña</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ── Modal: Editar usuario ── -->
+  <div id="modal-editar-usuario" style="display:none; position:fixed; inset:0; z-index:9000;
+    background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:1.75rem 2rem; max-width:420px;
+      width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1.25rem;">
+        <span style="font-size:1.2rem;">✏️</span>
+        <h3 style="margin:0; font-size:1.05rem; color:#1a3a5c;">Editar Usuario</h3>
+      </div>
+      <div class="cfg-field">
+        <label class="cfg-label">Usuario</label>
+        <input type="text" id="edit-u-username" class="form-control" readonly
+          style="background:#f5f7fa; color:var(--texto-suave); cursor:default;">
+      </div>
+      <div class="cfg-field">
+        <label class="cfg-label" for="edit-u-nombre">Nombre completo</label>
+        <input type="text" id="edit-u-nombre" class="form-control" placeholder="opcional">
+      </div>
+      <div class="cfg-field">
+        <label class="cfg-label" for="edit-u-rol">Rol</label>
+        <select id="edit-u-rol" class="form-control" onchange="syncEditRolPermisos()">
+          <option value="USER">Usuario (limitado)</option>
+          <option value="ADMIN">Administrador</option>
+        </select>
+      </div>
+      <div class="cfg-field" id="edit-va-field">
+        <label class="cfg-label" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+          <input type="checkbox" id="edit-u-ver-asistencias" style="width:16px; height:16px;">
+          Acceso a Asistencias
+        </label>
+      </div>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1.25rem;">
+        <button class="btn btn-outline" onclick="cerrarModal('modal-editar-usuario')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarEditarUsuario()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Confirmar eliminar usuario ── -->
+  <div id="modal-eliminar-usuario" style="display:none; position:fixed; inset:0; z-index:9000;
+    background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:12px; padding:1.75rem 2rem; max-width:420px;
+      width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <div style="font-size:1.5rem; margin-bottom:0.5rem;">⚠️</div>
+      <h3 style="margin:0 0 0.6rem; font-size:1.05rem; color:#1a3a5c;">¿Eliminar usuario?</h3>
+      <p style="margin:0 0 0.4rem; font-size:0.9rem; color:#6b7280; line-height:1.5;">
+        Se eliminará permanentemente el usuario <strong id="del-u-label"></strong>.
+      </p>
+      <p style="margin:0 0 1.25rem; font-size:0.85rem; color:#b91c1c;">
+        Esta acción no se puede deshacer.
+      </p>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="cerrarModal('modal-eliminar-usuario')">Cancelar</button>
+        <button class="btn btn-primary" style="background:#b91c1c; border-color:#b91c1c;"
+          onclick="ejecutarEliminarUsuario()">Sí, eliminar</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Sincronizar checkbox con rol ──
+function syncNuevoRolPermisos() {
+  const rol = document.getElementById('new-rol').value;
+  const field = document.getElementById('new-va-field');
+  const cb = document.getElementById('new-ver-asistencias');
+  if (rol === 'ADMIN') { cb.checked = true; field.style.opacity = '0.5'; cb.disabled = true; }
+  else { field.style.opacity = '1'; cb.disabled = false; }
+}
+function syncEditRolPermisos() {
+  const rol = document.getElementById('edit-u-rol').value;
+  const field = document.getElementById('edit-va-field');
+  const cb = document.getElementById('edit-u-ver-asistencias');
+  if (rol === 'ADMIN') { cb.checked = true; field.style.opacity = '0.5'; cb.disabled = true; }
+  else { field.style.opacity = '1'; cb.disabled = false; }
+}
+
+// ── Crear usuario ──
+async function crearUsuario() {
+  const username      = document.getElementById('new-username').value.trim();
+  const pwd           = document.getElementById('new-pwd').value;
+  const nombre        = document.getElementById('new-nombre').value.trim();
+  const rol           = document.getElementById('new-rol').value;
+  const verAsistencias = document.getElementById('new-ver-asistencias').checked ? '1' : '';
+  if (!username || !pwd) { toast('Complete usuario y contraseña', 'error'); return; }
+  const data = await apiFetch('/configuracion/usuario/crear', {
+    method: 'POST', body: formData({ username, password: pwd, nombre, rol, ver_asistencias: verAsistencias })
+  });
+  toast(data.ok ? `Usuario "${username}" creado` : (data.error || 'Error'), data.ok ? 'success' : 'error');
+  if (data.ok) {
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-pwd').value = '';
+    document.getElementById('new-nombre').value = '';
+    document.getElementById('new-rol').value = 'USER';
+    document.getElementById('new-ver-asistencias').checked = false;
+    setTimeout(() => location.reload(), 1000);
+  }
+}
+
+// ── Abrir/cerrar modales ──
+function abrirModal(id) {
+  const m = document.getElementById(id);
+  m.style.display = 'flex';
+}
+function cerrarModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+['modal-editar-usuario', 'modal-eliminar-usuario'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', function(e) {
+    if (e.target === this) cerrarModal(id);
+  });
+});
+
+// ── Editar usuario ──
+function abrirEditarUsuarioDesdeRow(btn) {
+  const row = btn.closest('.cfg-user-row');
+  abrirEditarUsuario(row.dataset.username, row.dataset.nombre, row.dataset.rol, row.dataset.va === 'true');
+}
+function abrirEditarUsuario(username, nombre, rol, verAsistencias) {
+  document.getElementById('edit-u-username').value = username;
+  document.getElementById('edit-u-nombre').value   = nombre;
+  document.getElementById('edit-u-rol').value      = rol;
+  document.getElementById('edit-u-ver-asistencias').checked = verAsistencias || rol === 'ADMIN';
+  syncEditRolPermisos();
+  abrirModal('modal-editar-usuario');
+}
+async function guardarEditarUsuario() {
+  const username       = document.getElementById('edit-u-username').value;
+  const nombre         = document.getElementById('edit-u-nombre').value.trim();
+  const rol            = document.getElementById('edit-u-rol').value;
+  const verAsistencias = document.getElementById('edit-u-ver-asistencias').checked ? '1' : '';
+  const data = await apiFetch(`/configuracion/usuario/${encodeURIComponent(username)}`, {
+    method: 'PUT', body: formData({ nombre, rol, ver_asistencias: verAsistencias })
+  });
+  toast(data.ok ? `Usuario "${username}" actualizado` : (data.error || 'Error'), data.ok ? 'success' : 'error');
+  if (data.ok) { cerrarModal('modal-editar-usuario'); setTimeout(() => location.reload(), 900); }
+}
+
+// ── Toggle activo ──
+async function toggleActivoUsuario(username) {
+  const data = await apiFetch(`/configuracion/usuario/${encodeURIComponent(username)}/toggle_activo`, {
+    method: 'POST', body: formData({})
+  });
+  if (!data.ok) { toast(data.error || 'Error', 'error'); return; }
+  const badge = document.getElementById(`badge-activo-${username}`);
+  const btn   = document.getElementById(`btn-toggle-${username}`);
+  if (data.activo) {
+    badge.className = 'cfg-badge-activo';
+    badge.textContent = 'activo';
+    btn.title = 'Desactivar';
+    btn.textContent = '⏸';
+  } else {
+    badge.className = 'cfg-badge-inactivo';
+    badge.textContent = 'inactivo';
+    btn.title = 'Activar';
+    btn.textContent = '▶';
+  }
+  toast(`Usuario "${username}" ${data.activo ? 'activado' : 'desactivado'}`, 'success');
+}
+
+// ── Eliminar usuario ──
+let _usuarioAEliminar = null;
+function confirmarEliminar(username) {
+  _usuarioAEliminar = username;
+  document.getElementById('del-u-label').textContent = username;
+  abrirModal('modal-eliminar-usuario');
+}
+async function ejecutarEliminarUsuario() {
+  if (!_usuarioAEliminar) return;
+  const username = _usuarioAEliminar;
+  cerrarModal('modal-eliminar-usuario');
+  const data = await apiFetch(`/configuracion/usuario/${encodeURIComponent(username)}`, {
+    method: 'DELETE'
+  });
+  toast(data.ok ? `Usuario "${username}" eliminado` : (data.error || 'Error'), data.ok ? 'success' : 'error');
+  if (data.ok) {
+    const row = document.getElementById(`urow-${username}`);
+    if (row) row.remove();
+    const opt = document.querySelector(`#reset-usuario option[value="${username}"]`);
+    if (opt) opt.remove();
+  }
+}
+
+// ── Resetear contraseña (admin) ──
+async function resetearPassword() {
+  const username = document.getElementById('reset-usuario').value;
+  const pwd      = document.getElementById('reset-pwd').value;
+  if (!username) { toast('Selecciona un usuario', 'error'); return; }
+  if (!pwd || pwd.length < 4) { toast('La contraseña debe tener al menos 4 caracteres', 'error'); return; }
+  const data = await apiFetch(`/configuracion/usuario/${encodeURIComponent(username)}/reset_password`, {
+    method: 'POST', body: formData({ password_nuevo: pwd })
+  });
+  toast(data.ok ? `Contraseña de "${username}" restablecida` : (data.error || 'Error'), data.ok ? 'success' : 'error');
+  if (data.ok) document.getElementById('reset-pwd').value = '';
+}
+</script>
+{% endblock %}

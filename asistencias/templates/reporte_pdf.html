@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @page { margin: 32mm 20mm 14mm 20mm; }
+
+    body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 11px;
+        color: #1a1a1a;
+        padding: 10px 0 0 0;
+    }
+
+    /* ── Tabla ── */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+    }
+    th {
+        background: #1a56a0;
+        color: #fff;
+        text-align: left;
+        padding: 6px 8px;
+        font-size: 10px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    th.center, td.center { text-align: center; }
+    td {
+        padding: 5px 8px;
+        border-bottom: 1px solid #dde3ea;
+        font-size: 10px;
+        vertical-align: middle;
+    }
+    tr:nth-child(even) td { background: #f5f7fa; }
+
+    /* ── Badges ── */
+    .badge {
+        display: inline-block;
+        border-radius: 8px;
+        padding: 1px 6px;
+        font-size: 9px;
+        font-weight: 700;
+    }
+    .badge-verde   { background: #d4edda; color: #1e7e44; }
+    .badge-rojo    { background: #fdecea; color: #c0392b; }
+    .badge-naranja { background: #fff3cd; color: #c47d0e; }
+    .badge-gris    { background: #e9ecef; color: #555; }
+
+    /* ── Celdas especiales ── */
+    .estimado-cell { color: #c47d0e; font-style: italic; }
+    .ausente-cell  { color: #aaa; font-size: 9px; }
+    .finsemana-row td { color: #999; background: #f0f0f0 !important; }
+
+    /* ── Fila de totales ── */
+    .totales-row td {
+        font-weight: 700;
+        border-top: 2px solid #1a56a0;
+        background: #e8f0fb !important;
+    }
+
+    /* ── Modo todos_detalle: bloque por empleado ── */
+    .emp-bloque.pagina-nueva { page-break-after: always; }
+
+    .emp-header {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex-wrap: wrap;
+        background: #e8f0fb;
+        border-left: 4px solid #1a56a0;
+        padding: 7px 10px;
+        margin-bottom: 0;
+    }
+    .emp-header-nombre  { font-size: 12px; font-weight: 700; color: #1a56a0; flex: 1; min-width: 140px; }
+    .emp-header-meta    { font-size: 10px; color: #444; white-space: nowrap; }
+    .emp-header-totales { font-size: 10px; color: #333; font-weight: 600; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+{% if modo == "todos" %}
+<!-- ── Resumen general ── -->
+<table>
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>ID</th>
+            <th>Depto</th>
+            <th class="center">Días asistidos</th>
+            <th class="center">Ausencias hábiles</th>
+            <th class="center">Horas trabajadas</th>
+            <th class="center">Días estimados</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for emp in empleados %}
+    <tr>
+        <td><strong>{{ emp.nombre }}</strong></td>
+        <td class="center">{{ emp.id }}</td>
+        <td class="center">{{ emp.departamento }}</td>
+        <td class="center">{{ emp.totales_periodo.asistidos }}</td>
+        <td class="center">
+            {% if emp.totales_periodo.ausencias > 0 %}
+                <span class="badge badge-rojo">{{ emp.totales_periodo.ausencias }}</span>
+            {% else %}
+                <span class="badge badge-verde">0</span>
+            {% endif %}
+        </td>
+        <td class="center">{{ emp.totales_periodo.horas_fmt }}</td>
+        <td class="center">
+            {% if emp.totales_periodo.estimados > 0 %}
+                <span class="badge badge-naranja">{{ emp.totales_periodo.estimados }} *</span>
+            {% else %}
+                —
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+
+{% elif modo == "todos_detalle" %}
+<!-- ── Una hoja por empleado ── -->
+{% for emp in empleados %}
+<div class="emp-bloque {% if not loop.last %}pagina-nueva{% endif %}">
+
+    <div class="emp-header">
+        <span class="emp-header-nombre">{{ emp.nombre }}</span>
+        <span class="emp-header-meta">ID: {{ emp.id }} &nbsp;|&nbsp; {{ emp.departamento }}</span>
+        <span class="emp-header-totales">
+            {{ emp.totales_periodo.asistidos }} días asistidos
+            &nbsp;·&nbsp;
+            {% if emp.totales_periodo.ausencias > 0 %}
+                <span style="color:#c0392b">{{ emp.totales_periodo.ausencias }} ausencias</span>
+            {% else %}
+                0 ausencias
+            {% endif %}
+            &nbsp;·&nbsp; {{ emp.totales_periodo.horas_fmt }}
+            {% if emp.totales_periodo.estimados > 0 %}
+                &nbsp;·&nbsp; <span style="color:#c47d0e">{{ emp.totales_periodo.estimados }} estimados</span>
+            {% endif %}
+        </span>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Día</th>
+                <th>Entrada</th>
+                <th>Salida</th>
+                <th class="center">Horas</th>
+                <th class="center">Nota</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for d in emp.detalle_periodo %}
+        <tr class="{% if d.es_fin_semana %}finsemana-row{% endif %}">
+            <td>{{ d.fecha }}{% if d.es_fin_semana %} <span class="badge badge-gris" style="font-size:8px">F/S</span>{% endif %}</td>
+            <td class="{% if d.estimado_entrada %}estimado-cell{% endif %}">{% if d.entrada %}{{ d.entrada }}{% if d.estimado_entrada %}*{% endif %}{% else %}—{% endif %}</td>
+            <td class="{% if d.estimado_salida %}estimado-cell{% endif %}">{% if d.salida %}{{ d.salida }}{% if d.estimado_salida %}*{% endif %}{% else %}—{% endif %}</td>
+            <td class="center {% if d.estimado %}estimado-cell{% endif %}">
+                {% if d.horas_fmt %}{{ d.horas_fmt }}{% elif d.ausente and not d.es_fin_semana %}<span class="ausente-cell">AUSENTE</span>{% else %}—{% endif %}
+            </td>
+            <td class="center">
+                {% if d.estimado %}<span class="badge badge-naranja">* estimado</span>
+                {% elif d.ausente and not d.es_fin_semana %}<span class="badge badge-rojo">falta</span>
+                {% elif d.es_fin_semana and not d.ausente %}<span class="badge badge-gris">no hábil</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        <tr class="totales-row">
+            <td colspan="3"><strong>TOTALES DEL PERÍODO</strong></td>
+            <td class="center">{{ emp.totales_periodo.horas_fmt }}</td>
+            <td class="center">
+                {{ emp.totales_periodo.asistidos }} asistidos ·
+                {% if emp.totales_periodo.ausencias > 0 %}<span style="color:#c0392b">{{ emp.totales_periodo.ausencias }} ausencias</span>{% else %}0 ausencias{% endif %}
+                {% if emp.totales_periodo.estimados > 0 %}· {{ emp.totales_periodo.estimados }} estimados{% endif %}
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+
+{% else %}
+<!-- ── Detalle empleado individual ── -->
+<div class="emp-header">
+    <span class="emp-header-nombre">{{ empleado.nombre }}</span>
+    <span class="emp-header-meta">ID: {{ empleado.id }} &nbsp;|&nbsp; {{ empleado.departamento }}</span>
+    <span class="emp-header-totales">
+        {{ totales.asistidos }} días asistidos
+        &nbsp;·&nbsp;
+        {% if totales.ausencias > 0 %}
+            <span style="color:#c0392b">{{ totales.ausencias }} ausencias</span>
+        {% else %}
+            0 ausencias
+        {% endif %}
+        &nbsp;·&nbsp; {{ totales.horas_fmt }}
+        {% if totales.estimados > 0 %}
+            &nbsp;·&nbsp; <span style="color:#c47d0e">{{ totales.estimados }} estimados</span>
+        {% endif %}
+    </span>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Día</th>
+            <th>Entrada</th>
+            <th>Salida</th>
+            <th class="center">Horas</th>
+            <th class="center">Nota</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for d in detalle %}
+    <tr class="{% if d.es_fin_semana %}finsemana-row{% endif %}">
+        <td>{{ d.fecha }}{% if d.es_fin_semana %} <span class="badge badge-gris" style="font-size:8px">F/S</span>{% endif %}</td>
+        <td class="{% if d.estimado_entrada %}estimado-cell{% endif %}">{% if d.entrada %}{{ d.entrada }}{% if d.estimado_entrada %}*{% endif %}{% else %}—{% endif %}</td>
+        <td class="{% if d.estimado_salida %}estimado-cell{% endif %}">{% if d.salida %}{{ d.salida }}{% if d.estimado_salida %}*{% endif %}{% else %}—{% endif %}</td>
+        <td class="center {% if d.estimado %}estimado-cell{% endif %}">
+            {% if d.horas_fmt %}{{ d.horas_fmt }}{% elif d.ausente and not d.es_fin_semana %}<span class="ausente-cell">AUSENTE</span>{% else %}—{% endif %}
+        </td>
+        <td class="center">
+            {% if d.estimado %}<span class="badge badge-naranja">* estimado</span>
+            {% elif d.ausente and not d.es_fin_semana %}<span class="badge badge-rojo">falta</span>
+            {% elif d.es_fin_semana and not d.ausente %}<span class="badge badge-gris">no hábil</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    <tr class="totales-row">
+        <td colspan="3"><strong>TOTALES DEL PERÍODO</strong></td>
+        <td class="center">{{ totales.horas_fmt }}</td>
+        <td class="center">
+            {{ totales.asistidos }} asistidos ·
+            {% if totales.ausencias > 0 %}<span style="color:#c0392b">{{ totales.ausencias }} ausencias</span>{% else %}0 ausencias{% endif %}
+            {% if totales.estimados > 0 %}· {{ totales.estimados }} estimados{% endif %}
+        </td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+</body>
+</html>
