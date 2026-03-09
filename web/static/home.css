@@ -1,0 +1,1497 @@
+/* ─── AROLUZ — Dashboard Home + Kanban ───
+   Extraído de style.css (líneas 1880–3361).
+   Solo se carga en home.html.
+─────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────
+   Dashboard Home — Bienvenida + KPIs + Kanban + Ruta + Adjuntos
+───────────────────────────────────────────── */
+
+.home-dashboard {
+  padding: var(--sp-md);
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* ── Bienvenida ── */
+.home-bienvenida {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--gris-borde);
+  width: 650px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.home-title {
+  font-family: var(--f-semi);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--navy);
+}
+.home-subtitle {
+  font-size: var(--fs-sm);
+  color: var(--texto-suave);
+  margin-top: 0.15rem;
+}
+.home-accesos { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.btn-outline {
+  background: var(--blanco);
+  border: 1.5px solid var(--gris-borde);
+  color: var(--texto);
+}
+.btn-outline:hover {
+  background: var(--gris-bg);
+  border-color: var(--azul-claro);
+  color: var(--azul-claro);
+}
+
+/* ── Sección genérica ── */
+.home-section {
+  margin-bottom: 2.25rem;
+  width: 650px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.home-section-title {
+  font-family: var(--f-semi);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  letter-spacing: 0.3px;
+}
+.home-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--gris-borde);
+}
+
+/* ── KPI cards ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+.kpi-card {
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-left: 4px solid var(--azul-claro);
+  border-radius: 10px;
+  padding: 1.1rem 1.4rem;
+  box-shadow: var(--sombra);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.kpi-valor {
+  font-family: var(--f-mono);
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  font-weight: 500;
+  color: var(--navy);
+  line-height: 1.1;
+}
+.kpi-label {
+  font-family: var(--f-semi);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* ── Kanban board ── */
+.kanban-board {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  align-items: flex-start;
+  -webkit-overflow-scrolling: touch;
+}
+.kanban-col {
+  flex: 1 1 100%;
+  width: 100%;
+  max-width: 100%;
+  background: #f5f7fb;
+  border: 1px solid var(--gris-borde);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100px;
+  overflow: visible;
+}
+.kanban-col-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 2px solid var(--gris-borde);
+}
+.kanban-col-label {
+  flex: 1;
+  font-family: var(--f-semi);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--texto-suave);
+}
+.kanban-badge {
+  background: var(--azul-claro);
+  color: white;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Ancho fijo columna APROBADO */
+.kanban-col[data-estado="APROBADO"] {
+  flex: 0 0 650px;
+  width: 650px;
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+/* Colores de columna por estado */
+.kanban-col[data-estado="COTIZANDO"]    .kanban-col-header { border-bottom-color: var(--azul-claro); }
+.kanban-col[data-estado="COTIZANDO"]    .kanban-badge      { background: var(--azul-claro); }
+.kanban-col[data-estado="APROBADO"]     .kanban-col-header { border-bottom-color: var(--verde); }
+.kanban-col[data-estado="APROBADO"]     .kanban-badge      { background: var(--verde); }
+.kanban-col[data-estado="EN_PRODUCCION"].kanban-col-header { border-bottom-color: var(--naranja); }
+.kanban-col[data-estado="EN_PRODUCCION"].kanban-badge      { background: var(--naranja); }
+.kanban-col[data-estado="DESPACHADO"]   .kanban-col-header { border-bottom-color: var(--acento); }
+.kanban-col[data-estado="DESPACHADO"]   .kanban-badge      { background: var(--acento); }
+
+/* Lista de tarjetas */
+.kanban-cards {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.kanban-empty {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+  text-align: center;
+  padding: 0.75rem 0.5rem;
+  font-style: italic;
+}
+.home-section-title--centered {
+  width: 650px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.kanban-hint {
+  margin-top: 0.6rem;
+  font-size: 0.74rem;
+  color: var(--texto-suave);
+  line-height: 1.5;
+  width: 650px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Tarjeta Kanban ── */
+.kanban-card {
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 7px;
+  padding: 0.65rem 0.7rem;
+  box-shadow: var(--sombra);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+/* ── Cabecera de tarjeta (clickable, fila horizontal) ── */
+.kc-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  cursor: pointer;
+  user-select: none;
+}
+/* Fila superior: nombre + OC# + lápiz */
+.kc-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.kc-top-row .kc-info-stack { flex: 1; min-width: 0; }
+/* Lado derecho del header: OC# texto / input + lápiz (columna) */
+.kc-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+/* Fila interna: OC# + input + lápiz */
+.kc-oc-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.kc-oc-text {
+  font-family: var(--f-mono);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--azul-claro);
+  white-space: nowrap;
+}
+.kc-oc-empty {
+  font-family: var(--f-sans);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+/* Lápiz */
+.btn-kc-edit {
+  background: transparent;
+  border: 1px solid var(--gris-borde);
+  border-radius: 5px;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--texto-suave);
+  line-height: 1.3;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.btn-kc-edit:hover { background: var(--gris-bg); color: var(--azul); border-color: var(--azul-claro); }
+.kanban-card.kc-editing .btn-kc-edit {
+  background: var(--verde);
+  color: #fff;
+  border-color: var(--verde);
+}
+/* OC input en modo edición (dentro de kc-header-right) */
+.kc-header-right .kc-oc-input {
+  width: 8rem;
+  flex: 0 0 auto;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: 5px;
+  padding: 0.18rem 0.4rem;
+}
+/* Stack de información principal de la tarjeta */
+.kc-info-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+/* Inputs de edición inline en el header de la tarjeta — estilo igual que OC */
+.kc-info-stack .kc-dir-input,
+.kc-info-stack .kc-nombre-input,
+.kc-cliente-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid var(--gris-borde);
+  background: transparent;
+  font-family: var(--f-sans);
+  color: var(--texto);
+  padding: 0.1rem 0.1rem;
+  transition: border-color 0.15s;
+}
+.kc-info-stack .kc-nombre-input {
+  font-size: 1.06rem;
+  font-weight: 700;
+}
+.kc-info-stack .kc-dir-input,
+.kc-cliente-input { font-size: 0.88rem; }
+.kc-info-stack .kc-dir-input:focus,
+.kc-info-stack .kc-nombre-input:focus,
+.kc-cliente-input:focus {
+  outline: none;
+  border-bottom-color: var(--azul-claro);
+}
+.kc-info-stack .kc-dir-input::placeholder,
+.kc-info-stack .kc-nombre-input::placeholder,
+.kc-cliente-input::placeholder { color: var(--gris-borde); font-style: italic; }
+/* Ubicación (dirección) en modo lectura — ahora es un <a> a Google Maps */
+.kc-ubicacion {
+  font-size: 0.88rem;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+.kc-ubicacion:not(.kc-sin-dato) {
+  color: var(--azul-claro);
+  text-decoration: underline;
+  cursor: pointer;
+}
+/* Fila dirección + checkbox "Incluir en ruta" */
+.kc-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.kc-dir-row .kc-ubicacion { flex: 0 0 auto; min-width: 0; max-width: 100%; }
+/* "Incluir en ruta" compacto dentro del header de la tarjeta */
+.kc-ruta-header {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.kc-sin-dato {
+  font-style: italic;
+  color: var(--gris-borde);
+}
+/* Modo edición: mostrar/ocultar campos */
+.kc-edit-field { display: none !important; }
+.kanban-card.kc-editing input.kc-edit-field  { display: block !important; }
+.kanban-card.kc-editing .kc-oc-text          { display: none !important; }
+.kanban-card.kc-editing .kc-ubicacion        { display: none !important; }
+.kanban-card.kc-editing .kc-nombre           { display: none !important; }
+.kanban-card.kc-editing .kc-cliente-tag      { display: none !important; }
+/* Wrapper autocomplete cliente: oculto salvo en modo edición */
+.kc-cliente-ac { display: none; position: relative; }
+.kanban-card.kc-editing .kc-cliente-ac { display: block; }
+.kc-cliente-lista {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 240px;
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 300;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+.kc-nombre-wrap {
+  flex: 0 0 auto;
+  min-width: 130px;
+  max-width: 220px;
+}
+.kc-nombre {
+  font-weight: 700;
+  font-size: 1.06rem;
+  color: var(--navy);
+  line-height: 1.25;
+}
+.kc-toggle-icon {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+  padding-top: 3px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.kanban-card.kc-expanded .kc-toggle-icon { transform: rotate(180deg); }
+.kc-cliente {
+  font-size: 0.84rem;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kc-bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  justify-content: space-between;
+}
+.kc-fecha-creacion {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.kc-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 1;
+}
+.kc-total {
+  font-family: var(--f-mono);
+  font-size: 0.87rem;
+  font-weight: 500;
+  color: var(--azul-claro);
+}
+.kc-adj-badge {
+  font-size: 0.89rem;
+  color: var(--texto-suave);
+}
+
+/* ── Selector de estado ── */
+.kanban-estado-select {
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.22rem 0.4rem;
+  border: 1px solid var(--gris-borde);
+  border-radius: 5px;
+  font-size: 0.92rem;
+  font-family: var(--f-sans);
+  color: var(--texto);
+  background: white;
+  cursor: pointer;
+}
+
+/* ── Detalles expandibles (fila horizontal) ── */
+.kc-detalles {
+  display: none;
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--gris-borde);
+}
+.kanban-card.kc-expanded .kc-detalles {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.kc-section { flex: 1 1 180px; min-width: 0; }
+.kc-section-dir { flex: 2 1 240px; }
+.kc-section-oc  { flex: 1 1 180px; }
+.kc-section-ev  { flex: 2 1 220px; }
+.kc-section-contacto { flex: 1 1 160px; }
+.kc-section-danger { flex: 1 0 100%; display: flex; justify-content: flex-end; }
+.kc-section-label {
+  font-family: var(--f-semi);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--texto-suave);
+  margin-bottom: 0.3rem;
+}
+
+/* Dirección */
+.kc-dir-row {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.3rem;
+}
+.kc-dir-input {
+  flex: 1;
+  padding: 0.28rem 0.45rem;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: 5px;
+  font-size: 0.93rem;
+  font-family: var(--f-sans);
+  color: var(--texto);
+  min-width: 0;
+}
+.kc-dir-input:focus { outline: none; border-color: var(--azul-claro); }
+.btn-kc-save {
+  padding: 0.28rem 0.6rem;
+  background: var(--azul-claro);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.91rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.btn-kc-save:hover:not(:disabled) { background: var(--azul-hover); }
+.btn-kc-save:disabled { opacity: 0.6; }
+
+.kc-maplinks {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.kc-hidden { display: none !important; }
+.btn-map {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.89rem;
+  font-weight: 600;
+  text-decoration: none;
+  background: #eff6ff;
+  color: var(--azul-claro);
+  border: 1px solid #bfdbfe;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.btn-map:hover { background: #dbeafe; }
+.kc-ruta-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.91rem;
+  cursor: pointer;
+  color: var(--texto);
+}
+.kc-ruta-label input { accent-color: var(--azul-claro); }
+
+/* Adjuntos */
+.kc-adj-list  { margin-bottom: 0.35rem; }
+.kc-oc-docs-list { margin-bottom: 0.35rem; }
+.kc-evidencias-list { margin-bottom: 0.35rem; }
+
+/* Carrusel de thumbnails de evidencia */
+.kc-ev-carousel {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.2rem 0 0.3rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gris-borde) transparent;
+}
+.kc-ev-carousel::-webkit-scrollbar { height: 4px; }
+.kc-ev-carousel::-webkit-scrollbar-thumb { background: var(--gris-borde); border-radius: 2px; }
+.kc-ev-thumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1.5px solid var(--gris-borde);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.kc-ev-thumb:hover {
+  border-color: var(--azul-claro);
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+}
+.kc-ev-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.kc-ev-del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: rgba(0,0,0,0.58);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 0.75rem;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  display: none;
+  font-family: var(--f-sans);
+}
+.kc-ev-thumb:hover .kc-ev-del { display: block; }
+.kc-ev-pdf-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff5f5;
+  gap: 2px;
+}
+.kc-ev-pdf-icon { line-height: 0; pointer-events: none; }
+.kc-ev-pdf-name {
+  font-size: 0.6rem;
+  color: var(--texto-principal);
+  text-align: center;
+  word-break: break-all;
+  line-height: 1.2;
+  padding: 0 4px;
+  pointer-events: none;
+}
+.adj-empty, .adj-loading {
+  font-size: 0.91rem;
+  color: var(--texto-suave);
+  font-style: italic;
+}
+.btn-oc-eye {
+  background: var(--azul-claro);
+  border: none;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  margin-left: 0.35rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #fff;
+  vertical-align: middle;
+}
+.btn-oc-eye:hover { background: var(--azul-hover); }
+.adj-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0;
+  border-bottom: 1px solid var(--gris-borde);
+}
+.adj-item:last-child { border-bottom: none; }
+.adj-icon { font-size: 0.9rem; flex-shrink: 0; }
+.adj-name {
+  flex: 1;
+  font-size: 0.91rem;
+  color: var(--azul-claro);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.adj-name:hover { text-decoration: underline; }
+.adj-pdf-btn {
+  flex: 1;
+  font-size: 0.71rem;
+  color: var(--azul-claro);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+.adj-pdf-btn:hover { text-decoration: underline; }
+.adj-date {
+  font-family: var(--f-mono);
+  font-size: 0.62rem;
+  color: var(--texto-suave);
+  flex-shrink: 0;
+}
+.adj-del {
+  background: none;
+  border: none;
+  color: var(--texto-suave);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.12rem;
+  flex-shrink: 0;
+  transition: color 0.12s;
+}
+.adj-del:hover { color: var(--rojo); }
+.btn-kc-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.5rem;
+  border: 1.5px dashed var(--gris-borde);
+  border-radius: 5px;
+  font-size: 0.7rem;
+  color: var(--texto-suave);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  background: none;
+}
+.btn-kc-attach:hover { border-color: var(--azul-claro); color: var(--azul-claro); }
+
+/* ── Ruta de despacho ── */
+.ruta-despacho {
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--sombra);
+  width: 650px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.ruta-hint {
+  font-size: 0.84rem;
+  color: var(--texto-suave);
+  margin-bottom: 0.85rem;
+  line-height: 1.5;
+}
+.ruta-lista {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.ruta-lista li {
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--gris-borde);
+  color: var(--texto);
+}
+.ruta-lista li:last-child { border-bottom: none; }
+.ruta-dir { color: var(--texto-suave); font-size: 0.82rem; }
+.ruta-sin-dir { color: var(--rojo); font-size: 0.78rem; }
+
+/* Ruta de despacho — botones de orden */
+.ruta-acciones {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.ruta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--gris-borde);
+}
+.ruta-item:last-child { border-bottom: none; }
+.ruta-orden-btns {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ruta-orden-btns button {
+  padding: 0 5px;
+  border: 1px solid var(--borde);
+  border-radius: 3px;
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: var(--texto);
+}
+.ruta-orden-btns button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.ruta-orden-btns button:not(:disabled):hover {
+  background: var(--acento);
+  color: white;
+  border-color: var(--acento);
+}
+
+/* ── Contacto en obra (siempre editable en detalles) ── */
+.kc-contacto-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid var(--gris-borde);
+  background: transparent;
+  font-size: 0.9rem;
+  font-family: var(--f-sans);
+  color: var(--texto);
+  padding: 0.1rem 0.15rem;
+  transition: border-color 0.15s;
+  margin-top: 0.3rem;
+}
+.kc-contacto-input:focus { outline: none; border-bottom-color: var(--azul-claro); }
+.kc-contacto-input::placeholder { color: var(--gris-borde); font-style: italic; }
+
+/* ── N° OC en tarjeta (siempre visible) ── */
+.kc-oc-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1.5px solid var(--gris-borde);
+  background: transparent;
+  font-size: 0.94rem;
+  font-family: var(--f-mono);
+  color: var(--texto);
+  padding: 0.1rem 0.15rem;
+  transition: border-color 0.15s, color 0.15s;
+}
+.kc-oc-input:focus { outline: none; border-bottom-color: var(--azul-claro); }
+.kc-oc-input::placeholder { color: var(--gris-borde); font-style: italic; font-family: var(--f-sans); }
+
+/* ── Botón nueva obra en cabecera columna ── */
+.btn-nueva-obra {
+  background: var(--azul-claro);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.btn-nueva-obra:hover { background: var(--azul-hover); }
+
+/* ── Total monetario bajo cabecera de columna ── */
+.kanban-col-total {
+  font-size: 0.72rem;
+  color: var(--verde);
+  font-family: var(--f-mono);
+  font-weight: 600;
+  padding: 0.2rem 0.85rem 0.35rem;
+  background: rgba(22, 163, 74, 0.06);
+  letter-spacing: 0.01em;
+}
+
+/* ── Tiempo relativo + badge de inactividad en tarjeta ── */
+.kc-tiempo {
+  font-size: 0.68rem;
+  color: var(--texto-suave);
+}
+.kc-inactivo-warn   { color: var(--naranja); font-weight: 600; }
+.kc-inactivo-alerta { color: var(--rojo);    font-weight: 600; }
+
+/* ── Filtro de búsqueda en tablero Kanban ── */
+.kanban-filtro-wrap {
+  margin-bottom: 0.75rem;
+  width: 650px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* Autocomplete compartido (Home filtro Kanban + Carrito cliente) */
+.ac-wrapper { position: relative; }
+.kanban-filtro-wrap .ac-wrapper { display: inline-block; width: 100%; max-width: 320px; }
+.ac-lista {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0; right: 0;
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 200;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+.ac-item {
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  border-bottom: 1px solid var(--gris-borde);
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.ac-active { background: rgba(37,99,168,0.08); }
+.ac-code { font-weight: 600; color: var(--azul); }
+.ac-name { color: var(--texto-suave); font-size: 0.78rem; }
+.ac-sin-resultado { padding: 0.45rem 0.75rem; font-size:0.85rem; color:var(--texto-suave); }
+.kanban-filtro-wrap .ac-item { text-transform: uppercase; }
+.kanban-filtro {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  font-family: var(--f-sans);
+  font-size: var(--fs-sm);
+  background: var(--blanco);
+  color: var(--texto);
+  outline: none;
+  text-transform: uppercase;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kanban-filtro:focus {
+  border-color: var(--azul-claro);
+  box-shadow: 0 0 0 2px rgba(37, 99, 168, 0.12);
+}
+
+/* ── Badges de tarjeta Kanban ── */
+.kc-nombre-wrap { display: flex; flex-direction: column; gap: 0.1rem; }
+.kc-cliente-tag {
+  font-size: 0.89rem;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kc-pending-badge {
+  font-size: 0.86rem;
+  font-weight: 600;
+  background: #fee2e2;
+  color: var(--rojo);
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+}
+.kc-items-badge {
+  font-size: 0.86rem;
+  color: var(--azul-claro);
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+}
+
+/* ── Sección OC en tarjeta ── */
+.kc-section-oc { padding: 0; }
+.btn-ver-oc {
+  background: var(--azul-claro);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 100%;
+  text-align: left;
+}
+.btn-ver-oc:hover { background: var(--azul-hover); }
+
+/* ── Sección peligro en tarjeta ── */
+.kc-section-danger { padding-top: 0.5rem; border-top: 1px solid var(--gris-borde); margin-top: 0.25rem; }
+.btn-eliminar-obra {
+  background: none;
+  color: var(--rojo);
+  border: 1px solid #fca5a5;
+  border-radius: 5px;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.btn-eliminar-obra:hover { background: #fee2e2; }
+
+/* ── Modal simple (Nueva obra) ── */
+dialog.modal-simple {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  width: min(420px, 94vw);
+  box-shadow: var(--sombra-md);
+  background: var(--blanco);
+}
+dialog.modal-simple::backdrop { background: rgba(12,35,64,0.55); }
+.modal-simple-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--gris-borde);
+}
+.modal-simple-header h3 { font-size: 1rem; font-weight: 600; color: var(--azul); }
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--texto-suave);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0.2rem;
+}
+.modal-close:hover { color: var(--rojo); }
+.modal-simple form { padding: 1rem 1.25rem; }
+.modal-simple .form-group { margin-bottom: 0.85rem; }
+.modal-simple .form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: var(--texto);
+}
+.modal-simple .form-group input {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: 7px;
+  font-size: 0.88rem;
+  font-family: var(--f-sans);
+}
+.modal-simple .form-group input:focus { outline: none; border-color: var(--azul-claro); }
+.req { color: var(--rojo); }
+.form-error {
+  font-size: 0.78rem;
+  color: var(--rojo);
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 0.4rem 0.65rem;
+  margin-bottom: 0.5rem;
+}
+.modal-simple-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+/* ── Modal OC — split pane ── */
+dialog.modal-oc {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  overflow: hidden;
+  box-shadow: none;
+  background: var(--blanco);
+}
+dialog.modal-oc[open] {
+  display: flex;
+  flex-direction: column;
+}
+dialog.modal-oc::backdrop { background: rgba(12,35,64,0.6); }
+.modal-oc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--gris-borde);
+  flex-shrink: 0;
+  background: var(--navy);
+  color: #fff;
+}
+.modal-oc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.modal-oc-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  display: block;
+}
+.modal-oc-subtitle {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.7);
+  display: block;
+}
+.oc-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Divisor redimensionable */
+.oc-split-divider {
+  width: 5px;
+  flex-shrink: 0;
+  background: var(--gris-borde);
+  cursor: col-resize;
+  transition: background 0.15s;
+  position: relative;
+}
+.oc-split-divider:hover,
+.oc-split-divider.dragging { background: var(--azul-claro); }
+.oc-split-divider::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    var(--gris-borde) 3px,
+    var(--gris-borde) 4px
+  );
+  opacity: 0.5;
+}
+
+/* Panel PDF */
+.oc-pdf-panel {
+  flex: 1;
+  min-width: 80px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: none;
+}
+.oc-pdf-toolbar {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--gris-borde);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  background: var(--gris-bg);
+}
+.oc-pdf-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+.oc-pdf-label { font-size: 0.72rem; font-weight: 600; color: var(--texto-suave); white-space: nowrap; }
+.oc-pdf-selector select {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.76rem;
+  border: 1px solid var(--gris-borde);
+  border-radius: 5px;
+  padding: 0.2rem 0.35rem;
+  background: var(--blanco);
+}
+.btn-oc-upload-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.22rem 0.5rem;
+  background: var(--azul-claro);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-oc-upload-pdf:hover { background: var(--azul-hover); }
+/* Zoom controls */
+.oc-pdf-zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+.btn-zoom {
+  background: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 4px;
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--azul);
+  font-weight: 700;
+  transition: background 0.12s;
+}
+.btn-zoom:hover { background: var(--gris-bg); }
+.oc-zoom-label {
+  font-size: 0.72rem;
+  font-family: var(--f-mono);
+  color: var(--texto-suave);
+  min-width: 2.8rem;
+  text-align: center;
+}
+/* Frame wrap: scrollable para zoom */
+.oc-pdf-frame-wrap {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  min-height: 0;
+  background: #525659;
+}
+.oc-pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* no centering — lets horizontal scroll work naturally */
+  gap: 8px;
+  padding: 8px;
+  touch-action: pinch-zoom pan-x pan-y;
+}
+.oc-pdf-page canvas {
+  display: block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  /* NO max-width/width constraints — dimensions are set explicitly by JS
+     (canvas.style.width/height in logical pixels). Capping here would undo zoom. */
+}
+.oc-pdf-loading {
+  color: #ccc;
+  font-size: 0.88rem;
+  padding: 2rem;
+  text-align: center;
+}
+.oc-pdf-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--texto-suave);
+  text-align: center;
+  gap: 0.5rem;
+}
+.oc-pdf-hint { font-size: 0.78rem; color: var(--texto-suave); }
+
+/* Panel tabla */
+.oc-tabla-panel {
+  flex: 1;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.85rem 1rem;
+  overflow: hidden;
+}
+.oc-tabla-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+  flex-shrink: 0;
+}
+.oc-tabla-header h4 { font-size: 0.88rem; font-weight: 700; color: var(--azul); }
+.oc-saldo-total {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+}
+.oc-saldo-total.positivo { color: var(--rojo); background: #fee2e2; }
+.oc-saldo-total.cero     { color: var(--verde); background: #dcfce7; }
+.oc-tabla-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+
+/* Tabla ítems OC */
+.oc-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.oc-items-table th {
+  background: var(--gris-bg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--texto-suave);
+  padding: 0.35rem 0.4rem;
+  border-bottom: 2px solid var(--gris-borde);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.oc-th-desc { width: auto; text-align: left; }
+.oc-th-un   { width: 4rem; text-align: center; }
+.oc-th-num  { width: 5rem; text-align: right; }
+.oc-th-sal  { width: 5rem; text-align: right; }
+.oc-th-del  { width: 2rem; }
+.oc-items-table td {
+  padding: 0.22rem 0.3rem;
+  border-bottom: 1px solid var(--gris-borde);
+  vertical-align: middle;
+}
+.oc-items-table tr:hover td { background: #f8fafc; }
+.oc-items-empty {
+  text-align: center;
+  color: var(--texto-suave);
+  font-style: italic;
+  padding: 1.5rem 0;
+  font-size: 0.8rem;
+}
+.oc-item-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  background: transparent;
+  font-family: var(--f-sans);
+  font-size: 0.8rem;
+  color: var(--texto);
+  padding: 0.18rem 0.2rem;
+  transition: border-color 0.12s;
+}
+.oc-item-input:focus { outline: none; border-bottom-color: var(--azul-claro); background: #f0f6ff; }
+.oc-un { text-align: center; }
+.oc-ped, .oc-des { text-align: right; }
+.oc-saldo { font-family: var(--f-mono); font-weight: 700; font-size: 0.78rem; display: block; text-align: right; }
+.oc-saldo.positivo { color: var(--rojo); }
+.oc-saldo.cero     { color: var(--verde); }
+.oc-del-btn {
+  background: none;
+  border: none;
+  color: var(--texto-suave);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+  transition: color 0.12s;
+}
+.oc-del-btn:hover { color: var(--rojo); }
+.oc-tabla-acciones {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  flex-shrink: 0;
+}
+.btn-oc-agregar {
+  flex: 1;
+  background: var(--azul-claro);
+  border: none;
+  border-radius: 6px;
+  padding: 0.38rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-oc-agregar:hover { background: var(--azul-hover); }
+.btn-oc-evidencia {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.38rem 0.65rem;
+  background: var(--naranja);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.btn-oc-evidencia:hover { background: #d97706; }
+.oc-evidencia-list {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+}
+
+/* Carrusel de evidencias dentro del modal */
+.oc-ev-section-label {
+  font-family: var(--f-semi);
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--texto-suave);
+  margin: 0.75rem 0 0.3rem;
+  flex-shrink: 0;
+}
+.oc-ev-modal-carousel {
+  flex-shrink: 0;
+}
+
+/* ── Lightbox (dialog → top layer, aparece sobre cualquier otro dialog) ── */
+dialog.lightbox {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  background: rgba(0,0,0,0.88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+dialog.lightbox[open] {
+  display: flex;
+}
+dialog.lightbox::backdrop { display: none; }
+.lightbox-cerrar {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 50%;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.2rem;
+  line-height: 2.2rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  z-index: 10001;
+}
+.lightbox-cerrar:hover { background: rgba(0,0,0,0.85); }
+.lightbox-body {
+  position: relative;
+  width: 80vw;
+  height: 85dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 5px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.lightbox-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 5px;
+}
+
+/* ── Responsive mobile ── */
+@media (max-width: 650px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .kanban-filtro { max-width: 100%; }
+  .home-bienvenida { flex-direction: column; align-items: flex-start; }
+  .home-accesos { width: 100%; }
+  .home-accesos .btn { flex: 1; justify-content: center; }
+  .oc-split { flex-direction: column; }
+  .oc-pdf-panel {
+    flex: 0 0 40%;
+    min-width: 0;
+    min-height: 80px;
+    border-right: none;
+    border-bottom: 1px solid var(--gris-borde);
+  }
+  .oc-split-divider {
+    width: 100%;
+    height: 5px;
+    cursor: row-resize;
+  }
+  .oc-split-divider::after {
+    background: repeating-linear-gradient(
+      to right,
+      transparent 0px,
+      transparent 3px,
+      var(--gris-borde) 3px,
+      var(--gris-borde) 4px
+    );
+  }
+  .oc-tabla-panel {
+    min-width: 0;
+    min-height: 120px;
+    flex: 1;
+  }
+}
+@media (max-width: 420px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .kanban-cards { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .kanban-board {
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  .kanban-col,
+  .kanban-col[data-estado="APROBADO"] {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+  }
+}

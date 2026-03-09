@@ -1,8 +1,1581 @@
 {% extends "base.html" %}
 {% set active = "home" %}
 {% block title %}Inicio — AROLUZ{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/home.css">{% endblock %}
+
 {% block content %}
-<div class="container" style="padding-top:3rem; text-align:center; color:var(--texto-suave)">
-  <p>Bienvenido, {{ usuario.n or usuario.u }}.</p>
+<div class="home-dashboard">
+
+  {# ── Bienvenida + accesos rápidos ── #}
+  <div class="home-bienvenida">
+    <div>
+      <h1 class="home-title">Bienvenido, {{ usuario.n or usuario.u }}</h1>
+      <p class="home-subtitle">Panel de gestión de órdenes de compra</p>
+    </div>
+    <div class="home-accesos">
+      <a href="/cotizar" class="btn btn-primary btn-sm">+ Nueva cotización</a>
+      <a href="/carrito" class="btn btn-outline btn-sm">🛒 Carrito</a>
+      <a href="/historial" class="btn btn-outline btn-sm">Historial</a>
+    </div>
+  </div>
+
+  {# ── KPIs del pipeline ── #}
+  <section class="home-section">
+    <h2 class="home-section-title">Estado del pipeline</h2>
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-left-color: var(--verde)">
+        <div class="kpi-valor">{{ kpis.n_aprobado }}</div>
+        <div class="kpi-label">Aprobados con OC</div>
+      </div>
+      <div class="kpi-card" style="border-left-color: var(--rojo)">
+        <div class="kpi-valor">{{ kpis.items_pendientes | int }}</div>
+        <div class="kpi-label">Ítems con saldo pendiente</div>
+      </div>
+    </div>
+  </section>
+
+  {# ── Tablero Kanban ── #}
+  <section class="home-section">
+    <h2 class="home-section-title home-section-title--centered">Tablero de órdenes de compra</h2>
+    <div class="kanban-filtro-wrap">
+      <div class="ac-wrapper">
+        <input type="text" class="kanban-filtro" id="kanban-filtro"
+               placeholder="Buscar obra o cliente..."
+               autocomplete="off"
+               oninput="this.value=this.value.toUpperCase(); onFiltroInput(this.value)"
+               onfocus="onFiltroFocus()"
+               onblur="onFiltroBlur()">
+        <div id="filtro-lista" class="ac-lista" style="display:none;"></div>
+      </div>
+    </div>
+    <div class="kanban-board" id="kanban-board">
+      {% for estado in ESTADOS_KANBAN %}{% if estado == 'APROBADO' %}
+      {% set col_proyectos = proyectos | selectattr("estado", "equalto", estado) | list %}
+      <div class="kanban-col" data-estado="{{ estado }}">
+        <div class="kanban-col-header">
+          <span class="kanban-col-label">{{ ESTADO_LABELS[estado] }}</span>
+          <span class="kanban-badge">{{ col_proyectos | length }}</span>
+          {% if estado == 'APROBADO' %}
+          <button class="btn-nueva-obra" onclick="abrirModalNuevaObra()" title="Nueva obra">+</button>
+          {% endif %}
+        </div>
+        {% set col_total = col_proyectos | sum(attribute='total_cotizado') %}
+        {% if col_total > 0 %}
+        <div class="kanban-col-total">S/ {{ '{:,.0f}'.format(col_total) }}</div>
+        {% endif %}
+        <div class="kanban-cards">
+          {% for p in col_proyectos %}
+          <div class="kanban-card"
+               data-nombre="{{ p.nombre | e }}"
+               data-cliente="{{ p.cliente | e }}"
+               data-direccion="{{ p.direccion | e }}"
+               data-updated-at="{{ p.updated_at or '' }}">
+
+            {# ── Cabecera: fila superior + fila inferior ── #}
+            <div class="kc-header" onclick="toggleKanbanCard(this.closest('.kanban-card'))">
+              {# Fila superior: nombre/cliente (izq) | OC# texto + lápiz (der) #}
+              <div class="kc-top-row">
+                <div class="kc-info-stack">
+                  <div class="kc-nombre">{{ p.nombre }}</div>
+                  <input class="kc-nombre-input kc-edit-field" type="text"
+                         value="{{ p.nombre | e }}"
+                         placeholder="Nombre de obra"
+                         onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
+                  <div class="kc-dir-row">
+                    <a class="kc-ubicacion{% if not p.direccion %} kc-sin-dato{% endif %} kc-map-href"
+                       href="{% if p.direccion %}https://www.google.com/maps/search/?api=1&query={{ p.direccion | urlencode_str }}{% else %}#{% endif %}"
+                       target="_blank" rel="noopener"
+                       onclick="event.stopPropagation()">{{ p.direccion or '—' }}</a>
+                  </div>
+                  <input class="kc-dir-input kc-edit-field" type="text"
+                         value="{{ p.direccion or '' }}"
+                         placeholder="Dirección de obra"
+                         onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
+                  <div class="kc-cliente-tag{% if not p.cliente %} kc-sin-dato{% endif %}">{{ p.cliente or '—' }}</div>
+                  <div class="kc-cliente-ac">
+                    <input class="kc-cliente-input" type="text"
+                           value="{{ p.cliente | e }}"
+                           placeholder="Cliente"
+                           autocomplete="off"
+                           oninput="kcClienteInput(this)"
+                           onfocus="kcClienteFocus(this)"
+                           onblur="kcClienteBlur(this)"
+                           onkeydown="kcClienteKeydown(event, this)">
+                    <div class="kc-cliente-lista" style="display:none"></div>
+                  </div>
+                </div>
+                <div class="kc-header-right" onclick="event.stopPropagation()">
+                  <div class="kc-oc-row">
+                    <span class="kc-oc-text{% if not p.numero_oc %} kc-oc-empty{% endif %}">{{ ('OC #' + p.numero_oc) if p.numero_oc else 'Sin OC' }}</span>
+                    <input class="kc-oc-input kc-edit-field" type="text"
+                           value="{{ p.numero_oc or '' }}"
+                           placeholder="N° OC"
+                           onblur="guardarNumeroOC(this)"
+                           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
+                    <button class="btn-kc-edit" title="Editar"
+                            onclick="toggleEditCard(this.closest('.kanban-card'))">✏</button>
+                  </div>
+                  <label class="kc-ruta-label kc-ruta-header" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="kc-ruta-check" onchange="syncRutaList()">
+                    Incluir en ruta
+                  </label>
+                </div>
+              </div>
+              {# Fila inferior: fecha (izq) + badges (centro) + toggle #}
+              <div class="kc-bottom-row">
+                <span class="kc-fecha-creacion">{% if p.created_at %}{{ p.created_at[8:10] }}/{{ p.created_at[5:7] }}/{{ p.created_at[0:4] }}{% endif %}</span>
+                <div class="kc-badges">
+                  {% if p.items_pendientes and p.items_pendientes > 0 %}
+                  <span class="kc-pending-badge" title="{{ p.items_pendientes }} ítems con saldo pendiente">
+                    ⚠ {{ p.items_pendientes }} pend.
+                  </span>
+                  {% endif %}
+                  {% if p.n_oc_docs %}
+                  <span class="kc-items-badge" title="{{ p.n_oc_docs }} archivo(s) OC adjunto(s)">📋 {{ p.n_oc_docs }}</span>
+                  {% endif %}
+                  {% if p.n_evidencia %}
+                  <span class="kc-adj-badge" title="{{ p.n_evidencia }} evidencia(s)">📎 {{ p.n_evidencia }}</span>
+                  {% endif %}
+                  <span class="kc-tiempo"></span>
+                </div>
+                <span class="kc-toggle-icon">▼</span>
+              </div>
+            </div>
+
+            {# ── Detalles en fila horizontal ── #}
+            <div class="kc-detalles">
+
+              {# OC: docs adjuntas + botón subir #}
+              <div class="kc-section kc-section-oc">
+                <div class="kc-section-label">Orden de Compra
+                  <button class="btn-oc-eye" title="Ver OC e ítems"
+                    onclick="event.stopPropagation();var c=this.closest('.kanban-card');abrirModalOC(c.dataset.nombre,c.dataset.cliente||'')">👁</button>
+                </div>
+                <div class="kc-oc-docs-list"><span class="adj-empty">Sin OC adjuntada</span></div>
+                <label class="btn-kc-attach" style="margin-top:0.4rem">
+                  <input type="file" accept=".pdf,.PDF" style="display:none"
+                         onchange="uploadAdjunto(this, '{{ p.nombre | e }}', 'oc')">
+                  + Adjuntar OC
+                </label>
+              </div>
+
+              {# Evidencias #}
+              <div class="kc-section kc-section-ev">
+                <div class="kc-section-label">Evidencias</div>
+                <div class="kc-evidencias-list"><span class="adj-empty">Sin evidencias</span></div>
+                <label class="btn-kc-attach" style="margin-top:0.4rem">
+                  <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.PDF" style="display:none"
+                         onchange="uploadAdjunto(this, '{{ p.nombre | e }}', 'ev')">
+                  + Adjuntar evidencia
+                </label>
+              </div>
+
+              {# Contacto en obra #}
+              <div class="kc-section kc-section-contacto">
+                <div class="kc-section-label">Contacto</div>
+                <input class="kc-contacto-input" type="text"
+                       value="{{ p.contacto or '' }}"
+                       placeholder="Teléfono o nombre…"
+                       onblur="guardarContacto(this)"
+                       onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
+              </div>
+
+              {# Eliminar proyecto #}
+              <div class="kc-section kc-section-danger">
+                <button class="btn-eliminar-obra"
+                        onclick="eliminarProyecto('{{ p.nombre | e }}')">
+                  × Eliminar obra
+                </button>
+              </div>
+
+            </div>{# fin kc-detalles #}
+          </div>{# fin kanban-card #}
+          {% endfor %}
+          {% if not col_proyectos %}
+          <div class="kanban-empty">
+            {% if estado == 'APROBADO' %}Sin obras — usá "+" para agregar{% else %}Sin proyectos{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}{% endfor %}
+    </div>
+    <p class="kanban-hint">
+      Creá obras manualmente con el botón <strong>+</strong> en la columna "Aprobado con OC".
+      Expandí cada tarjeta para gestionar dirección, adjuntar la OC en PDF y cargar los ítems.
+    </p>
+  </section>
+
+  {# ── Ruta de despacho ── #}
+  <section class="home-section">
+    <h2 class="home-section-title home-section-title--centered">Ruta de despacho desde Ancón</h2>
+    <div class="ruta-despacho">
+      <p class="ruta-hint">
+        Expandí las tarjetas del Kanban y marcá <strong>Incluir en ruta</strong> en cada obra que querés visitar.
+        Las obras aparecerán aquí en orden.
+      </p>
+      <ol id="ruta-lista-items" class="ruta-lista">
+        <li style="color:var(--texto-suave);font-style:italic;list-style:none;padding-left:0">
+          Ningún proyecto seleccionado aún.
+        </li>
+      </ol>
+      <div class="ruta-acciones">
+        <button id="btn-ordenar-ns" class="btn btn-outline btn-sm" onclick="ordenarRutaNS()">
+          ↕ Ordenar N→S
+        </button>
+        <button id="btn-planear-ruta" class="btn btn-primary" onclick="planearRuta()" disabled>
+          Planear ruta en Google Maps
+        </button>
+      </div>
+    </div>
+  </section>
+
 </div>
+
+{# ── Modal: Nueva obra ── #}
+<dialog id="modal-nueva-obra" class="modal-simple">
+  <div class="modal-simple-header">
+    <h3>Nueva obra</h3>
+    <button class="modal-close" onclick="document.getElementById('modal-nueva-obra').close()">×</button>
+  </div>
+  <form id="form-nueva-obra" onsubmit="crearObra(event)">
+    <div class="form-group">
+      <label for="nueva-obra-nombre">Nombre de obra <span class="req">*</span></label>
+      <input id="nueva-obra-nombre" type="text" name="nombre" required
+             placeholder="Ej: Edificio Torres del Sur">
+    </div>
+    <div class="form-group">
+      <label for="nueva-obra-cliente">Cliente <span class="req">*</span></label>
+      <input id="nueva-obra-cliente" type="text" name="cliente" required
+             placeholder="Ej: Constructora XYZ">
+    </div>
+    <div id="nueva-obra-error" class="form-error" style="display:none"></div>
+    <div class="modal-simple-footer">
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-nueva-obra').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btn-crear-obra">Crear obra</button>
+    </div>
+  </form>
+</dialog>
+
+{# ── Modal: OC — split PDF + tabla de ítems ── #}
+<dialog id="modal-oc" class="modal-oc">
+  <div class="modal-oc-header">
+    <div>
+      <span class="modal-oc-title" id="oc-titulo">OC — Obra</span>
+      <span class="modal-oc-subtitle" id="oc-subtitulo"></span>
+    </div>
+    <div class="modal-oc-header-actions">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-oc').close()">✓ Listo</button>
+      <button class="modal-close" onclick="document.getElementById('modal-oc').close()">×</button>
+    </div>
+  </div>
+  <div class="oc-split" id="oc-split">
+    {# Panel izquierdo: PDF #}
+    <div class="oc-pdf-panel" id="oc-pdf-panel">
+      <div class="oc-pdf-toolbar">
+        <div class="oc-pdf-selector">
+          <label class="oc-pdf-label">PDF de la OC:</label>
+          <select id="oc-pdf-select" onchange="cambiarPdfOC(this)">
+            <option value="">— Sin PDFs —</option>
+          </select>
+          <button class="btn-oc-upload-pdf" type="button" title="Subir nueva OC en PDF"
+                  onclick="document.getElementById('_oc_pdf_upload').click()">+ OC</button>
+          <input id="_oc_pdf_upload" type="file" accept=".pdf" style="display:none"
+                 onchange="subirOcPdf(this)">
+        </div>
+        <div class="oc-pdf-zoom">
+          <button class="btn-zoom" type="button" onclick="pdfStepZoom(-1)" title="Reducir zoom">−</button>
+          <span class="oc-zoom-label" id="oc-zoom-label">100%</span>
+          <button class="btn-zoom" type="button" onclick="pdfStepZoom(+1)" title="Ampliar zoom">+</button>
+        </div>
+      </div>
+      <div class="oc-pdf-frame-wrap" id="oc-pdf-frame-wrap">
+        <div id="oc-pdf-pages" class="oc-pdf-pages"></div>
+      </div>
+      <div id="oc-pdf-empty" class="oc-pdf-empty" style="display:none">
+        <p>No hay PDFs adjuntados a esta obra.</p>
+        <p class="oc-pdf-hint">Usá el botón <strong>+ OC</strong> para subir la orden de compra en PDF.</p>
+      </div>
+    </div>
+    {# Divisor redimensionable #}
+    <div class="oc-split-divider" id="oc-split-divider" title="Arrastrar para ajustar proporción"></div>
+    {# Panel derecho: tabla de ítems #}
+    <div class="oc-tabla-panel" id="oc-tabla-panel">
+      <div class="oc-tabla-header">
+        <h4>Ítems de la Orden de Compra</h4>
+        <span id="oc-saldo-total" class="oc-saldo-total"></span>
+      </div>
+      <div class="oc-tabla-wrap">
+        <table class="oc-items-table">
+          <thead>
+            <tr>
+              <th class="oc-th-desc">Ítem</th>
+              <th class="oc-th-un">Un.</th>
+              <th class="oc-th-num">Ped.</th>
+              <th class="oc-th-num">Des.</th>
+              <th class="oc-th-sal">Saldo</th>
+              <th class="oc-th-del"></th>
+            </tr>
+          </thead>
+          <tbody id="oc-items-tbody">
+            <tr id="oc-items-empty-row">
+              <td colspan="6" class="oc-items-empty">Sin ítems. Agregá uno abajo.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="oc-tabla-acciones">
+        <button class="btn-oc-agregar" onclick="agregarFilaOC()">+ Agregar ítem</button>
+        <button class="btn-oc-evidencia" type="button"
+                onclick="document.getElementById('_oc_evidencia_upload').click()">📷 Adjuntar evidencia</button>
+        <input id="_oc_evidencia_upload" type="file" accept="image/*,.pdf" multiple style="display:none"
+               onchange="subirEvidencia(this)">
+      </div>
+      <div id="oc-evidencia-list" class="oc-evidencia-list"></div>
+      <div class="oc-ev-section-label" id="oc-ev-label" style="display:none">Evidencias</div>
+      <div id="oc-ev-modal-carousel" class="oc-ev-modal-carousel"></div>
+    </div>
+  </div>
+</dialog>
+
+{# ── Lightbox (dialog → top layer, siempre visible sobre modal-oc) ── #}
+<dialog id="lightbox" class="lightbox">
+  <div class="lightbox-body">
+    <button class="lightbox-cerrar" onclick="cerrarLightbox()">×</button>
+    <img id="lightbox-img" class="lightbox-img" style="display:none" alt="">
+    <iframe id="lightbox-frame" class="lightbox-frame" style="display:none" src="about:blank"></iframe>
+  </div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ─── Estado del modal OC ─── */
+  let _ocNombre = '';
+  let _pdfLoad, _pdfClear;
+
+  const PDF_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 64" width="44" height="52">
+    <path d="M6 0h32l14 14v50H6z" fill="#e53935" rx="3"/>
+    <path d="M38 0l14 14H38z" fill="#b71c1c"/>
+    <text x="28" y="44" text-anchor="middle" font-family="Arial,sans-serif"
+          font-weight="bold" font-size="16" fill="#fff">PDF</text>
+  </svg>`;
+
+  /* ─── Expand / collapse de tarjeta ─── */
+  window.toggleKanbanCard = function (card) {
+    if (card.classList.contains('kc-editing')) return;
+    const expanding = !card.classList.contains('kc-expanded');
+    card.classList.toggle('kc-expanded');
+    if (expanding) cargarAdjuntos(card);
+  };
+
+  /* ─── Cambiar estado Kanban ─── */
+  window.cambiarEstado = async function (select) {
+    const nombre = select.dataset.proyecto;
+    const estado = select.value;
+    select.disabled = true;
+    // Guardar N° OC antes de recargar para no perderlo si aún no se hizo blur
+    const card    = select.closest('.kanban-card');
+    const ocInput = card ? card.querySelector('.kc-oc-input') : null;
+    if (ocInput) {
+      try {
+        await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/numero-oc', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero_oc: ocInput.value.trim() }),
+        });
+      } catch (_) {}
+    }
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/estado', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado }),
+      });
+      const d = await r.json();
+      if (d.ok) { window.location.reload(); }
+      else { alert('Error: ' + (d.error || 'desconocido')); select.disabled = false; }
+    } catch (e) { console.error(e); select.disabled = false; }
+  };
+
+  /* ─── Guardar dirección ─── */
+  window.guardarDireccion = async function (card) {
+    const nombre = card.dataset.nombre;
+    const input  = card.querySelector('.kc-dir-input');
+    if (!input) return;
+    const dir = input.value.trim();
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/direccion', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direccion: dir }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        card.dataset.direccion = dir;
+        /* Actualizar texto de ubicación en la cabecera */
+        const ubicacion = card.querySelector('.kc-ubicacion');
+        if (ubicacion) {
+          ubicacion.textContent = dir || '—';
+          ubicacion.classList.toggle('kc-sin-dato', !dir);
+        }
+        const mapA = card.querySelector('.kc-map-href');
+        if (mapA) {
+          mapA.textContent = dir || '—';
+          mapA.classList.toggle('kc-sin-dato', !dir);
+          mapA.href = dir
+            ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(dir)
+            : '#';
+        }
+        syncRutaList();
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  /* ─── Ruta de despacho ─── */
+  let rutaItems = []; // [{nombre, dir}]
+
+  window.syncRutaList = function () {
+    const checks = [...document.querySelectorAll('.kc-ruta-check:checked')];
+    const checkedNames = new Set(checks.map(cb => cb.closest('.kanban-card').dataset.nombre));
+
+    // Mapa nombre → dirección actual del DOM
+    const dirMap = {};
+    checks.forEach(cb => {
+      const card = cb.closest('.kanban-card');
+      dirMap[card.dataset.nombre] = card.dataset.direccion;
+    });
+
+    // Quitar los desmarcados y refrescar la dirección de los que siguen marcados
+    rutaItems = rutaItems
+      .filter(it => checkedNames.has(it.nombre))
+      .map(it => ({ ...it, dir: it.nombre in dirMap ? dirMap[it.nombre] : it.dir }));
+
+    // Agregar los recién marcados al final
+    const existing = new Set(rutaItems.map(it => it.nombre));
+    checks.forEach(cb => {
+      const card = cb.closest('.kanban-card');
+      const nombre = card.dataset.nombre;
+      if (!existing.has(nombre))
+        rutaItems.push({ nombre, dir: card.dataset.direccion });
+    });
+
+    renderRutaList();
+  };
+
+  function renderRutaList() {
+    const lista   = document.getElementById('ruta-lista-items');
+    const btnPlan = document.getElementById('btn-planear-ruta');
+    if (!rutaItems.length) {
+      lista.innerHTML = '<li style="color:var(--texto-suave);font-style:italic;list-style:none;padding-left:0">Ningún proyecto seleccionado aún.</li>';
+      btnPlan.disabled = true;
+      return;
+    }
+    lista.innerHTML = rutaItems.map((it, i) => `
+      <li class="ruta-item">
+        <span class="ruta-orden-btns">
+          <button onclick="moverRuta(${i},-1)" ${i===0?'disabled':''} title="Subir">▲</button>
+          <button onclick="moverRuta(${i},+1)" ${i===rutaItems.length-1?'disabled':''} title="Bajar">▼</button>
+        </span>
+        <strong>${it.nombre}</strong>
+        ${it.dir
+          ? `<span class="ruta-dir"> · ${it.dir}</span>`
+          : '<em class="ruta-sin-dir"> (sin dirección)</em>'}
+      </li>`).join('');
+    btnPlan.disabled = !rutaItems.some(it => it.dir);
+  }
+
+  window.moverRuta = function (i, delta) {
+    const j = i + delta;
+    if (j < 0 || j >= rutaItems.length) return;
+    [rutaItems[i], rutaItems[j]] = [rutaItems[j], rutaItems[i]];
+    renderRutaList();
+  };
+
+  window.planearRuta = function () {
+    const dirs = rutaItems.map(it => it.dir).filter(Boolean);
+    if (!dirs.length) return;
+    const url = 'https://www.google.com/maps/dir/Anc%C3%B3n%2CLima%2CPer%C3%BA/' +
+      dirs.map(encodeURIComponent).join('/');
+    window.open(url, '_blank');
+  };
+
+  window.ordenarRutaNS = async function () {
+    if (!rutaItems.length) return;
+    const btn = document.getElementById('btn-ordenar-ns');
+    btn.disabled = true;
+    btn.textContent = 'Geocodificando…';
+    const resultados = [];
+    for (const it of rutaItems) {
+      if (!it.dir) { resultados.push({ ...it, lat: null }); continue; }
+      try {
+        await new Promise(r => setTimeout(r, 1100)); // respetar rate limit Nominatim
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(it.dir)}&format=json&limit=1&countrycodes=pe`;
+        const r   = await fetch(url);
+        const d   = await r.json();
+        resultados.push({ ...it, lat: d[0] ? parseFloat(d[0].lat) : null });
+      } catch {
+        resultados.push({ ...it, lat: null });
+      }
+    }
+    // Ordenar: mayor latitud primero (norte → sur). Sin coordenada → al final.
+    resultados.sort((a, b) => {
+      if (a.lat === null && b.lat === null) return 0;
+      if (a.lat === null) return 1;
+      if (b.lat === null) return -1;
+      return b.lat - a.lat;
+    });
+    rutaItems = resultados;
+    renderRutaList();
+    btn.disabled = false;
+    btn.textContent = '↕ Ordenar N→S';
+  };
+
+  /* ─── Adjuntos ─── */
+  async function cargarAdjuntos(card) {
+    const ocList = card.querySelector('.kc-oc-docs-list');
+    const evList = card.querySelector('.kc-evidencias-list');
+    if (!ocList || ocList.dataset.loaded) return;
+    ocList.dataset.loaded = '1';
+    ocList.innerHTML  = '<span class="adj-loading">Cargando...</span>';
+    if (evList) evList.innerHTML = '<span class="adj-loading">Cargando...</span>';
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(card.dataset.nombre) + '/adjuntos');
+      const d = await r.json();
+      renderAdjuntos(card, d.adjuntos || []);
+    } catch (e) {
+      ocList.innerHTML = '<span style="color:var(--rojo);font-size:0.75rem">Error al cargar adjuntos</span>';
+    }
+  }
+
+  function renderAdjuntos(card, adjuntos) {
+    const nombre   = card.dataset.nombre;
+    const cliente  = card.dataset.cliente || '';
+    const ocList   = card.querySelector('.kc-oc-docs-list');
+    const evList   = card.querySelector('.kc-evidencias-list');
+    const nombreJ  = JSON.stringify(nombre);
+    const clienteJ = JSON.stringify(cliente);
+
+    const pdfs = adjuntos.filter(a => (a.categoria || 'oc') === 'oc');
+    const imgs = adjuntos.filter(a => (a.categoria || 'oc') === 'ev');
+
+    if (ocList) {
+      if (!pdfs.length) {
+        ocList.innerHTML = '<span class="adj-empty">Sin OC adjuntada</span>';
+      } else {
+        ocList.innerHTML = pdfs.map(adj => {
+          const nombreEl = adj.filename.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const url      = `/api/proyecto/${encodeURIComponent(nombre)}/adjunto/${adj.id}/ver`;
+          return `<div class="adj-item" data-id="${adj.id}">
+            <span class="adj-icon">📄</span>
+            <span class="adj-name adj-pdf-btn"
+                  onclick="abrirLightbox('${url}','pdf')"
+                  title="Ver: ${nombreEl}">${nombreEl}</span>
+            <span class="adj-date">${(adj.uploaded_at || '').slice(0, 10)}</span>
+            <button class="adj-del" onclick="eliminarAdjunto(this,'${encodeURIComponent(nombre)}',${adj.id})" title="Eliminar">×</button>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    if (evList) {
+      if (!imgs.length) {
+        evList.innerHTML = '<span class="adj-empty">Sin evidencias</span>';
+      } else {
+        const isPdf = a => (a.content_type || '').includes('pdf') || a.filename.toLowerCase().endsWith('.pdf');
+        const thumbs = imgs.map(adj => {
+          const nombreEl = adj.filename.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const url = `/api/proyecto/${encodeURIComponent(nombre)}/adjunto/${adj.id}/ver`;
+          if (isPdf(adj)) {
+            const shortName = adj.filename.length > 14 ? adj.filename.slice(0, 12) + '…' : adj.filename;
+            return `<div class="kc-ev-thumb kc-ev-pdf-thumb" data-id="${adj.id}" title="${nombreEl}"
+                         onclick="abrirLightbox('${url}','pdf')">
+              <div class="kc-ev-pdf-icon">${PDF_SVG}</div>
+              <span class="kc-ev-pdf-name">${shortName}</span>
+              <button class="kc-ev-del"
+                      onclick="event.stopPropagation();eliminarAdjunto(this,'${encodeURIComponent(nombre)}',${adj.id})"
+                      title="Eliminar">×</button>
+            </div>`;
+          }
+          return `<div class="kc-ev-thumb" data-id="${adj.id}" title="${nombreEl}">
+            <img src="${url}" alt="${nombreEl}" loading="lazy"
+                 onclick="abrirLightbox('${url}','img')">
+            <button class="kc-ev-del"
+                    onclick="event.stopPropagation();eliminarAdjunto(this,'${encodeURIComponent(nombre)}',${adj.id})"
+                    title="Eliminar">×</button>
+          </div>`;
+        }).join('');
+        evList.innerHTML = `<div class="kc-ev-carousel">${thumbs}</div>`;
+      }
+    }
+
+    const ocBadge = card.querySelector('.kc-items-badge');
+    if (ocBadge) {
+      ocBadge.textContent = pdfs.length ? '📋 ' + pdfs.length : '';
+      ocBadge.style.display = pdfs.length ? '' : 'none';
+    }
+    const evBadge = card.querySelector('.kc-adj-badge');
+    if (evBadge) {
+      evBadge.textContent = imgs.length ? '📎 ' + imgs.length : '';
+      evBadge.style.display = imgs.length ? '' : 'none';
+    }
+  }
+
+  /* Refresca adjuntos de la tarjeta con ese nombre (usado desde el modal) */
+  function refreshCardAdjuntos(nombre) {
+    document.querySelectorAll('.kanban-card').forEach(card => {
+      if (card.dataset.nombre === nombre) {
+        const ocList = card.querySelector('.kc-oc-docs-list');
+        if (ocList) delete ocList.dataset.loaded;
+        if (card.classList.contains('kc-expanded')) cargarAdjuntos(card);
+      }
+    });
+  }
+
+  window.uploadAdjunto = async function (input, nombreRaw, categoria) {
+    const nombre = decodeURIComponent(nombreRaw);
+    const file   = input.files[0];
+    if (!file) return;
+    const card   = input.closest('.kanban-card');
+    const evList = card.querySelector('.kc-evidencias-list');
+    const fd     = new FormData();
+    fd.append('archivo', file);
+    fd.append('categoria', categoria || 'oc');
+    if (evList) evList.innerHTML = '<span class="adj-loading">Subiendo...</span>';
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/adjunto', { method: 'POST', body: fd });
+      const d = await r.json();
+      const ocList = card.querySelector('.kc-oc-docs-list');
+      if (ocList) delete ocList.dataset.loaded;
+      if (d.ok) {
+        await cargarAdjuntos(card);
+      } else {
+        alert('Error: ' + (d.error || 'desconocido'));
+        await cargarAdjuntos(card);
+      }
+    } catch (e) { console.error(e); alert('Error al subir el archivo'); }
+    input.value = '';
+  };
+
+  window.eliminarAdjunto = async function (btn, nombreEnc, adjId) {
+    if (!confirm('¿Eliminar este adjunto?')) return;
+    const nombre = decodeURIComponent(nombreEnc);
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/adjunto/' + adjId, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.ok) {
+        const card = btn.closest('.kanban-card');
+        const ocList = card.querySelector('.kc-oc-docs-list');
+        if (ocList) delete ocList.dataset.loaded;
+        await cargarAdjuntos(card);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  /* ─── Modal Nueva Obra ─── */
+  window.abrirModalNuevaObra = function () {
+    const frm = document.getElementById('form-nueva-obra');
+    frm.reset();
+    document.getElementById('nueva-obra-error').style.display = 'none';
+    document.getElementById('modal-nueva-obra').showModal();
+  };
+
+  window.crearObra = async function (e) {
+    e.preventDefault();
+    const form   = e.target;
+    const nombre = form.nombre.value.trim();
+    const cliente = form.cliente.value.trim();
+    const errEl  = document.getElementById('nueva-obra-error');
+    const btnEl  = document.getElementById('btn-crear-obra');
+    errEl.style.display = 'none';
+    btnEl.disabled = true;
+    try {
+      const r = await fetch('/api/proyecto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, cliente }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        window.location.reload();
+      } else {
+        errEl.textContent = d.error || 'Error desconocido';
+        errEl.style.display = 'block';
+        btnEl.disabled = false;
+      }
+    } catch (err) {
+      errEl.textContent = 'Error de conexión';
+      errEl.style.display = 'block';
+      btnEl.disabled = false;
+    }
+  };
+
+  /* ─── Eliminar proyecto ─── */
+  window.eliminarProyecto = async function (nombre) {
+    if (!confirm('¿Eliminar la obra "' + nombre + '"?\nSe borrarán todos los adjuntos e ítems OC.')) return;
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre), { method: 'DELETE' });
+      const d = await r.json();
+      if (d.ok) { window.location.reload(); }
+      else { alert('Error: ' + (d.error || 'desconocido')); }
+    } catch (err) { console.error(err); }
+  };
+
+  /* ─── Guardar N° OC en tarjeta ─── */
+  window.guardarNumeroOC = async function (input) {
+    const card   = input.closest('.kanban-card');
+    const nombre = card.dataset.nombre;
+    try {
+      await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/numero-oc', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero_oc: input.value.trim() }),
+      });
+      /* Actualizar texto display */
+      const span = card.querySelector('.kc-oc-text');
+      if (span) {
+        const val = input.value.trim();
+        span.textContent = val ? 'OC #' + val : 'Sin OC';
+        span.className = 'kc-oc-text' + (val ? '' : ' kc-oc-empty');
+      }
+      input.style.color = 'var(--verde)';
+      setTimeout(() => { input.style.color = ''; }, 1000);
+    } catch (e) { console.error(e); }
+  };
+
+  /* ─── Subir PDF de la OC desde el modal ─── */
+  window.subirOcPdf = async function (input) {
+    const file = input.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('archivo', file);
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/adjunto', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.ok) {
+        await cargarPdfsOC(_ocNombre, d.id);
+        refreshCardAdjuntos(_ocNombre);
+      } else {
+        alert('Error al subir: ' + (d.error || ''));
+      }
+    } catch (e) { console.error(e); }
+    input.value = '';
+  };
+
+  /* ─── Subir evidencia de despacho desde el modal ─── */
+  window.subirEvidencia = async function (input) {
+    const files = Array.from(input.files);
+    if (!files.length) return;
+    const listEl = document.getElementById('oc-evidencia-list');
+    listEl.innerHTML = '<span style="font-size:0.75rem;color:var(--texto-suave)">Subiendo...</span>';
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('archivo', file);
+      fd.append('categoria', 'ev');
+      await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/adjunto', { method: 'POST', body: fd });
+    }
+    listEl.innerHTML = '<span style="font-size:0.75rem;color:var(--verde)">✓ ' + files.length + ' archivo(s) subido(s)</span>';
+    refreshCardAdjuntos(_ocNombre);
+    await recargarEvidenciasModal();
+    setTimeout(() => { listEl.innerHTML = ''; }, 2500);
+    input.value = '';
+  };
+
+  /* ─── Modal OC ─── */
+  window.abrirModalOC = async function (nombre, cliente, preselect_adj_id) {
+    _ocNombre = nombre;
+    document.getElementById('oc-titulo').textContent = 'OC — ' + nombre;
+    document.getElementById('oc-subtitulo').textContent = cliente ? '(' + cliente + ')' : '';
+    _lockViewport();
+    document.getElementById('modal-oc').showModal();
+    await cargarPdfsOC(nombre, preselect_adj_id);
+    await recargarItemsOC();
+    await recargarEvidenciasModal();
+  };
+
+  async function cargarPdfsOC(nombre, preselect_adj_id) {
+    const sel   = document.getElementById('oc-pdf-select');
+    const empty = document.getElementById('oc-pdf-empty');
+    sel.innerHTML = '<option value="">Cargando...</option>';
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/adjuntos');
+      const d = await r.json();
+      const pdfs = (d.adjuntos || []).filter(a =>
+        (a.content_type || '').includes('pdf') || a.filename.toLowerCase().endsWith('.pdf')
+      );
+      if (!pdfs.length) {
+        sel.innerHTML = '<option value="">— Sin PDFs adjuntos —</option>';
+        if (_pdfClear) _pdfClear();
+        empty.style.display = 'flex';
+      } else {
+        sel.innerHTML = pdfs.map(a =>
+          `<option value="/api/proyecto/${encodeURIComponent(nombre)}/adjunto/${a.id}/ver">${a.filename}</option>`
+        ).join('');
+        if (preselect_adj_id) {
+          const targetVal = `/api/proyecto/${encodeURIComponent(nombre)}/adjunto/${preselect_adj_id}/ver`;
+          const opt = sel.querySelector(`option[value="${CSS.escape ? targetVal : targetVal}"]`);
+          if (opt) sel.value = targetVal;
+        }
+        empty.style.display = 'none';
+        if (_pdfLoad) _pdfLoad(sel.value);
+      }
+    } catch (e) {
+      sel.innerHTML = '<option value="">Error al cargar</option>';
+    }
+  }
+
+  window.cambiarPdfOC = function (sel) {
+    if (sel.value) {
+      document.getElementById('oc-pdf-empty').style.display = 'none';
+      if (_pdfLoad) _pdfLoad(sel.value);
+    }
+  };
+
+  async function recargarItemsOC() {
+    const tbody = document.getElementById('oc-items-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="oc-items-empty">Cargando...</td></tr>';
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/oc-items');
+      let d;
+      try { d = await r.json(); } catch (_) { d = { ok: false, error: 'Respuesta inválida del servidor (HTTP ' + r.status + ')', items: [] }; }
+      if (!d.ok && d.error) {
+        tbody.innerHTML = `<tr><td colspan="6" class="oc-items-empty" style="color:var(--rojo)">Error: ${d.error}</td></tr>`;
+        return;
+      }
+      renderItemsOC(d.items || []);
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="6" class="oc-items-empty" style="color:var(--rojo)">Error de conexión al cargar ítems</td></tr>';
+    }
+  }
+
+  function renderItemsOC(items) {
+    const tbody = document.getElementById('oc-items-tbody');
+    const rows  = items.map(item => filaTmpl(item));
+    const extra = Math.max(0, DEFAULT_ROWS - items.length);
+    for (let i = 0; i < extra; i++) rows.push(filaTmplVacia(items.length + i + 1));
+    tbody.innerHTML = rows.join('');
+    actualizarSaldoTotal(items);
+  }
+
+  function filaTmpl(item) {
+    const saldo = Math.max(0, (item.cantidad_pedida || 0) - (item.cantidad_despachada || 0));
+    const clsSaldo = saldo > 0 ? 'oc-saldo positivo' : 'oc-saldo cero';
+    return `<tr data-id="${item.id}">
+      <td><input class="oc-item-input oc-desc" type="text" value="${esc(item.descripcion)}"
+           placeholder="Ítem / producto"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><input class="oc-item-input oc-un" type="text" value="${esc(item.unidad)}"
+           placeholder="UND" style="width:3.5rem"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><input class="oc-item-input oc-ped" type="number" min="0" step="any" value="${item.cantidad_pedida}"
+           style="width:4.5rem"
+           oninput="recalcSaldo(this.closest('tr'))"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><input class="oc-item-input oc-des" type="number" min="0" step="any" value="${item.cantidad_despachada}"
+           style="width:4.5rem"
+           oninput="recalcSaldo(this.closest('tr'))"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><span class="${clsSaldo}">${fmt(saldo)}</span></td>
+      <td><button class="oc-del-btn" onclick="eliminarItemOC(this.closest('tr'),${item.id})" title="Eliminar fila">×</button></td>
+    </tr>`;
+  }
+
+  const DEFAULT_ROWS = 15;
+
+  function filaTmplVacia(n) {
+    const prefijo = n ? String(n) + '. ' : '';
+    return `<tr data-id="new">
+      <td><input class="oc-item-input oc-desc" type="text" value="${prefijo}"
+           placeholder="Ítem / producto"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><input class="oc-item-input oc-un" type="text" value=""
+           placeholder="UND" style="width:3.5rem"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><input class="oc-item-input oc-ped" type="number" min="0" step="any" value=""
+           style="width:4.5rem" placeholder="0"
+           oninput="recalcSaldo(this.closest('tr'))"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><input class="oc-item-input oc-des" type="number" min="0" step="any" value=""
+           style="width:4.5rem" placeholder="0"
+           oninput="recalcSaldo(this.closest('tr'))"
+           onblur="guardarItemOC(this.closest('tr'))"
+           onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
+      <td><span class="oc-saldo cero"></span></td>
+      <td></td>
+    </tr>`;
+  }
+
+  function esc(s) { return String(s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+  function fmt(n) { return Number(n).toLocaleString('es-PE', { maximumFractionDigits: 2 }); }
+
+  window.recalcSaldo = function (tr) {
+    const ped  = parseFloat(tr.querySelector('.oc-ped').value) || 0;
+    const des  = parseFloat(tr.querySelector('.oc-des').value) || 0;
+    const saldo = Math.max(0, ped - des);
+    const span  = tr.querySelector('.oc-saldo');
+    if (span) {
+      span.textContent = fmt(saldo);
+      span.className = 'oc-saldo ' + (saldo > 0 ? 'positivo' : 'cero');
+    }
+    actualizarSaldoTotalDOM();
+  };
+
+  function actualizarSaldoTotal(items) {
+    const total = items.reduce((acc, it) => acc + Math.max(0, (it.cantidad_pedida || 0) - (it.cantidad_despachada || 0)), 0);
+    _renderSaldoTotal(total);
+  }
+
+  function actualizarSaldoTotalDOM() {
+    let total = 0;
+    document.querySelectorAll('#oc-items-tbody tr[data-id]').forEach(tr => {
+      const ped = parseFloat(tr.querySelector('.oc-ped')?.value) || 0;
+      const des = parseFloat(tr.querySelector('.oc-des')?.value) || 0;
+      total += Math.max(0, ped - des);
+    });
+    _renderSaldoTotal(total);
+  }
+
+  function _renderSaldoTotal(total) {
+    const el = document.getElementById('oc-saldo-total');
+    if (!el) return;
+    if (total > 0) {
+      el.textContent = 'Saldo total: ' + fmt(total);
+      el.className = 'oc-saldo-total positivo';
+    } else {
+      const realRows = document.querySelectorAll('#oc-items-tbody tr[data-id]:not([data-id="new"]):not([data-id="creating"])').length;
+      el.textContent = total === 0 && realRows ? '✓ Todo despachado' : '';
+      el.className = 'oc-saldo-total cero';
+    }
+  }
+
+  window.guardarItemOC = async function (tr) {
+    const itemId = tr.dataset.id;
+    if (itemId === 'creating') return;
+
+    if (!itemId || itemId === 'new') {
+      /* Fila virtual: solo persistir si el usuario escribió algo */
+      const desc = tr.querySelector('.oc-desc').value.trim();
+      const ped  = parseFloat(tr.querySelector('.oc-ped').value) || 0;
+      const des  = parseFloat(tr.querySelector('.oc-des').value) || 0;
+      if (!desc && ped === 0 && des === 0) return;
+      tr.dataset.id = 'creating';
+      try {
+        const r = await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/oc-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            descripcion:         desc,
+            unidad:              tr.querySelector('.oc-un').value.trim() || 'UND',
+            cantidad_pedida:     ped,
+            cantidad_despachada: des,
+          }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          tr.dataset.id = String(d.id);
+          const delTd = tr.querySelector('td:last-child');
+          if (delTd && !delTd.querySelector('.oc-del-btn')) {
+            delTd.innerHTML = `<button class="oc-del-btn" onclick="eliminarItemOC(this.closest('tr'),${d.id})" title="Eliminar fila">×</button>`;
+          }
+          actualizarSaldoTotalDOM();
+        } else { tr.dataset.id = 'new'; }
+      } catch (e) { console.error(e); tr.dataset.id = 'new'; }
+      return;
+    }
+
+    const body = {
+      descripcion:         tr.querySelector('.oc-desc').value.trim(),
+      unidad:              tr.querySelector('.oc-un').value.trim() || 'UND',
+      cantidad_pedida:     parseFloat(tr.querySelector('.oc-ped').value) || 0,
+      cantidad_despachada: parseFloat(tr.querySelector('.oc-des').value) || 0,
+    };
+    try {
+      await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/oc-item/' + itemId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (e) { console.error(e); }
+  };
+
+  window.agregarFilaOC = async function () {
+    /* Si ya hay una fila virtual vacía, enfocarla en lugar de crear una nueva */
+    const firstNew = document.querySelector('#oc-items-tbody tr[data-id="new"]');
+    if (firstNew) {
+      firstNew.querySelector('.oc-desc')?.focus();
+      firstNew.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    /* Sin filas virtuales disponibles: crear una nueva en la DB */
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/oc-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descripcion: '', unidad: 'UND', cantidad_pedida: 0, cantidad_despachada: 0 }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        const tbody  = document.getElementById('oc-items-tbody');
+        const newItem = { id: d.id, descripcion: '', unidad: 'UND', cantidad_pedida: 0, cantidad_despachada: 0 };
+        tbody.insertAdjacentHTML('beforeend', filaTmpl(newItem));
+        tbody.querySelector('tr:last-child')?.querySelector('.oc-desc')?.focus();
+        actualizarSaldoTotalDOM();
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  window.eliminarItemOC = async function (tr, itemId) {
+    if (!confirm('¿Eliminar este ítem?')) return;
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/oc-item/' + itemId, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.ok) {
+        tr.remove();
+        actualizarSaldoTotalDOM();
+        /* Recompletar hasta DEFAULT_ROWS con filas virtuales */
+        const tbody    = document.getElementById('oc-items-tbody');
+        const realRows   = tbody.querySelectorAll('tr[data-id]:not([data-id="new"]):not([data-id="creating"])').length;
+        const newRows    = tbody.querySelectorAll('tr[data-id="new"]').length;
+        const currentTotal = realRows + newRows;
+        const extra      = Math.max(0, DEFAULT_ROWS - currentTotal);
+        for (let i = 0; i < extra; i++) tbody.insertAdjacentHTML('beforeend', filaTmplVacia(currentTotal + i + 1));
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  /* ─── Lightbox (usa showModal() para estar en la top layer) ─── */
+  (function () {
+    const lb    = document.getElementById('lightbox');
+    if (!lb) return;
+    /* Cerrar al hacer click en el fondo */
+    lb.addEventListener('click', e => { if (e.target === lb) cerrarLightbox(); });
+  })();
+
+  window.abrirLightbox = function (url, tipo) {
+    const lb    = document.getElementById('lightbox');
+    const img   = document.getElementById('lightbox-img');
+    const frame = document.getElementById('lightbox-frame');
+    if (!lb) return;
+    if (tipo === 'img') {
+      img.src             = url;
+      img.style.display   = '';
+      frame.style.display = 'none';
+      frame.src           = 'about:blank';
+    } else {
+      frame.src           = url;
+      frame.style.display = '';
+      img.style.display   = 'none';
+      img.src             = '';
+    }
+    if (!lb.open) lb.showModal();
+  };
+
+  window.cerrarLightbox = function () {
+    const lb = document.getElementById('lightbox');
+    if (!lb) return;
+    lb.close();
+    document.getElementById('lightbox-img').src   = '';
+    document.getElementById('lightbox-frame').src = 'about:blank';
+  };
+
+  /* ─── Carrusel de evidencias en el modal ─── */
+  async function recargarEvidenciasModal() {
+    const container = document.getElementById('oc-ev-modal-carousel');
+    const label     = document.getElementById('oc-ev-label');
+    if (!container) return;
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/adjuntos');
+      const d = await r.json();
+      const evs = (d.adjuntos || []).filter(a => (a.categoria || 'oc') === 'ev');
+      if (!evs.length) {
+        container.innerHTML = '';
+        if (label) label.style.display = 'none';
+        return;
+      }
+      if (label) label.style.display = '';
+      const isPdf = a => (a.content_type || '').includes('pdf') || a.filename.toLowerCase().endsWith('.pdf');
+      const items = evs.map(adj => {
+        const url      = `/api/proyecto/${encodeURIComponent(_ocNombre)}/adjunto/${adj.id}/ver`;
+        const nombreEl = adj.filename.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (isPdf(adj)) {
+          const shortName = adj.filename.length > 14 ? adj.filename.slice(0, 12) + '…' : adj.filename;
+          return `<div class="kc-ev-thumb kc-ev-pdf-thumb" title="${nombreEl}"
+                       onclick="abrirLightbox('${url}','pdf')">
+            <div class="kc-ev-pdf-icon">${PDF_SVG}</div>
+            <span class="kc-ev-pdf-name">${shortName}</span>
+            <button class="kc-ev-del"
+                    onclick="event.stopPropagation();eliminarAdjuntoModal(${adj.id})"
+                    title="Eliminar">×</button>
+          </div>`;
+        }
+        return `<div class="kc-ev-thumb" title="${nombreEl}">
+          <img src="${url}" alt="${nombreEl}" loading="lazy"
+               onclick="abrirLightbox('${url}','img')">
+          <button class="kc-ev-del"
+                  onclick="event.stopPropagation();eliminarAdjuntoModal(${adj.id})"
+                  title="Eliminar">×</button>
+        </div>`;
+      }).join('');
+      container.innerHTML = `<div class="kc-ev-carousel">${items}</div>`;
+    } catch (e) { console.error(e); }
+  }
+
+  window.eliminarAdjuntoModal = async function (adjId) {
+    if (!confirm('¿Eliminar esta evidencia?')) return;
+    try {
+      const r = await fetch('/api/proyecto/' + encodeURIComponent(_ocNombre) + '/adjunto/' + adjId, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.ok) {
+        await recargarEvidenciasModal();
+        refreshCardAdjuntos(_ocNombre);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  /* ─── Modo edición de tarjeta (lápiz) ─── */
+  window.toggleEditCard = async function (card) {
+    const isEditing = card.classList.contains('kc-editing');
+    const editBtn   = card.querySelector('.btn-kc-edit');
+    if (isEditing) {
+      /* Guardar nombre + cliente */
+      const nombreInput  = card.querySelector('.kc-nombre-input');
+      const clienteInput = card.querySelector('.kc-cliente-input');
+      const oldNombre    = card.dataset.nombre;
+      const nuevoNombre  = (nombreInput ? nombreInput.value.trim() : '') || oldNombre;
+      const nuevoCliente = (clienteInput ? clienteInput.value.trim() : '') || card.dataset.cliente || '';
+      try {
+        const r = await fetch('/api/proyecto/' + encodeURIComponent(oldNombre) + '/info', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nuevo_nombre: nuevoNombre, nuevo_cliente: nuevoCliente }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          card.dataset.nombre  = nuevoNombre;
+          card.dataset.cliente = nuevoCliente;
+          const nomEl = card.querySelector('.kc-nombre');
+          if (nomEl) nomEl.textContent = nuevoNombre;
+          const cliEl = card.querySelector('.kc-cliente-tag');
+          if (cliEl) {
+            cliEl.textContent = nuevoCliente || '—';
+            cliEl.classList.toggle('kc-sin-dato', !nuevoCliente);
+          }
+          CLIENTES_APROBADO = _buildClientesAprobado();
+        } else {
+          alert('No se pudo guardar: ' + (d.error || 'error'));
+          if (nombreInput) nombreInput.value = oldNombre;
+        }
+      } catch (e) { console.error(e); }
+      /* Guardar OC# y dirección */
+      const ocInput = card.querySelector('.kc-oc-input');
+      if (ocInput) await guardarNumeroOC(ocInput);
+      await guardarDireccion(card);
+      card.classList.remove('kc-editing');
+      if (editBtn) { editBtn.textContent = '✏'; editBtn.title = 'Editar'; }
+    } else {
+      card.classList.add('kc-editing');
+      if (editBtn) { editBtn.textContent = '✓'; editBtn.title = 'Guardar'; }
+      /* Enfocar el campo nombre */
+      const nombreInput = card.querySelector('.kc-nombre-input');
+      if (nombreInput) setTimeout(() => nombreInput.focus(), 40);
+    }
+  };
+
+  /* ─── Prevenir zoom de viewport mientras el modal OC está abierto ───────────
+   * El viewport meta se bloquea (maximum-scale=1 / user-scalable=no) cuando
+   * el modal abre, y se restaura cuando cierra.
+   * El iframe del PDF usa touch-action: pinch-zoom pan-x pan-y (CSS) para que
+   * el visor nativo de PDF maneje el pinch sin interceptar el zoom del viewport.
+   * ─────────────────────────────────────────────────────────────────────────── */
+  const _vpMeta = document.querySelector('meta[name="viewport"]');
+  const _vpOrig = _vpMeta ? _vpMeta.content : 'width=device-width, initial-scale=1';
+  function _lockViewport()   { if (_vpMeta) _vpMeta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'; }
+  function _unlockViewport() { if (_vpMeta) _vpMeta.content = _vpOrig; }
+  document.getElementById('modal-oc').addEventListener('close', _unlockViewport);
+
+
+  /* ─── PDF.js viewer ─── */
+  (function () {
+    if (typeof pdfjsLib === 'undefined') return;
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let _doc         = null;
+    let currentScale = 1;
+    let _renderToken = 0;
+    const ZOOM_STEPS = [0.4, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
+
+    function _updateZoomLabel() {
+      const el = document.getElementById('oc-zoom-label');
+      if (el) el.textContent = Math.round(currentScale * 100) + '%';
+    }
+
+    async function _autoScale() {
+      if (!_doc) return 1;
+      const vp   = (await _doc.getPage(1)).getViewport({ scale: 1 });
+      const wrap = document.getElementById('oc-pdf-frame-wrap');
+      return Math.max(0.5, ((wrap ? wrap.clientWidth : 600) - 16) / vp.width);
+    }
+
+    /* Renders into a fresh div, then atomically swaps it in — no flash. */
+    async function _renderAll() {
+      if (!_doc) return;
+      const token = ++_renderToken;
+      const dpr   = window.devicePixelRatio || 1;
+      const fresh = document.createElement('div');
+      fresh.className = 'oc-pdf-pages';
+
+      for (let i = 1; i <= _doc.numPages; i++) {
+        if (token !== _renderToken) return; /* cancelled */
+        const page   = await _doc.getPage(i);
+        const vp     = page.getViewport({ scale: currentScale * dpr });
+        const canvas = document.createElement('canvas');
+        canvas.width        = vp.width;
+        canvas.height       = vp.height;
+        canvas.style.width  = Math.round(vp.width  / dpr) + 'px';
+        canvas.style.height = Math.round(vp.height / dpr) + 'px';
+        const div = document.createElement('div');
+        div.className = 'oc-pdf-page';
+        div.appendChild(canvas);
+        fresh.appendChild(div);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      }
+
+      if (token !== _renderToken) return;
+      fresh.id = 'oc-pdf-pages';
+      const old = document.getElementById('oc-pdf-pages');
+      if (old && old.parentNode) old.parentNode.replaceChild(fresh, old);
+    }
+
+    _pdfLoad = async function (url) {
+      const pages = document.getElementById('oc-pdf-pages');
+      if (!pages) return;
+      pages.innerHTML = '<div class="oc-pdf-loading">Cargando…</div>';
+      try {
+        _doc         = await pdfjsLib.getDocument({ url, withCredentials: true }).promise;
+        currentScale = await _autoScale();
+        _updateZoomLabel();
+        await _renderAll();
+      } catch (_) {
+        const p = document.getElementById('oc-pdf-pages');
+        if (p) p.innerHTML = '<div class="oc-pdf-loading" style="color:#f87171">Error al cargar PDF</div>';
+      }
+    };
+
+    _pdfClear = function () {
+      _doc = null; ++_renderToken;
+      const pages = document.getElementById('oc-pdf-pages');
+      if (pages) pages.innerHTML = '';
+    };
+
+    /* ── Pinch zoom ── */
+    const wrap = document.getElementById('oc-pdf-frame-wrap');
+    if (!wrap) return;
+    let _p0 = 0, _s0 = 1, _css = 1, _pinching = false;
+    const _d = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+    wrap.addEventListener('touchstart', e => {
+      if (e.touches.length !== 2) return;
+      _pinching = true; _p0 = _d(e.touches); _s0 = currentScale; _css = 1;
+      e.preventDefault();
+    }, { passive: false });
+
+    wrap.addEventListener('touchmove', e => {
+      if (!_pinching || e.touches.length !== 2) return;
+      e.preventDefault();
+      _css = Math.max(0.4 / _s0, Math.min(4 / _s0, _d(e.touches) / _p0));
+      const pages = document.getElementById('oc-pdf-pages');
+      if (pages) { pages.style.transformOrigin = 'top left'; pages.style.transform = `scale(${_css})`; }
+    }, { passive: false });
+
+    /* On touchend: persist currentScale, re-render (old transformed div stays
+       visible until the fresh div swaps in atomically). */
+    wrap.addEventListener('touchend', e => {
+      if (!_pinching || e.touches.length >= 2) return;
+      _pinching    = false;
+      currentScale = Math.max(0.4, Math.min(4, _s0 * _css));
+      _updateZoomLabel();
+      _renderAll();
+    });
+
+    /* ── Desktop: Ctrl+wheel zooms the PDF, not the page ── */
+    wrap.addEventListener('wheel', e => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1 : -1;
+      const idx   = ZOOM_STEPS.findIndex(s => s >= currentScale - 0.01);
+      const next  = Math.max(0, Math.min(ZOOM_STEPS.length - 1, idx + delta));
+      currentScale = ZOOM_STEPS[next];
+      _updateZoomLabel();
+      _renderAll();
+    }, { passive: false });
+
+    /* ── Desktop: toolbar zoom buttons ── */
+    window.pdfStepZoom = function (dir) {
+      if (!_doc) return;
+      const idx  = ZOOM_STEPS.findIndex(s => s >= currentScale - 0.01);
+      const next = Math.max(0, Math.min(ZOOM_STEPS.length - 1, idx + dir));
+      currentScale = ZOOM_STEPS[next];
+      _updateZoomLabel();
+      _renderAll();
+    };
+  })();
+
+  /* ─── Divisor redimensionable del modal OC (horizontal en desktop, vertical en móvil) ─── */
+  (function () {
+    const divider    = document.getElementById('oc-split-divider');
+    const splitEl    = document.getElementById('oc-split');
+    const pdfPanel   = document.getElementById('oc-pdf-panel');
+    const tablaPanel = document.getElementById('oc-tabla-panel');
+    if (!divider || !splitEl) return;
+
+    function isColMode() {
+      return window.getComputedStyle(splitEl).flexDirection === 'column';
+    }
+
+    function doResize(clientX, clientY) {
+      const rect = splitEl.getBoundingClientRect();
+      if (isColMode()) {
+        const dividerH  = 5;
+        const available = rect.height - dividerH;
+        const minPx     = Math.max(80, Math.round(available * 0.15));
+        const y   = Math.max(minPx, Math.min(clientY - rect.top, available - minPx));
+        const pct = (y / available) * 100;
+        pdfPanel.style.flex   = `0 0 ${pct}%`;
+        tablaPanel.style.flex = `0 0 ${100 - pct}%`;
+      } else {
+        const dividerW  = 5;
+        const available = rect.width - dividerW;
+        const minPx     = Math.max(180, Math.round(available * 0.20));
+        const x   = Math.max(minPx, Math.min(clientX - rect.left, available - minPx));
+        const pct = (x / available) * 100;
+        pdfPanel.style.flex   = `0 0 ${pct}%`;
+        tablaPanel.style.flex = `0 0 ${100 - pct}%`;
+      }
+    }
+
+    divider.addEventListener('pointerdown', e => {
+      divider.setPointerCapture(e.pointerId);
+      divider.classList.add('dragging');
+      document.body.style.cursor     = isColMode() ? 'row-resize' : 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    divider.addEventListener('pointermove', e => {
+      if (!divider.hasPointerCapture(e.pointerId)) return;
+      doResize(e.clientX, e.clientY);
+    });
+
+    function stopDrag(e) {
+      if (!divider.hasPointerCapture(e.pointerId)) return;
+      divider.releasePointerCapture(e.pointerId);
+      divider.classList.remove('dragging');
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+    }
+    divider.addEventListener('pointerup',     stopDrag);
+    divider.addEventListener('pointercancel', stopDrag);
+  })();
+
+  /* ─── Guardar contacto de obra ─── */
+  window.guardarContacto = async function (input) {
+    const card   = input.closest('.kanban-card');
+    const nombre = card.dataset.nombre;
+    try {
+      await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/contacto', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacto: input.value.trim() }),
+      });
+    } catch (e) { console.error(e); }
+  };
+
+  /* ─── Autocomplete cliente en tarjeta kanban ─── */
+  const CLIENTES_CAT = {{ catalogo.clientes | tojson }};
+
+  function _kcRenderClienteLista(lista, items) {
+    if (!items.length) {
+      lista.innerHTML = '<div class="ac-sin-resultado">Sin resultados</div>';
+    } else {
+      lista.innerHTML = items.map(c =>
+        `<div class="ac-item kc-ac-item" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">${c.nombre}</div>`
+      ).join('');
+      lista.querySelectorAll('.kc-ac-item').forEach(el => {
+        el.addEventListener('mousedown', e => {
+          e.preventDefault();
+          const inp = el.closest('.kc-cliente-ac').querySelector('.kc-cliente-input');
+          inp.value = el.dataset.nombre;
+          lista.style.display = 'none';
+        });
+      });
+    }
+    lista.style.display = 'block';
+  }
+
+  window.kcClienteInput = function (inp) {
+    const q       = inp.value.trim().toLowerCase();
+    const lista   = inp.closest('.kc-cliente-ac').querySelector('.kc-cliente-lista');
+    const filtrados = q
+      ? CLIENTES_CAT.filter(c => c.nombre.toLowerCase().includes(q) || c.codigo.toLowerCase().includes(q))
+      : CLIENTES_CAT;
+    _kcRenderClienteLista(lista, filtrados);
+  };
+
+  window.kcClienteFocus = function (inp) {
+    inp.select();
+    const lista = inp.closest('.kc-cliente-ac').querySelector('.kc-cliente-lista');
+    _kcRenderClienteLista(lista, CLIENTES_CAT);
+  };
+
+  window.kcClienteBlur = function (inp) {
+    setTimeout(() => {
+      const lista = inp.closest('.kc-cliente-ac').querySelector('.kc-cliente-lista');
+      lista.style.display = 'none';
+    }, 200);
+  };
+
+  window.kcClienteKeydown = function (e, inp) {
+    const lista  = inp.closest('.kc-cliente-ac').querySelector('.kc-cliente-lista');
+    const items  = [...lista.querySelectorAll('.kc-ac-item')];
+    const active = lista.querySelector('.ac-active');
+    let idx      = items.indexOf(active);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (idx < items.length - 1) idx++;
+      items.forEach(el => el.classList.remove('ac-active'));
+      if (items[idx]) { items[idx].classList.add('ac-active'); items[idx].scrollIntoView({ block: 'nearest' }); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (idx > 0) idx--;
+      items.forEach(el => el.classList.remove('ac-active'));
+      if (items[idx]) { items[idx].classList.add('ac-active'); items[idx].scrollIntoView({ block: 'nearest' }); }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active) { inp.value = active.dataset.nombre; lista.style.display = 'none'; }
+      else { inp.blur(); }
+    } else if (e.key === 'Escape') {
+      lista.style.display = 'none';
+    }
+  };
+
+  /* ─── Filtro de búsqueda Kanban con autocomplete ─── */
+
+  function _buildClientesAprobado() {
+    const nombres = new Set(
+      [...document.querySelectorAll('.kanban-card[data-cliente]')]
+        .map(c => c.dataset.cliente.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    const resultado = [];
+    const usados = new Set();
+    for (const c of CLIENTES_CAT) {
+      if (nombres.has(c.nombre.trim().toLowerCase())) {
+        resultado.push(c);
+        usados.add(c.nombre.trim().toLowerCase());
+      }
+    }
+    for (const nombre of nombres) {
+      if (!usados.has(nombre)) resultado.push({ codigo: '', nombre });
+    }
+    return resultado.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }
+
+  let CLIENTES_APROBADO = _buildClientesAprobado();
+
+  function _renderFiltroLista(filtrados) {
+    const lista = document.getElementById('filtro-lista');
+    if (!filtrados.length) {
+      lista.innerHTML = '<div class="ac-sin-resultado">Sin resultados</div>';
+    } else {
+      lista.innerHTML = filtrados.map(c =>
+        `<div class="ac-item" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">` +
+        (c.codigo ? `<span class="ac-code">${c.codigo}</span><span class="ac-name"> — ${c.nombre}</span>` : `<span>${c.nombre}</span>`) +
+        `</div>`
+      ).join('');
+      lista.querySelectorAll('.ac-item').forEach(el => {
+        el.addEventListener('mousedown', () => {
+          const nombre = el.dataset.nombre;
+          document.getElementById('kanban-filtro').value = nombre;
+          filtrarKanban(nombre);
+          lista.style.display = 'none';
+        });
+      });
+    }
+    lista.style.display = 'block';
+  }
+
+  window.onFiltroInput = function(val) {
+    filtrarKanban(val); // filtrar el tablero en tiempo real
+    const q = val.trim().toLowerCase();
+    const filtrados = q
+      ? CLIENTES_APROBADO.filter(c =>
+          c.nombre.toLowerCase().includes(q) ||
+          (c.codigo && c.codigo.toLowerCase().includes(q))
+        )
+      : CLIENTES_APROBADO;
+    _renderFiltroLista(filtrados);
+  };
+
+  window.onFiltroFocus = function() {
+    const q = document.getElementById('kanban-filtro').value.trim().toLowerCase();
+    const filtrados = q
+      ? CLIENTES_APROBADO.filter(c =>
+          c.nombre.toLowerCase().includes(q) ||
+          (c.codigo && c.codigo.toLowerCase().includes(q))
+        )
+      : CLIENTES_APROBADO;
+    _renderFiltroLista(filtrados);
+  };
+
+  window.onFiltroBlur = function() {
+    setTimeout(() => {
+      document.getElementById('filtro-lista').style.display = 'none';
+    }, 200);
+  };
+
+  // Cerrar autocomplete al hacer click fuera
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.kanban-filtro-wrap')) {
+      document.getElementById('filtro-lista').style.display = 'none';
+    }
+  });
+
+  window.filtrarKanban = function (q) {
+    q = q.toLowerCase().trim();
+    document.querySelectorAll('.kanban-card').forEach(card => {
+      const match = !q ||
+        (card.dataset.nombre  || '').toLowerCase().includes(q) ||
+        (card.dataset.cliente || '').toLowerCase().includes(q);
+      card.style.display = match ? '' : 'none';
+    });
+  };
+
+  /* ─── Tiempo relativo + badge de inactividad ─── */
+  (function inicializarTiempos() {
+    document.querySelectorAll('.kanban-card').forEach(card => {
+      const ua = card.dataset.updatedAt;
+      if (!ua) return;
+      const d = new Date(ua.replace(' ', 'T'));
+      if (isNaN(d)) return;
+      const dias = Math.floor((Date.now() - d) / 86400000);
+      const tiempoEl = card.querySelector('.kc-tiempo');
+      if (!tiempoEl) return;
+      tiempoEl.textContent = dias < 1 ? 'Hoy' : dias === 1 ? 'Hace 1 día' : `Hace ${dias} días`;
+      if (dias > 14) tiempoEl.classList.add('kc-inactivo-alerta');
+      else if (dias > 7) tiempoEl.classList.add('kc-inactivo-warn');
+    });
+  }());
+
+})();
+</script>
 {% endblock %}

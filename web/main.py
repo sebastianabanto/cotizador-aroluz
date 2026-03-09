@@ -35,6 +35,12 @@ from web.database import (
     obtener_cliente, obtener_atenciones_de_cliente,
     crear_usuario, cambiar_password, listar_usuarios,
     editar_usuario, toggle_activo_usuario, eliminar_usuario,
+    get_kpis_proyectos, get_proyectos_con_stats, set_proyecto_estado,
+    update_proyecto_direccion, update_proyecto_numero_oc, update_proyecto_contacto, renombrar_proyecto,
+    add_adjunto, list_adjuntos, get_adjunto_filepath, delete_adjunto,
+    crear_proyecto, eliminar_proyecto,
+    get_oc_items, add_oc_item, update_oc_item, delete_oc_item,
+    ESTADOS_KANBAN, ESTADO_LABELS, ADJUNTOS_DIR,
 )
 from web.rutas import cotizar as rutas_cotizar
 from web.rutas import carrito as rutas_carrito
@@ -62,6 +68,13 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+# Filtros Jinja2 adicionales
+from urllib.parse import quote as _url_quote
+import json as _json
+from markupsafe import Markup as _Markup
+templates.env.filters["urlencode_str"] = lambda s: _url_quote(str(s), safe="")
+templates.env.filters.setdefault("tojson", lambda o: _Markup(_json.dumps(o, ensure_ascii=False)))
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -154,7 +167,286 @@ async def root(request: Request):
 
 @app.get("/home", response_class=HTMLResponse)
 async def home_page(request: Request, usuario: dict = Depends(require_login)):
-    return templates.TemplateResponse("home.html", ctx(request, usuario, active="home"))
+    kpis = get_kpis_proyectos()
+    proyectos = get_proyectos_con_stats()
+    catalogo = obtener_catalogo()
+    return templates.TemplateResponse(
+        "home.html",
+        ctx(
+            request, usuario,
+            active="home",
+            kpis=kpis,
+            proyectos=proyectos,
+            ESTADOS_KANBAN=ESTADOS_KANBAN,
+            ESTADO_LABELS=ESTADO_LABELS,
+            catalogo=catalogo,
+        ),
+    )
+
+
+# ─────────────────────────────────────────────
+# API — Proyectos: estado, dirección, adjuntos
+# ─────────────────────────────────────────────
+
+@app.put("/api/proyecto/{nombre}/estado")
+async def api_set_proyecto_estado(
+    nombre: str,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+        estado = body.get("estado", "")
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    if estado not in ESTADOS_KANBAN:
+        return JSONResponse({"ok": False, "error": "Estado inválido"}, status_code=422)
+    set_proyecto_estado(nombre, estado)
+    return JSONResponse({"ok": True})
+
+
+@app.patch("/api/proyecto/{nombre}/numero-oc")
+async def api_update_numero_oc(
+    nombre: str,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+        numero_oc = body.get("numero_oc", "")
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    update_proyecto_numero_oc(nombre, numero_oc)
+    return JSONResponse({"ok": True})
+
+
+@app.patch("/api/proyecto/{nombre}/contacto")
+async def api_update_contacto(
+    nombre: str,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+        contacto = body.get("contacto", "")
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    update_proyecto_contacto(nombre, contacto)
+    return JSONResponse({"ok": True})
+
+
+@app.patch("/api/proyecto/{nombre}/info")
+async def api_update_proyecto_info(
+    nombre: str,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+        nuevo_nombre = body.get("nuevo_nombre", nombre)
+        nuevo_cliente = body.get("nuevo_cliente", "")
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    ok = renombrar_proyecto(nombre, nuevo_nombre, nuevo_cliente)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "Nombre duplicado o vacío"}, status_code=409)
+    return JSONResponse({"ok": True, "nuevo_nombre": nuevo_nombre.strip()})
+
+
+@app.patch("/api/proyecto/{nombre}/direccion")
+async def api_update_direccion(
+    nombre: str,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+        direccion = body.get("direccion", "")
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    update_proyecto_direccion(nombre, direccion)
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/proyecto/{nombre}/adjuntos")
+async def api_list_adjuntos(nombre: str, usuario: dict = Depends(require_login)):
+    return JSONResponse({"ok": True, "adjuntos": list_adjuntos(nombre)})
+
+
+@app.post("/api/proyecto/{nombre}/adjunto")
+async def api_upload_adjunto(
+    nombre: str,
+    usuario: dict = Depends(require_login),
+    archivo: UploadFile = File(...),
+    categoria: str = Form("oc"),
+):
+    import shutil as _shutil
+    ext = Path(archivo.filename or "").suffix.lower()
+    if ext not in {".pdf", ".jpg", ".jpeg", ".png", ".webp"}:
+        return JSONResponse(
+            {"ok": False, "error": "Tipo no permitido. Use PDF, JPG o PNG."},
+            status_code=422,
+        )
+    cat = categoria if categoria in ("oc", "ev") else "oc"
+    slug = "".join(c if c.isalnum() or c in "-_. " else "_" for c in nombre)[:60]
+    dest_dir = ADJUNTOS_DIR / slug
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    from datetime import datetime as _dt2
+    ts = _dt2.now().strftime("%Y%m%d_%H%M%S")
+    safe_name = f"{ts}_{Path(archivo.filename or 'archivo').name}"
+    dest = dest_dir / safe_name
+    with dest.open("wb") as f:
+        _shutil.copyfileobj(archivo.file, f)
+
+    adj_id = add_adjunto(nombre, archivo.filename or safe_name, str(dest), archivo.content_type or "", cat)
+    return JSONResponse({"ok": True, "id": adj_id, "filename": archivo.filename})
+
+
+@app.get("/api/proyecto/{nombre}/adjunto/{adj_id}/descargar")
+async def api_descargar_adjunto(
+    nombre: str, adj_id: int, usuario: dict = Depends(require_login),
+):
+    info = get_adjunto_filepath(adj_id, nombre)
+    if not info:
+        raise HTTPException(404, "Adjunto no encontrado")
+    p = Path(info["filepath"])
+    if not p.exists():
+        raise HTTPException(404, "Archivo no encontrado en disco")
+    return StreamingResponse(
+        open(p, "rb"),
+        media_type=info.get("content_type") or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{info["filename"]}"'},
+    )
+
+
+@app.get("/api/proyecto/{nombre}/adjunto/{adj_id}/ver")
+async def api_ver_adjunto_inline(
+    nombre: str, adj_id: int, usuario: dict = Depends(require_login),
+):
+    """Sirve el adjunto inline (para visualizar en iframe sin forzar descarga)."""
+    info = get_adjunto_filepath(adj_id, nombre)
+    if not info:
+        raise HTTPException(404, "Adjunto no encontrado")
+    p = Path(info["filepath"])
+    if not p.exists():
+        raise HTTPException(404, "Archivo no encontrado en disco")
+    return StreamingResponse(
+        open(p, "rb"),
+        media_type=info.get("content_type") or "application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{info["filename"]}"'},
+    )
+
+
+@app.delete("/api/proyecto/{nombre}/adjunto/{adj_id}")
+async def api_delete_adjunto(
+    nombre: str, adj_id: int, usuario: dict = Depends(require_login),
+):
+    filepath = delete_adjunto(adj_id)
+    if filepath:
+        try:
+            Path(filepath).unlink(missing_ok=True)
+        except Exception:
+            pass
+    return JSONResponse({"ok": True})
+
+
+# ─────────────────────────────────────────────
+# API — Proyectos: crear / eliminar (manual)
+# ─────────────────────────────────────────────
+
+@app.post("/api/proyecto")
+async def api_crear_proyecto(
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+        nombre = (body.get("nombre") or "").strip()
+        cliente = (body.get("cliente") or "").strip()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    if not nombre:
+        return JSONResponse({"ok": False, "error": "El nombre es requerido"}, status_code=422)
+    ok = crear_proyecto(nombre, cliente)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "Ya existe un proyecto con ese nombre"}, status_code=409)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/proyecto/{nombre}")
+async def api_eliminar_proyecto(
+    nombre: str,
+    usuario: dict = Depends(require_admin),
+):
+    eliminar_proyecto(nombre)
+    return JSONResponse({"ok": True})
+
+
+# ─────────────────────────────────────────────
+# API — OC Items
+# ─────────────────────────────────────────────
+
+@app.get("/api/proyecto/{nombre}/oc-items")
+async def api_get_oc_items(nombre: str, usuario: dict = Depends(require_login)):
+    try:
+        items = get_oc_items(nombre)
+        return JSONResponse({"ok": True, "items": items})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e), "items": []}, status_code=200)
+
+
+@app.post("/api/proyecto/{nombre}/oc-items")
+async def api_add_oc_item(
+    nombre: str,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    item_id = add_oc_item(
+        proyecto=nombre,
+        descripcion=body.get("descripcion", ""),
+        unidad=body.get("unidad", "UND"),
+        cantidad_pedida=float(body.get("cantidad_pedida", 0)),
+        cantidad_despachada=float(body.get("cantidad_despachada", 0)),
+        orden=int(body.get("orden", 0)),
+    )
+    return JSONResponse({"ok": True, "id": item_id})
+
+
+@app.put("/api/proyecto/{nombre}/oc-item/{item_id}")
+async def api_update_oc_item(
+    nombre: str,
+    item_id: int,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    ok = update_oc_item(
+        item_id=item_id,
+        proyecto=nombre,
+        descripcion=body.get("descripcion", ""),
+        unidad=body.get("unidad", "UND"),
+        cantidad_pedida=float(body.get("cantidad_pedida", 0)),
+        cantidad_despachada=float(body.get("cantidad_despachada", 0)),
+    )
+    return JSONResponse({"ok": ok})
+
+
+@app.delete("/api/proyecto/{nombre}/oc-item/{item_id}")
+async def api_delete_oc_item(
+    nombre: str,
+    item_id: int,
+    usuario: dict = Depends(require_login),
+):
+    ok = delete_oc_item(item_id, nombre)
+    return JSONResponse({"ok": ok})
 
 
 # ─────────────────────────────────────────────

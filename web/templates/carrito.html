@@ -220,33 +220,6 @@
 {% endblock %}
 
 {% block scripts %}
-<style>
-.ac-wrapper { position: relative; }
-.ac-lista {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0; right: 0;
-  background: var(--blanco);
-  border: 1px solid var(--gris-borde);
-  border-radius: 6px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 200;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-}
-.ac-item {
-  padding: 0.45rem 0.75rem;
-  cursor: pointer;
-  font-size: 0.85rem;
-  line-height: 1.35;
-  border-bottom: 1px solid var(--gris-borde);
-}
-.ac-item:last-child { border-bottom: none; }
-.ac-item:hover, .ac-item.ac-active { background: rgba(37,99,168,0.08); }
-.ac-code { font-weight: 600; color: var(--azul); }
-.ac-name { color: var(--texto-suave); font-size: 0.78rem; }
-.ac-sin-resultado { padding: 0.45rem 0.75rem; font-size:0.85rem; color:var(--texto-suave); }
-</style>
 <script>
 // ── Datos embebidos ──
 const CLIENTES   = {{ catalogo.clientes  | tojson }};
