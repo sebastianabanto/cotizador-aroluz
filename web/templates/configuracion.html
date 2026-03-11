@@ -15,6 +15,9 @@
     <button class="cfg-tab" onclick="switchTab('datos', this)">
       <span class="cfg-tab-icon">📁</span> Datos
     </button>
+    <button class="cfg-tab" onclick="switchTab('roles', this)">
+      <span class="cfg-tab-icon">🔐</span> Roles y Permisos
+    </button>
   </div>
 
   <!-- ══════════════════════════════════════════════ -->
@@ -279,6 +282,286 @@
     </div>
 
   </div><!-- /panel-datos -->
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- Panel: Roles y Permisos                        -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="cfg-panel oculto" id="panel-roles">
+
+    <div class="cfg-card">
+      <div class="cfg-card-header">
+        <span class="cfg-card-icon" style="background:#f3e8ff; color:#7c3aed;">🔐</span>
+        <span>Permisos del Rol Usuario</span>
+        <span class="cfg-card-badge">2 configurables</span>
+      </div>
+      <div class="cfg-card-body">
+
+        <p class="cfg-hint" style="margin-bottom:1.25rem;">
+          Define qué módulos puede ver y usar el rol <strong>Usuario</strong>.
+          El rol <strong>Administrador</strong> siempre tiene acceso completo e irrestricto.
+          Marca o desmarca los permisos configurables y haz clic en <em>Guardar permisos</em>.
+        </p>
+
+        <div class="perm-table-wrap">
+          <table class="perm-table">
+            <thead>
+              <tr>
+                <th class="pth-num">#</th>
+                <th class="pth-accion">Módulo / Acción</th>
+                <th class="pth-rol">
+                  <span class="perm-rol-badge perm-rol-user">Usuario</span>
+                </th>
+                <th class="pth-rol">
+                  <span class="perm-rol-badge perm-rol-admin">Admin</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+
+              <!-- ── 1. COTIZACIÓN ── -->
+              <tr class="perm-group-row">
+                <td class="pth-num pth-gi">1</td>
+                <td colspan="3" class="pth-group">COTIZACIÓN</td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">1.1</td>
+                <td>Ver formulario y cotizar todos los productos</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">1.2</td>
+                <td>Exportar cotización en PDF</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">1.3</td>
+                <td>Exportar cotización en Excel (XLSX)</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 2. CARRITO ── -->
+              <tr class="perm-group-row">
+                <td class="pth-num pth-gi">2</td>
+                <td colspan="3" class="pth-group">CARRITO</td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">2.1</td>
+                <td>Ver y gestionar su carrito</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">2.2</td>
+                <td>Seleccionar plazo de validez (15, 30, 60 o 90 días)</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 3. HISTORIAL ── -->
+              <tr class="perm-group-row">
+                <td class="pth-num pth-gi">3</td>
+                <td colspan="3" class="pth-group">HISTORIAL DE COTIZACIONES</td>
+              </tr>
+              <tr class="perm-configurable-row">
+                <td class="pth-num pth-si">3.1</td>
+                <td>
+                  Ver sus propias cotizaciones guardadas
+                  <span class="perm-config-tag">configurable</span>
+                </td>
+                <td>
+                  <label class="perm-switch">
+                    <input type="checkbox" id="perm-ver_historial" name="ver_historial"
+                      {% if config.permisos_usuario.ver_historial %}checked{% endif %}>
+                    <span class="perm-slider"></span>
+                  </label>
+                </td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">3.2</td>
+                <td>Ver cotizaciones de <strong>todos</strong> los usuarios</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">3.3</td>
+                <td>Exportar cotizaciones propias (PDF / XLSX)</td>
+                <td><span class="pbadge pbadge-dep">↗ Depende de 3.1</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 4. CATÁLOGO ── -->
+              <tr class="perm-group-row">
+                <td class="pth-num pth-gi">4</td>
+                <td colspan="3" class="pth-group">CATÁLOGO DE PRECIO FIJO</td>
+              </tr>
+              <tr class="perm-configurable-row">
+                <td class="pth-num pth-si">4.1</td>
+                <td>
+                  Ver catálogo de productos con precio fijo
+                  <span class="perm-config-tag">configurable</span>
+                </td>
+                <td>
+                  <label class="perm-switch">
+                    <input type="checkbox" id="perm-ver_catalogo" name="ver_catalogo"
+                      {% if config.permisos_usuario.ver_catalogo %}checked{% endif %}>
+                    <span class="perm-slider"></span>
+                  </label>
+                </td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 5. PROYECTOS ── -->
+              <tr class="perm-group-row">
+                <td class="pth-num pth-gi">5</td>
+                <td colspan="3" class="pth-group">PROYECTOS (OBRAS / KANBAN)</td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">5.1</td>
+                <td>Ver tablero Kanban y gestionar proyectos</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">5.2</td>
+                <td>Subir y descargar archivos adjuntos</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">5.3</td>
+                <td>Gestionar ítems de Orden de Compra (OC)</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 6. MI CUENTA ── -->
+              <tr class="perm-group-row">
+                <td class="pth-num pth-gi">6</td>
+                <td colspan="3" class="pth-group">MI CUENTA</td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">6.1</td>
+                <td>Cambiar contraseña propia</td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 7. ASISTENCIAS ── -->
+              <tr class="perm-group-row">
+                <td class="pth-num pth-gi">7</td>
+                <td colspan="3" class="pth-group">ASISTENCIAS</td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">7.1</td>
+                <td>
+                  Acceder al módulo de registro de asistencias
+                  <span class="perm-user-tag">por usuario</span>
+                </td>
+                <td><span class="pbadge pbadge-user">† Por usuario</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 8. CONFIGURACIÓN ── -->
+              <tr class="perm-group-row perm-admin-group">
+                <td class="pth-num pth-gi">8</td>
+                <td colspan="3" class="pth-group">CONFIGURACIÓN DE PRECIOS <span class="pth-admin-note">solo Admin</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">8.1</td>
+                <td>Ver y editar precios de planchas (GO / GC)</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">8.2</td>
+                <td>Editar parámetros por defecto (ganancia, galvanizado, espesor)</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">8.3</td>
+                <td>Editar tipo de cambio y tasas USD/kg</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 9. GESTIÓN DE DATOS ── -->
+              <tr class="perm-group-row perm-admin-group">
+                <td class="pth-num pth-gi">9</td>
+                <td colspan="3" class="pth-group">GESTIÓN DE DATOS <span class="pth-admin-note">solo Admin</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">9.1</td>
+                <td>Gestionar catálogo de productos (EMT, Cajas, Pernería)</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">9.2</td>
+                <td>Gestionar clientes y atenciones (agregar, editar, eliminar)</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">9.3</td>
+                <td>Importar / exportar datos desde Excel</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+              <!-- ── 10. USUARIOS ── -->
+              <tr class="perm-group-row perm-admin-group">
+                <td class="pth-num pth-gi">10</td>
+                <td colspan="3" class="pth-group">ADMINISTRACIÓN DE USUARIOS <span class="pth-admin-note">solo Admin</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">10.1</td>
+                <td>Ver lista de usuarios registrados</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">10.2</td>
+                <td>Crear, editar y eliminar usuarios</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+              <tr>
+                <td class="pth-num pth-si">10.3</td>
+                <td>Asignar y cambiar roles (Admin / Usuario)</td>
+                <td><span class="pbadge pbadge-off">Restringido ✗</span></td>
+                <td><span class="pbadge pbadge-on">Siempre ✓</span></td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div><!-- /perm-table-wrap -->
+
+        <!-- Leyenda -->
+        <div class="perm-legend">
+          <span class="perm-legend-item"><span class="pbadge pbadge-on">Siempre ✓</span> Habilitado para ese rol, no se puede cambiar</span>
+          <span class="perm-legend-item"><span class="pbadge pbadge-off">Restringido ✗</span> Bloqueado para Usuario, siempre</span>
+          <span class="perm-legend-item"><span class="pbadge pbadge-dep">↗ Depende de …</span> Hereda el estado del permiso padre</span>
+          <span class="perm-legend-item"><span class="pbadge pbadge-user">† Por usuario</span> Se configura individualmente en cada usuario</span>
+          <span class="perm-legend-item"><span class="perm-switch perm-switch-demo"><span class="perm-slider"></span></span> Configurable — puedes activar o desactivar</span>
+        </div>
+
+        <!-- Guardar -->
+        <div class="cfg-save-row" style="margin-top:1.5rem;">
+          <button class="btn btn-primary" onclick="guardarPermisos()" style="min-width:160px;">
+            Guardar permisos
+          </button>
+        </div>
+
+      </div><!-- /cfg-card-body -->
+    </div><!-- /cfg-card -->
+
+  </div><!-- /panel-roles -->
 
 
 
@@ -646,6 +929,180 @@
   font-style: italic;
 }
 
+/* ══════════════════════════════════════════════
+   Tabla de Permisos (panel-roles)
+   ══════════════════════════════════════════════ */
+.perm-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.perm-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 420px;
+  font-size: clamp(0.78rem, 1.6vw, 0.875rem);
+}
+/* Cabecera */
+.perm-table thead tr {
+  background: #f5f7fa;
+}
+.perm-table th {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.75rem; font-weight: 700;
+  color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+.pth-num  { width: 3rem; text-align: center; }
+.pth-accion { text-align: left; }
+.pth-rol  { width: 7.5rem; text-align: center; }
+
+/* Celdas */
+.perm-table td {
+  padding: 0.5rem 0.75rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f0f4f8;
+}
+.perm-table tbody tr:last-child td { border-bottom: none; }
+.perm-table td.pth-num { text-align: center; color: var(--texto-suave); font-size: 0.75rem; }
+
+/* Números índice */
+.pth-gi { font-weight: 700; color: var(--primario) !important; font-size: 0.85rem !important; }
+.pth-si { font-size: 0.72rem !important; color: #94a3b8 !important; }
+
+/* Filas de grupo (título de módulo) */
+.perm-group-row td        { background: #f8fafc; padding-top: 0.7rem; padding-bottom: 0.4rem; }
+.perm-admin-group td      { background: #fff8f0; }
+.pth-group {
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--texto-principal);
+}
+.pth-admin-note {
+  font-weight: 400;
+  font-size: 0.7rem;
+  color: #b45309;
+  background: #fde68a;
+  padding: 0.1rem 0.45rem;
+  border-radius: 20px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+/* Fila configurable — fondo muy tenue */
+.perm-configurable-row td { background: #f5f0ff; }
+.perm-configurable-row:hover td { background: #ede9fe; }
+
+/* Tags inline en descripción */
+.perm-config-tag {
+  display: inline-block;
+  font-size: 0.65rem; font-weight: 700;
+  color: #7c3aed; background: #ede9fe;
+  padding: 0.1rem 0.45rem; border-radius: 20px;
+  margin-left: 0.4rem; vertical-align: middle;
+  white-space: nowrap;
+}
+.perm-user-tag {
+  display: inline-block;
+  font-size: 0.65rem; font-weight: 700;
+  color: #1a6fad; background: #dbeafe;
+  padding: 0.1rem 0.45rem; border-radius: 20px;
+  margin-left: 0.4rem; vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Badges de estado */
+.pbadge {
+  display: inline-block;
+  font-size: 0.7rem; font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.pbadge-on  { color: #166534; background: #dcfce7; }
+.pbadge-off { color: #991b1b; background: #fee2e2; }
+.pbadge-dep { color: #92400e; background: #fef3c7; }
+.pbadge-user { color: #1d4ed8; background: #dbeafe; }
+
+/* Badges de rol en cabecera */
+.perm-rol-badge {
+  font-size: 0.72rem; font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+}
+.perm-rol-user  { color: #1a6fad; background: #e8f4fd; }
+.perm-rol-admin { color: #7c3aed; background: #ede9fe; }
+
+/* Toggle switch */
+.perm-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px; height: 22px;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.perm-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.perm-slider {
+  position: absolute;
+  inset: 0;
+  background: #d1d5db;
+  border-radius: 22px;
+  transition: background 0.2s;
+}
+.perm-slider::before {
+  content: "";
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 3px; top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.perm-switch input:checked + .perm-slider            { background: #7c3aed; }
+.perm-switch input:checked + .perm-slider::before    { transform: translateX(18px); }
+.perm-switch input:focus-visible + .perm-slider      { outline: 2px solid #7c3aed; outline-offset: 2px; }
+/* Demo switch en leyenda (sin input, siempre "on") */
+.perm-switch-demo {
+  display: inline-block;
+  width: 40px; height: 22px;
+  position: relative;
+  vertical-align: middle;
+}
+.perm-switch-demo .perm-slider            { background: #7c3aed; }
+.perm-switch-demo .perm-slider::before    { transform: translateX(18px); }
+
+/* Leyenda */
+.perm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+}
+.perm-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Alinear checkbox al centro de columna */
+.perm-table td:nth-child(3),
+.perm-table td:nth-child(4) {
+  text-align: center;
+}
+
 /* ── Botones de acción ── */
 .cfg-save-row {
   margin-top: 1.25rem;
@@ -747,6 +1204,21 @@ function restaurarDefecto() {
   document.getElementById('usd-productos').value = d.usd_kg_productos;
   document.getElementById('usd-cajas').value = d.usd_kg_cajas;
   toast('Valores restaurados — haz clic en Guardar para confirmar', 'info');
+}
+
+// ── Guardar permisos de rol Usuario ──
+async function guardarPermisos() {
+  const body = {
+    ver_historial: document.getElementById('perm-ver_historial').checked,
+    ver_catalogo:  document.getElementById('perm-ver_catalogo').checked,
+  };
+  const res  = await fetch('/configuracion/permisos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  toast(data.ok ? 'Permisos guardados' : (data.error || 'Error al guardar'), data.ok ? 'success' : 'error');
 }
 
 // ── Guardar precios ──

@@ -31,26 +31,31 @@
         <input type="hidden" id="cliente-ubicacion" value="">
         <input type="hidden" id="atencion-email" value="">
       </div>
-      <!-- Atención: filtrada por cliente -->
+      <!-- Atención: autocomplete filtrada por cliente -->
       <div class="form-group">
-        <label class="form-label" for="atencion">Atención</label>
-        <select id="atencion" class="form-control">
-          <option value="">— Seleccionar —</option>
-          {% for a in catalogo.atenciones %}
-          <option value="{{ a.nombre }}">{{ a.nombre }}</option>
-          {% endfor %}
-        </select>
+        <label class="form-label" for="atencion-input">Atención</label>
+        <div class="ac-wrapper">
+          <input type="text" id="atencion-input" class="form-control"
+                 placeholder="Escribir para buscar…" autocomplete="off"
+                 oninput="onAtencionInput()" onfocus="onAtencionFocus()" onblur="onAtencionBlur()">
+          <div id="atencion-lista" class="ac-lista" style="display:none;"></div>
+        </div>
+        <input type="hidden" id="atencion" value="">
       </div>
       <div class="form-group">
         <label class="form-label" for="proyecto">Proyecto / Referencia</label>
         <input type="text" id="proyecto" class="form-control" placeholder="Ej: Edificio Central Piso 3">
       </div>
+      <!-- Moneda: autocomplete -->
       <div class="form-group">
-        <label class="form-label" for="moneda">Moneda</label>
-        <select id="moneda" class="form-control" onchange="cambiarMoneda()">
-          <option value="SOLES" selected>Soles (S/)</option>
-          <option value="DOLARES">Dólares Americanos ($)</option>
-        </select>
+        <label class="form-label" for="moneda-input">Moneda</label>
+        <div class="ac-wrapper">
+          <input type="text" id="moneda-input" class="form-control"
+                 placeholder="Seleccionar moneda…" autocomplete="off"
+                 oninput="onMonedaInput()" onfocus="onMonedaFocus()" onblur="onMonedaBlur()">
+          <div id="moneda-lista" class="ac-lista" style="display:none;"></div>
+        </div>
+        <input type="hidden" id="moneda" value="SOLES">
       </div>
       <div class="form-group" style="grid-column: 1 / -1;">
         <label class="form-label" for="encabezado-tabla">Texto fila amarilla &nbsp;<span style="font-weight:400; color:var(--texto-suave);">(opcional — aparece en la fila amarilla de la cotización)</span></label>
@@ -300,6 +305,10 @@ details[open] .carrito-summary { margin-bottom: 0.75rem; }
 const CLIENTES   = {{ catalogo.clientes  | tojson }};
 const ATENCIONES = {{ catalogo.atenciones | tojson }};
 const DOLAR      = {{ dolar }};  // tipo de cambio S/ por USD
+const MONEDAS    = [
+  { valor: 'SOLES',   nombre: 'Soles (S/)' },
+  { valor: 'DOLARES', nombre: 'Dólares Americanos ($)' },
+];
 
 // ── Persistencia del formulario — definida aquí para que esté disponible globalmente ──
 const _FORM_KEY = 'carrito_form_v1';
@@ -345,16 +354,42 @@ function cambiarMoneda() {
   actualizarTotales();
 }
 
-// ── Autocomplete Cliente ──
-let acActiveIndex = -1;
-let _clienteActual = { codigo: '', nombre: '' }; // último cliente seleccionado
+// ── Autocomplete genérico: navegación teclado ──
+function _acKeydown(e, listaId, onSelect) {
+  const lista = document.getElementById(listaId);
+  const items = [...lista.querySelectorAll('.ac-item')];
+  if (!items.length) return;
+  let idx = items.findIndex(it => it.classList.contains('ac-active'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    idx = Math.min(idx + 1, items.length - 1);
+    items.forEach((it, i) => it.classList.toggle('ac-active', i === idx));
+    items[idx]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    idx = Math.max(idx - 1, 0);
+    items.forEach((it, i) => it.classList.toggle('ac-active', i === idx));
+    items[idx]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter' && idx >= 0) {
+    e.preventDefault();
+    onSelect(items[idx]);
+  } else if (e.key === 'Escape') {
+    lista.style.display = 'none';
+  }
+}
 
-function renderLista(filtrados) {
+// ── Autocomplete Cliente ──
+let _clienteActual = { codigo: '', nombre: '' };
+
+function renderListaCliente(filtrados) {
   const lista = document.getElementById('cliente-lista');
-  if (filtrados.length === 0) {
-    lista.innerHTML = '<div class="ac-sin-resultado">Sin resultados</div>';
+  const itemVacio = `<div class="ac-item ac-item-vacio" data-codigo="" data-nombre="">
+    <span class="ac-name ac-vacio-label">— Sin cliente —</span>
+  </div>`;
+  if (!filtrados.length) {
+    lista.innerHTML = itemVacio + '<div class="ac-sin-resultado">Sin resultados</div>';
   } else {
-    lista.innerHTML = filtrados.map(c =>
+    lista.innerHTML = itemVacio + filtrados.map(c =>
       `<div class="ac-item" data-codigo="${c.codigo}" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">
         <span class="ac-code">${c.codigo}</span>
         <span class="ac-name"> — ${c.nombre}</span>
@@ -367,7 +402,6 @@ function renderLista(filtrados) {
     });
   }
   lista.style.display = 'block';
-  acActiveIndex = -1;
 }
 
 function onClienteInput() {
@@ -376,84 +410,178 @@ function onClienteInput() {
   const filtrados = q
     ? CLIENTES.filter(c => c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q))
     : CLIENTES;
-  renderLista(filtrados);
+  renderListaCliente(filtrados);
 }
 
 function onClienteFocus() {
   document.getElementById('cliente-input').value = '';
-  renderLista(CLIENTES);
+  renderListaCliente(CLIENTES);
 }
 
 function onClienteBlur() {
   setTimeout(() => {
     const inp = document.getElementById('cliente-input');
-    if (!inp.value.trim() && _clienteActual.codigo) {
+    const hiddenVal = document.getElementById('cliente').value;
+    // Restaurar texto visible solo si el hidden tiene un código seleccionado
+    if (!inp.value.trim() && hiddenVal) {
       inp.value = `${_clienteActual.codigo} — ${_clienteActual.nombre}`;
-      document.getElementById('cliente').value = _clienteActual.codigo;
-      guardarFormulario();
     }
   }, 200);
 }
 
 function seleccionarCliente(codigo, nombre) {
   _clienteActual = { codigo, nombre };
-  document.getElementById('cliente-input').value = `${codigo} — ${nombre}`;
+  document.getElementById('cliente-input').value = codigo ? `${codigo} — ${nombre}` : '';
   document.getElementById('cliente').value = codigo;
   document.getElementById('cliente-lista').style.display = 'none';
-  const c = CLIENTES.find(x => x.codigo === codigo);
+  const c = codigo ? CLIENTES.find(x => x.codigo === codigo) : null;
   document.getElementById('cliente-nombre').value = c?.nombre || '';
   document.getElementById('cliente-ruc').value = c?.ruc || '';
   document.getElementById('cliente-ubicacion').value = c?.ubicacion || '';
-  document.getElementById('atencion-email').value = '';
   filtrarAtenciones(codigo);
   guardarFormulario();
 }
 
-function filtrarAtenciones(codigoCliente) {
-  const sel = document.getElementById('atencion');
-  const atFiltradas = codigoCliente
+document.getElementById('cliente-input').addEventListener('keydown', e =>
+  _acKeydown(e, 'cliente-lista', it => seleccionarCliente(it.dataset.codigo, it.dataset.nombre))
+);
+
+// ── Autocomplete Atención ──
+let _atencionActual = { valor: '', nombre: '' };
+
+function _atencionesFiltradas(codigoCliente) {
+  return codigoCliente
     ? ATENCIONES.filter(a => a.codigo_empresa === codigoCliente)
     : ATENCIONES;
-  sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-    atFiltradas.map(a => `<option value="${a.nombre}">${a.nombre}</option>`).join('');
+}
+
+function renderListaAtencion(lista_at) {
+  const lista = document.getElementById('atencion-lista');
+  const itemVacio = `<div class="ac-item ac-item-vacio" data-valor="">
+    <span class="ac-name ac-vacio-label">— Sin atención —</span>
+  </div>`;
+  if (!lista_at.length) {
+    lista.innerHTML = itemVacio + '<div class="ac-sin-resultado">Sin resultados</div>';
+  } else {
+    lista.innerHTML = itemVacio + lista_at.map(a =>
+      `<div class="ac-item" data-valor="${a.nombre.replace(/"/g,'&quot;')}">
+        <span class="ac-name">${a.nombre}</span>
+      </div>`
+    ).join('');
+  }
+  lista.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', () => seleccionarAtencion(el.dataset.valor));
+  });
+  lista.style.display = 'block';
+}
+
+function onAtencionInput() {
+  const q = document.getElementById('atencion-input').value.trim().toLowerCase();
+  document.getElementById('atencion').value = '';
+  const base = _atencionesFiltradas(document.getElementById('cliente').value);
+  const filtradas = q ? base.filter(a => a.nombre.toLowerCase().includes(q)) : base;
+  renderListaAtencion(filtradas);
+}
+
+function onAtencionFocus() {
+  document.getElementById('atencion-input').value = '';
+  renderListaAtencion(_atencionesFiltradas(document.getElementById('cliente').value));
+}
+
+function onAtencionBlur() {
+  setTimeout(() => {
+    const inp = document.getElementById('atencion-input');
+    const hiddenVal = document.getElementById('atencion').value;
+    if (!inp.value.trim() && hiddenVal) {
+      inp.value = _atencionActual.nombre;
+    }
+  }, 200);
+}
+
+function seleccionarAtencion(valor) {
+  _atencionActual = { valor, nombre: valor };
+  document.getElementById('atencion-input').value = valor;  // vacío si sin atención
+  document.getElementById('atencion').value = valor;
+  document.getElementById('atencion-lista').style.display = 'none';
+  const a = valor ? ATENCIONES.find(x => x.nombre === valor) : null;
+  document.getElementById('atencion-email').value = a?.email || '';
+  guardarFormulario();
+}
+
+function filtrarAtenciones(codigoCliente) {
+  // Resetear atención al cambiar cliente
+  _atencionActual = { valor: '', nombre: '' };
+  document.getElementById('atencion-input').value = '';
+  document.getElementById('atencion').value = '';
   document.getElementById('atencion-email').value = '';
 }
 
-document.getElementById('atencion').addEventListener('change', function() {
-  const a = ATENCIONES.find(x => x.nombre === this.value);
-  document.getElementById('atencion-email').value = a?.email || '';
-});
+document.getElementById('atencion-input').addEventListener('keydown', e =>
+  _acKeydown(e, 'atencion-lista', it => seleccionarAtencion(it.dataset.valor))
+);
 
-// Cerrar lista al hacer click fuera
+// ── Autocomplete Moneda ──
+let _monedaActual = { valor: 'SOLES', nombre: 'Soles (S/)' };
+
+function renderListaMoneda(filtradas) {
+  const lista = document.getElementById('moneda-lista');
+  lista.innerHTML = filtradas.map(m =>
+    `<div class="ac-item" data-valor="${m.valor}">
+      <span class="ac-code">${m.valor === 'SOLES' ? 'S/' : '$'}</span>
+      <span class="ac-name"> — ${m.nombre}</span>
+    </div>`
+  ).join('');
+  lista.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', () => seleccionarMoneda(el.dataset.valor));
+  });
+  lista.style.display = 'block';
+}
+
+function onMonedaInput() {
+  const q = document.getElementById('moneda-input').value.trim().toLowerCase();
+  const filtradas = q
+    ? MONEDAS.filter(m => m.nombre.toLowerCase().includes(q) || m.valor.toLowerCase().includes(q))
+    : MONEDAS;
+  renderListaMoneda(filtradas);
+}
+
+function onMonedaFocus() {
+  document.getElementById('moneda-input').value = '';
+  renderListaMoneda(MONEDAS);
+}
+
+function onMonedaBlur() {
+  setTimeout(() => {
+    const inp = document.getElementById('moneda-input');
+    if (!inp.value.trim() && _monedaActual.valor) {
+      inp.value = _monedaActual.nombre;
+      document.getElementById('moneda').value = _monedaActual.valor;
+      guardarFormulario();
+    }
+  }, 200);
+}
+
+function seleccionarMoneda(valor) {
+  const m = MONEDAS.find(x => x.valor === valor);
+  if (!m) return;
+  _monedaActual = { valor: m.valor, nombre: m.nombre };
+  document.getElementById('moneda-input').value = m.nombre;
+  document.getElementById('moneda').value = m.valor;
+  document.getElementById('moneda-lista').style.display = 'none';
+  cambiarMoneda();
+  guardarFormulario();
+}
+
+document.getElementById('moneda-input').addEventListener('keydown', e =>
+  _acKeydown(e, 'moneda-lista', it => seleccionarMoneda(it.dataset.valor))
+);
+
+// Cerrar dropdowns al hacer click fuera
 document.addEventListener('click', e => {
   if (!e.target.closest('.ac-wrapper')) {
-    document.getElementById('cliente-lista').style.display = 'none';
-    acActiveIndex = -1;
-  }
-});
-
-// Navegación con teclado
-document.getElementById('cliente-input').addEventListener('keydown', e => {
-  const lista = document.getElementById('cliente-lista');
-  const items = [...lista.querySelectorAll('.ac-item[data-codigo]')];
-  if (!items.length) return;
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    acActiveIndex = Math.min(acActiveIndex + 1, items.length - 1);
-    items.forEach((it, i) => it.classList.toggle('ac-active', i === acActiveIndex));
-    items[acActiveIndex]?.scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    acActiveIndex = Math.max(acActiveIndex - 1, 0);
-    items.forEach((it, i) => it.classList.toggle('ac-active', i === acActiveIndex));
-    items[acActiveIndex]?.scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'Enter' && acActiveIndex >= 0) {
-    e.preventDefault();
-    const it = items[acActiveIndex];
-    if (it) seleccionarCliente(it.dataset.codigo, it.dataset.nombre);
-  } else if (e.key === 'Escape') {
-    lista.style.display = 'none';
-    acActiveIndex = -1;
+    document.getElementById('cliente-lista').style.display   = 'none';
+    document.getElementById('atencion-lista').style.display  = 'none';
+    document.getElementById('moneda-lista').style.display    = 'none';
   }
 });
 
@@ -610,6 +738,7 @@ async function guardarCotizacion() {
     atencion_email: document.getElementById('atencion-email')?.value || '',
     moneda: document.getElementById('moneda')?.value || 'SOLES',
     proyecto: proyecto,
+    validez: document.getElementById('validez')?.value || '30 días',
     encabezado_tabla: document.getElementById('encabezado-tabla')?.value || '',
   });
   const data = await apiFetch('/api/historial/guardar', { method: 'POST', body: fd });
@@ -655,13 +784,18 @@ function restaurarFormulario() {
     filtrarAtenciones(f.cliente);
   }
   if (f.atencion) {
+    _atencionActual = { valor: f.atencion, nombre: f.atencion };
+    document.getElementById('atencion-input').value = f.atencion;
     document.getElementById('atencion').value = f.atencion;
     document.getElementById('atencion-email').value = f.atencionEmail || '';
   }
   if (f.proyecto) document.getElementById('proyecto').value = f.proyecto;
   if (f.encabezadoTabla) document.getElementById('encabezado-tabla').value = f.encabezadoTabla;
   if (f.moneda) {
-    document.getElementById('moneda').value = f.moneda;
+    const m = MONEDAS.find(x => x.valor === f.moneda) || MONEDAS[0];
+    _monedaActual = { valor: m.valor, nombre: m.nombre };
+    document.getElementById('moneda-input').value = m.nombre;
+    document.getElementById('moneda').value = m.valor;
     if (document.getElementById('th-pu')) cambiarMoneda();
   }
   if (f.validez) {
@@ -673,8 +807,6 @@ function restaurarFormulario() {
 document.getElementById('cliente-input')?.addEventListener('input', guardarFormulario);
 document.getElementById('proyecto')?.addEventListener('input', guardarFormulario);
 document.getElementById('encabezado-tabla')?.addEventListener('input', guardarFormulario);
-document.getElementById('atencion')?.addEventListener('change', guardarFormulario);
-document.getElementById('moneda')?.addEventListener('change', guardarFormulario);
 document.getElementById('validez')?.addEventListener('change', guardarFormulario);
 window.addEventListener('pagehide', guardarFormulario);
 
@@ -687,6 +819,11 @@ sessionStorage.removeItem('_reloadProgramatico');
 // ── Banner: editando copia desde historial ──
 const _editandoDesdeId = sessionStorage.getItem('editando_desde_cotizacion_id');
 restaurarFormulario();
+// Moneda: si restaurarFormulario no puso nada, mostrar valor por defecto
+if (!document.getElementById('moneda-input').value) {
+  document.getElementById('moneda-input').value = _monedaActual.nombre;
+  document.getElementById('moneda').value = _monedaActual.valor;
+}
 if (_editandoDesdeId) {
   const banner = document.createElement('div');
   banner.className = 'banner-editando';

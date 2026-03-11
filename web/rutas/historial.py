@@ -41,6 +41,7 @@ async def api_guardar_cotizacion(
     atencion_email: str = Form(""),
     moneda: str = Form("SOLES"),
     proyecto: str = Form(""),
+    validez: str = Form("30 días"),
     encabezado_tabla: str = Form(""),
 ):
     items = get_carrito_db(usuario["u"])
@@ -58,6 +59,7 @@ async def api_guardar_cotizacion(
         cliente_ruc=cliente_ruc,
         cliente_ubicacion=cliente_ubicacion,
         atencion_email=atencion_email,
+        validez=validez,
         encabezado_tabla=encabezado_tabla,
     )
     return JSONResponse({"ok": True, "id": cotizacion_id})

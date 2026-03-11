@@ -45,6 +45,10 @@ CONFIG_DEFECTO = {
         "recordar_medidas": True,
         "mostrar_validaciones": True,
     },
+    "permisos_usuario": {
+        "ver_historial": True,
+        "ver_catalogo": True,
+    },
 }
 
 

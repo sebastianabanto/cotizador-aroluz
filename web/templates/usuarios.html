@@ -123,6 +123,138 @@
   padding: 0 0.25rem;
   font-style: italic;
 }
+
+/* ══════════════════════════════
+   Modal Editar Usuario — layout
+   ══════════════════════════════ */
+.modal-editar-inner {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.75rem 2rem;
+  width: 90%;
+  max-width: 780px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  box-sizing: border-box;
+}
+/* Dos columnas cuando hay espacio, una en móvil */
+.modal-editar-cols {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1.55fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 580px) {
+  .modal-editar-cols { grid-template-columns: 1fr; }
+}
+.modal-editar-form { min-width: 0; }
+
+/* Panel de permisos (col derecha) */
+.modal-perm-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fafbfc;
+}
+.modal-perm-title {
+  padding: 0.55rem 0.9rem;
+  background: #f0f4f8;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.modal-perm-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.modal-perm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.modal-perm-table th {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.7rem; font-weight: 700;
+  color: var(--texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+.modal-perm-table th:first-child { width: 2rem; text-align: center; }
+.modal-perm-table th.mpt-status   { width: 4.5rem; text-align: center; }
+.modal-perm-table td {
+  padding: 0.38rem 0.6rem;
+  border-bottom: 1px solid #f0f4f8;
+  vertical-align: middle;
+}
+.modal-perm-table td:first-child { text-align: center; color: #94a3b8; font-size: 0.7rem; }
+.modal-perm-table tbody tr:last-child td { border-bottom: none; }
+.mpt-idx { font-size: 0.67rem !important; color: #b0bec5 !important; }
+.mpt-status { text-align: center !important; }
+
+/* Filas de grupo (título módulo) */
+.mpt-group td {
+  background: #f1f5f9;
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texto-principal);
+  padding: 0.35rem 0.6rem !important;
+}
+.mpt-admin-only td { background: #fff8f0; }
+.mpt-admin-tag {
+  font-weight: 400; font-size: 0.62rem;
+  color: #b45309; background: #fde68a;
+  padding: 0.05rem 0.35rem; border-radius: 20px;
+  margin-left: 0.4rem; vertical-align: middle;
+}
+
+/* Mini badges en la tabla */
+.mpbadge {
+  display: inline-block;
+  font-size: 0.65rem; font-weight: 700;
+  padding: 0.12rem 0.4rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.mpb-on   { color: #166534; background: #dcfce7; }
+.mpb-off  { color: #991b1b; background: #fee2e2; }
+.mpb-user { color: #1d4ed8; background: #dbeafe; }
+.mpb-cfg  { color: #7c3aed; background: #ede9fe; }
+
+/* Por defecto solo se muestra uno de los dos badges según el modo */
+.mpt-admin-badge { display: none; }
+.mpt-user-badge  { display: inline-block; }
+.modal-perm-panel.show-admin .mpt-admin-badge { display: inline-block; }
+.modal-perm-panel.show-admin .mpt-user-badge  { display: none; }
+
+/* Tag "global" en descripción */
+.mpt-cfg-tag {
+  font-size: 0.62rem; font-weight: 700;
+  color: #7c3aed; background: #ede9fe;
+  padding: 0.05rem 0.35rem; border-radius: 20px;
+  margin-left: 0.3rem; vertical-align: middle;
+}
+
+/* Nota al pie del panel */
+.modal-perm-nota {
+  font-size: 0.72rem;
+  color: var(--texto-suave);
+  line-height: 1.5;
+  padding: 0.5rem 0.9rem;
+  margin: 0;
+  border-top: 1px solid #e2e8f0;
+  background: #fafbfc;
+}
+.modal-perm-nota a { color: var(--primario); }
 </style>
 {% endblock %}
 
@@ -274,40 +406,178 @@
 
   <!-- ── Modal: Editar usuario ── -->
   <div id="modal-editar-usuario" style="display:none; position:fixed; inset:0; z-index:9000;
-    background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
-    <div style="background:#fff; border-radius:12px; padding:1.75rem 2rem; max-width:420px;
-      width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+    background:rgba(0,0,0,0.45); align-items:center; justify-content:center; padding:1rem;">
+    <div class="modal-editar-inner">
+
+      <!-- Cabecera -->
       <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:1.25rem;">
         <span style="font-size:1.2rem;">✏️</span>
         <h3 style="margin:0; font-size:1.05rem; color:#1a3a5c;">Editar Usuario</h3>
       </div>
-      <div class="cfg-field">
-        <label class="cfg-label">Usuario</label>
-        <input type="text" id="edit-u-username" class="form-control" readonly
-          style="background:#f5f7fa; color:var(--texto-suave); cursor:default;">
-      </div>
-      <div class="cfg-field">
-        <label class="cfg-label" for="edit-u-nombre">Nombre completo</label>
-        <input type="text" id="edit-u-nombre" class="form-control" placeholder="opcional">
-      </div>
-      <div class="cfg-field">
-        <label class="cfg-label" for="edit-u-rol">Rol</label>
-        <select id="edit-u-rol" class="form-control" onchange="syncEditRolPermisos()">
-          <option value="USER">Usuario (limitado)</option>
-          <option value="ADMIN">Administrador</option>
-        </select>
-      </div>
-      <div class="cfg-field" id="edit-va-field">
-        <label class="cfg-label" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
-          <input type="checkbox" id="edit-u-ver-asistencias" style="width:16px; height:16px;">
-          Acceso a Asistencias
-        </label>
-      </div>
-      <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1.25rem;">
+
+      <!-- Dos columnas en pantallas anchas, una en móvil -->
+      <div class="modal-editar-cols">
+
+        <!-- Col izquierda: datos básicos -->
+        <div class="modal-editar-form">
+          <div class="cfg-field">
+            <label class="cfg-label">Usuario</label>
+            <input type="text" id="edit-u-username" class="form-control" readonly
+              style="background:#f5f7fa; color:var(--texto-suave); cursor:default;">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="edit-u-nombre">Nombre completo</label>
+            <input type="text" id="edit-u-nombre" class="form-control" placeholder="opcional">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label" for="edit-u-rol">Rol</label>
+            <select id="edit-u-rol" class="form-control" onchange="syncEditRolPermisos()">
+              <option value="USER">Usuario (limitado)</option>
+              <option value="ADMIN">Administrador (acceso total)</option>
+            </select>
+          </div>
+          <!-- Permiso Asistencias — solo visible cuando rol = USER -->
+          <div class="cfg-field" id="edit-va-field">
+            <label class="cfg-label" style="margin-bottom:0.5rem;">Permisos adicionales</label>
+            <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.875rem;">
+              <input type="checkbox" id="edit-u-ver-asistencias" style="width:15px; height:15px; accent-color:#7c3aed;">
+              Acceso al módulo Asistencias
+            </label>
+          </div>
+        </div>
+
+        <!-- Col derecha: tabla de permisos del rol -->
+        <div class="modal-perm-panel" id="edit-perm-panel">
+          <div class="modal-perm-title">
+            <span id="edit-perm-titulo">¿Qué puede hacer este usuario?</span>
+          </div>
+          <div class="modal-perm-table-wrap">
+            <table class="modal-perm-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Módulo / Acción</th>
+                  <th class="mpt-status" id="edit-col-label">Usuario</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- 1. COTIZACIÓN -->
+                <tr class="mpt-group">
+                  <td>1</td><td colspan="2">COTIZACIÓN</td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">1.1</td>
+                  <td>Cotizar y exportar (PDF / XLSX)</td>
+                  <td class="mpt-status"><span class="mpbadge mpb-on mpt-user-badge">✓</span><span class="mpbadge mpb-on mpt-admin-badge">✓</span></td>
+                </tr>
+
+                <!-- 2. CARRITO -->
+                <tr class="mpt-group">
+                  <td>2</td><td colspan="2">CARRITO</td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">2.1</td>
+                  <td>Ver y gestionar carrito propio</td>
+                  <td class="mpt-status"><span class="mpbadge mpb-on mpt-user-badge">✓</span><span class="mpbadge mpb-on mpt-admin-badge">✓</span></td>
+                </tr>
+
+                <!-- 3. HISTORIAL -->
+                <tr class="mpt-group">
+                  <td>3</td><td colspan="2">HISTORIAL</td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">3.1</td>
+                  <td>Ver sus propias cotizaciones <span class="mpt-cfg-tag" id="hist-cfg-tag"></span></td>
+                  <td class="mpt-status">
+                    <span class="mpbadge mpt-user-badge" id="badge-ver-historial"></span>
+                    <span class="mpbadge mpb-on mpt-admin-badge">✓</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">3.2</td>
+                  <td>Ver cotizaciones de todos los usuarios</td>
+                  <td class="mpt-status"><span class="mpbadge mpb-off mpt-user-badge">✗</span><span class="mpbadge mpb-on mpt-admin-badge">✓</span></td>
+                </tr>
+
+                <!-- 4. CATÁLOGO -->
+                <tr class="mpt-group">
+                  <td>4</td><td colspan="2">CATÁLOGO PRECIO FIJO</td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">4.1</td>
+                  <td>Ver catálogo de precio fijo <span class="mpt-cfg-tag" id="cat-cfg-tag"></span></td>
+                  <td class="mpt-status">
+                    <span class="mpbadge mpt-user-badge" id="badge-ver-catalogo"></span>
+                    <span class="mpbadge mpb-on mpt-admin-badge">✓</span>
+                  </td>
+                </tr>
+
+                <!-- 5. PROYECTOS -->
+                <tr class="mpt-group">
+                  <td>5</td><td colspan="2">PROYECTOS (OBRAS)</td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">5.1</td>
+                  <td>Tablero Kanban, adjuntos y OC</td>
+                  <td class="mpt-status"><span class="mpbadge mpb-on mpt-user-badge">✓</span><span class="mpbadge mpb-on mpt-admin-badge">✓</span></td>
+                </tr>
+
+                <!-- 6. ASISTENCIAS -->
+                <tr class="mpt-group">
+                  <td>6</td><td colspan="2">ASISTENCIAS</td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">6.1</td>
+                  <td>Módulo de asistencias</td>
+                  <td class="mpt-status">
+                    <span class="mpbadge mpb-user mpt-user-badge" id="badge-ver-asistencias-perm">por usuario</span>
+                    <span class="mpbadge mpb-on mpt-admin-badge">✓</span>
+                  </td>
+                </tr>
+
+                <!-- 7. CONFIGURACIÓN -->
+                <tr class="mpt-group mpt-admin-only">
+                  <td>7</td><td colspan="2">CONFIGURACIÓN <span class="mpt-admin-tag">solo Admin</span></td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">7.1</td>
+                  <td>Precios, parámetros y tipo de cambio</td>
+                  <td class="mpt-status"><span class="mpbadge mpb-off mpt-user-badge">✗</span><span class="mpbadge mpb-on mpt-admin-badge">✓</span></td>
+                </tr>
+
+                <!-- 8. DATOS Y USUARIOS -->
+                <tr class="mpt-group mpt-admin-only">
+                  <td>8</td><td colspan="2">DATOS Y USUARIOS <span class="mpt-admin-tag">solo Admin</span></td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">8.1</td>
+                  <td>Catálogo, clientes, atenciones</td>
+                  <td class="mpt-status"><span class="mpbadge mpb-off mpt-user-badge">✗</span><span class="mpbadge mpb-on mpt-admin-badge">✓</span></td>
+                </tr>
+                <tr>
+                  <td class="mpt-idx">8.2</td>
+                  <td>Crear y gestionar usuarios</td>
+                  <td class="mpt-status"><span class="mpbadge mpb-off mpt-user-badge">✗</span><span class="mpbadge mpb-on mpt-admin-badge">✓</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Nota permisos globales -->
+          <p class="modal-perm-nota" id="edit-perm-nota-cfg">
+            Los permisos marcados con <em>global</em> se configuran en
+            <a href="/configuracion#roles" target="_blank">Configuración → Roles y Permisos</a>.
+          </p>
+        </div><!-- /modal-perm-panel -->
+
+      </div><!-- /modal-editar-cols -->
+
+      <!-- Acciones -->
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1.25rem; border-top:1px solid #f0f0f0; padding-top:1rem;">
         <button class="btn btn-outline" onclick="cerrarModal('modal-editar-usuario')">Cancelar</button>
         <button class="btn btn-primary" onclick="guardarEditarUsuario()">Guardar cambios</button>
       </div>
-    </div>
+
+    </div><!-- /modal-editar-inner -->
   </div>
 
   <!-- ── Modal: Confirmar eliminar usuario ── -->
@@ -336,7 +606,13 @@
 
 {% block scripts %}
 <script>
-// ── Sincronizar checkbox con rol ──
+// Permisos globales del rol Usuario (inyectados desde el servidor)
+const PERMISOS_USUARIO = {
+  ver_historial: {{ 'true' if permisos_usuario.ver_historial else 'false' }},
+  ver_catalogo:  {{ 'true' if permisos_usuario.ver_catalogo  else 'false' }},
+};
+
+// ── Sincronizar checkbox "crear" con rol ──
 function syncNuevoRolPermisos() {
   const rol = document.getElementById('new-rol').value;
   const field = document.getElementById('new-va-field');
@@ -344,12 +620,62 @@ function syncNuevoRolPermisos() {
   if (rol === 'ADMIN') { cb.checked = true; field.style.opacity = '0.5'; cb.disabled = true; }
   else { field.style.opacity = '1'; cb.disabled = false; }
 }
+
+// ── Sincronizar panel de permisos del modal editar ──
 function syncEditRolPermisos() {
-  const rol = document.getElementById('edit-u-rol').value;
+  const rol   = document.getElementById('edit-u-rol').value;
   const field = document.getElementById('edit-va-field');
-  const cb = document.getElementById('edit-u-ver-asistencias');
-  if (rol === 'ADMIN') { cb.checked = true; field.style.opacity = '0.5'; cb.disabled = true; }
-  else { field.style.opacity = '1'; cb.disabled = false; }
+  const cb    = document.getElementById('edit-u-ver-asistencias');
+  const panel = document.getElementById('edit-perm-panel');
+  const titulo = document.getElementById('edit-perm-titulo');
+  const colLabel = document.getElementById('edit-col-label');
+  const notaCfg  = document.getElementById('edit-perm-nota-cfg');
+
+  if (rol === 'ADMIN') {
+    // Asistencias siempre incluida
+    cb.checked = true; field.style.opacity = '0.5'; cb.disabled = true;
+    // Tabla en modo Admin
+    panel.classList.add('show-admin');
+    titulo.textContent = 'Acceso total — Administrador';
+    colLabel.textContent = 'Admin';
+    if (notaCfg) notaCfg.style.display = 'none';
+  } else {
+    cb.disabled = false; field.style.opacity = '1';
+    // Tabla en modo Usuario
+    panel.classList.remove('show-admin');
+    titulo.textContent = '¿Qué puede hacer este usuario?';
+    colLabel.textContent = 'Usuario';
+    if (notaCfg) notaCfg.style.display = '';
+    // Actualizar badges configurables
+    _actualizarBadgesConfig();
+  }
+}
+
+function _actualizarBadgesConfig() {
+  // Historial
+  const bh = document.getElementById('badge-ver-historial');
+  const th = document.getElementById('hist-cfg-tag');
+  if (bh) {
+    bh.className = 'mpbadge mpt-user-badge ' + (PERMISOS_USUARIO.ver_historial ? 'mpb-on' : 'mpb-off');
+    bh.textContent = PERMISOS_USUARIO.ver_historial ? '✓' : '✗';
+  }
+  if (th) th.textContent = 'global';
+  // Catálogo
+  const bc = document.getElementById('badge-ver-catalogo');
+  const tc = document.getElementById('cat-cfg-tag');
+  if (bc) {
+    bc.className = 'mpbadge mpt-user-badge ' + (PERMISOS_USUARIO.ver_catalogo ? 'mpb-on' : 'mpb-off');
+    bc.textContent = PERMISOS_USUARIO.ver_catalogo ? '✓' : '✗';
+  }
+  if (tc) tc.textContent = 'global';
+  // Asistencias per-user
+  const ba = document.getElementById('badge-ver-asistencias-perm');
+  const cbVa = document.getElementById('edit-u-ver-asistencias');
+  if (ba && cbVa) {
+    const tieneVa = cbVa.checked;
+    ba.className = 'mpbadge mpt-user-badge ' + (tieneVa ? 'mpb-on' : 'mpb-cfg');
+    ba.textContent = tieneVa ? '✓ activado' : 'por usuario';
+  }
 }
 
 // ── Crear usuario ──
@@ -397,7 +723,16 @@ function abrirEditarUsuario(username, nombre, rol, verAsistencias) {
   document.getElementById('edit-u-username').value = username;
   document.getElementById('edit-u-nombre').value   = nombre;
   document.getElementById('edit-u-rol').value      = rol;
-  document.getElementById('edit-u-ver-asistencias').checked = verAsistencias || rol === 'ADMIN';
+  const cbVa = document.getElementById('edit-u-ver-asistencias');
+  cbVa.checked = verAsistencias || rol === 'ADMIN';
+  // Actualizar badge de asistencias cuando cambia el checkbox
+  cbVa.onchange = () => {
+    const ba = document.getElementById('badge-ver-asistencias-perm');
+    if (ba) {
+      ba.className = 'mpbadge mpt-user-badge ' + (cbVa.checked ? 'mpb-on' : 'mpb-cfg');
+      ba.textContent = cbVa.checked ? '✓ activado' : 'por usuario';
+    }
+  };
   syncEditRolPermisos();
   abrirModal('modal-editar-usuario');
 }

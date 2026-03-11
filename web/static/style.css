@@ -290,6 +290,64 @@ body {
 .form-control::placeholder { color: #a8b4c0; }
 select.form-control { cursor: pointer; }
 
+/* ── Autocomplete — dropdown de clientes ── */
+.ac-wrapper {
+  position: relative;
+}
+.ac-lista {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  z-index: 500;
+  background: var(--blanco);
+  border: 1.5px solid var(--azul-claro);
+  border-radius: 7px;
+  box-shadow: var(--sombra-md);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.ac-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid #edf0f5;
+  transition: background 0.12s;
+  font-size: 0.875rem;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover,
+.ac-item.ac-active {
+  background: rgba(37, 99, 168, 0.08);
+}
+.ac-code {
+  font-family: var(--f-semi);
+  font-weight: 700;
+  color: var(--azul);
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+.ac-name {
+  color: var(--texto-suave);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ac-sin-resultado {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+.ac-item-vacio {
+  border-bottom: 1px solid var(--gris-borde);
+}
+.ac-vacio-label {
+  font-style: italic;
+  color: var(--texto-suave) !important;
+}
+
 /* Radio y Checkbox */
 .radio-group, .check-group {
   display: flex;

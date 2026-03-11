@@ -450,6 +450,17 @@ async def api_delete_oc_item(
 
 
 # ─────────────────────────────────────────────
+# Helpers de permisos
+# ─────────────────────────────────────────────
+
+def _permiso_usuario(usuario: dict, permiso: str, config: dict) -> bool:
+    """ADMIN siempre puede. USER requiere que el permiso esté habilitado en config."""
+    if usuario.get("r") == "ADMIN":
+        return True
+    return config.get("permisos_usuario", {}).get(permiso, True)
+
+
+# ─────────────────────────────────────────────
 # Página Cotización
 # ─────────────────────────────────────────────
 
@@ -496,6 +507,9 @@ async def carrito_page(request: Request, usuario: dict = Depends(require_login))
 
 @app.get("/historial", response_class=HTMLResponse)
 async def historial_page(request: Request, usuario: dict = Depends(require_login)):
+    config = cargar_config()
+    if not _permiso_usuario(usuario, "ver_historial", config):
+        return RedirectResponse("/cotizar?msg=nopermiso", status_code=303)
     es_admin = usuario.get("r") == "ADMIN"
     return templates.TemplateResponse(
         "historial.html",
@@ -509,6 +523,9 @@ async def historial_page(request: Request, usuario: dict = Depends(require_login
 
 @app.get("/catalogo", response_class=HTMLResponse)
 async def catalogo_page(request: Request, usuario: dict = Depends(require_login)):
+    config = cargar_config()
+    if not _permiso_usuario(usuario, "ver_catalogo", config):
+        return RedirectResponse("/cotizar?msg=nopermiso", status_code=303)
     ruta_json = Path(__file__).resolve().parent.parent / "catalogo_productos.json"
     try:
         with open(ruta_json, encoding="utf-8") as f:
@@ -572,6 +589,21 @@ async def guardar_configuracion(
         "usd_kg_productos": usd_kg_productos,
         "usd_kg_cajas": usd_kg_cajas,
     })
+    ok = guardar_config(config)
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/configuracion/permisos")
+async def guardar_permisos(
+    request: Request,
+    usuario: dict = Depends(require_admin),
+):
+    body = await request.json()
+    config = cargar_config()
+    config["permisos_usuario"] = {
+        "ver_historial": bool(body.get("ver_historial", True)),
+        "ver_catalogo":  bool(body.get("ver_catalogo", True)),
+    }
     ok = guardar_config(config)
     return JSONResponse({"ok": ok})
 
@@ -1193,9 +1225,11 @@ async def mi_config_cambiar_password(
 @app.get("/usuarios", response_class=HTMLResponse)
 async def usuarios_page(request: Request, usuario: dict = Depends(require_admin)):
     usuarios = listar_usuarios()
+    config = cargar_config()
+    permisos_usuario = config.get("permisos_usuario", {"ver_historial": True, "ver_catalogo": True})
     return templates.TemplateResponse(
         "usuarios.html",
-        ctx(request, usuario, usuarios=usuarios),
+        ctx(request, usuario, usuarios=usuarios, permisos_usuario=permisos_usuario),
     )
 
 
