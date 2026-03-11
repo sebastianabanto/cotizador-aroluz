@@ -125,7 +125,13 @@ async def api_limpiar_carrito(usuario: dict = Depends(require_login)):
     return JSONResponse({"ok": True, "mensaje": "Carrito limpiado"})
 
 
-_ESPESORES_VALIDOS = {"1.2", "1.5", "2.0"}
+def _espesores_validos_desde_config(config: dict) -> set:
+    """Extrae el conjunto de espesores válidos de la configuración (GO y GC)."""
+    valores = config.get("valores_defecto", {})
+    esps = set()
+    for key in ("precios_go", "precios_gc"):
+        esps.update(valores.get(key, {}).keys())
+    return esps or {"1.2", "1.5", "2.0"}  # fallback si config está vacía
 
 
 def _extraer_espesor(descripcion: str) -> Optional[float]:
@@ -152,12 +158,13 @@ async def api_cambiar_espesor(
 ):
     """Recalcula precio y peso de items del carrito al cambiar el espesor de plancha."""
     nuevo_esp_str = f"{nuevo_espesor:.1f}"
-    if nuevo_esp_str not in _ESPESORES_VALIDOS:
+    config = cargar_config()
+    espesores_validos = _espesores_validos_desde_config(config)
+    if nuevo_esp_str not in espesores_validos:
         return JSONResponse({"ok": False, "error": "Espesor inválido"}, status_code=400)
     if parte not in ("cuerpo", "tapa"):
         return JSONResponse({"ok": False, "error": "Parte inválida"}, status_code=400)
 
-    config = cargar_config()
     valores = config.get("valores_defecto", {})
 
     carrito = get_carrito(usuario["u"])

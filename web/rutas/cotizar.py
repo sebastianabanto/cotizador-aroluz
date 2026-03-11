@@ -65,6 +65,17 @@ def _resolve_pp(override: Optional[float], espesor: float, tipo_galv: str, confi
     return _precios_plancha(espesor, tipo_galv, config)
 
 
+def _validar_dims(**kwargs) -> Optional[JSONResponse]:
+    """Devuelve JSONResponse de error si alguna dimensión física es ≤ 0, o None si todo OK."""
+    invalidos = [k for k, v in kwargs.items() if v <= 0]
+    if invalidos:
+        return JSONResponse(
+            {"ok": False, "error": f"Las dimensiones deben ser positivas: {', '.join(invalidos)}"},
+            status_code=422,
+        )
+    return None
+
+
 @router.post("/bandeja")
 async def api_cotizar_bandeja(
     request: Request,
@@ -80,6 +91,9 @@ async def api_cotizar_bandeja(
     precio_plancha_producto: Optional[float] = Form(None),
     precio_plancha_tapa: Optional[float] = Form(None),
 ):
+    err = _validar_dims(ancho=ancho, alto=alto)
+    if err:
+        return err
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
@@ -103,6 +117,9 @@ async def api_cotizar_curva_horizontal(
     precio_plancha_producto: Optional[float] = Form(None),
     precio_plancha_tapa: Optional[float] = Form(None),
 ):
+    err = _validar_dims(ancho=ancho, alto=alto)
+    if err:
+        return err
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
@@ -127,6 +144,9 @@ async def api_cotizar_curva_vertical(
     precio_plancha_producto: Optional[float] = Form(None),
     precio_plancha_tapa: Optional[float] = Form(None),
 ):
+    err = _validar_dims(ancho=ancho, alto=alto)
+    if err:
+        return err
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
@@ -152,6 +172,9 @@ async def api_cotizar_tee(
     precio_plancha_producto: Optional[float] = Form(None),
     precio_plancha_tapa: Optional[float] = Form(None),
 ):
+    err = _validar_dims(derecha=derecha, izquierda=izquierda, abajo=abajo, alto=alto)
+    if err:
+        return err
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
@@ -175,6 +198,9 @@ async def api_cotizar_cruz(
     precio_plancha_producto: Optional[float] = Form(None),
     precio_plancha_tapa: Optional[float] = Form(None),
 ):
+    err = _validar_dims(ancho=ancho, alto=alto)
+    if err:
+        return err
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
@@ -199,6 +225,9 @@ async def api_cotizar_reduccion(
     precio_plancha_producto: Optional[float] = Form(None),
     precio_plancha_tapa: Optional[float] = Form(None),
 ):
+    err = _validar_dims(ancho_mayor=ancho_mayor, ancho_menor=ancho_menor, alto=alto)
+    if err:
+        return err
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)
@@ -222,6 +251,9 @@ async def api_cotizar_caja_pase(
     tipo_salida: str = Form("CIEGA"),
     precio_plancha_producto: Optional[float] = Form(None),
 ):
+    err = _validar_dims(dim1=dim1, dim2=dim2, dim3=dim3)
+    if err:
+        return err
     config = cargar_config()
     cfg = _get_pricing_config(tipo_galvanizado, ganancia, config)
     pp = _resolve_pp(precio_plancha_producto, espesor_producto, tipo_galvanizado, config)

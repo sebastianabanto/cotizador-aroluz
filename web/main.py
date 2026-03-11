@@ -63,6 +63,29 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Security headers middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as _SRequest
+from starlette.responses import Response as _SResponse
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: _SRequest, call_next):
+        response: _SResponse = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self';"
+        )
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # Templates y archivos estáticos
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -292,9 +315,14 @@ async def api_upload_adjunto(
     dest_dir = ADJUNTOS_DIR / slug
     dest_dir.mkdir(parents=True, exist_ok=True)
 
+    import unicodedata as _ud
     from datetime import datetime as _dt2
     ts = _dt2.now().strftime("%Y%m%d_%H%M%S")
-    safe_name = f"{ts}_{Path(archivo.filename or 'archivo').name}"
+    _raw_name = Path(archivo.filename or "archivo").name
+    # Normalizar Unicode (ej. tildes, ñ) a ASCII básico, reemplazar caracteres no seguros
+    _ascii_name = _ud.normalize("NFKD", _raw_name).encode("ascii", "ignore").decode("ascii")
+    _ascii_name = "".join(c if c.isalnum() or c in "-_. " else "_" for c in _ascii_name).strip() or "archivo"
+    safe_name = f"{ts}_{_ascii_name}"
     dest = dest_dir / safe_name
     with dest.open("wb") as f:
         _shutil.copyfileobj(archivo.file, f)
@@ -1160,8 +1188,8 @@ async def cfg_reset_password(
     usuario: dict = Depends(require_admin),
     password_nuevo: str = Form(...),
 ):
-    if not password_nuevo or len(password_nuevo) < 4:
-        return JSONResponse({"ok": False, "error": "La contraseña debe tener al menos 4 caracteres"}, status_code=422)
+    if not password_nuevo or len(password_nuevo) < 8:
+        return JSONResponse({"ok": False, "error": "La contraseña debe tener al menos 8 caracteres"}, status_code=422)
     ok = cambiar_password(username, password_nuevo)
     return JSONResponse({"ok": ok})
 
@@ -1210,8 +1238,8 @@ async def mi_config_cambiar_password(
     from web.database import verificar_usuario as ver
     if password_nuevo != password_confirmar:
         return JSONResponse({"ok": False, "error": "Las contraseñas nuevas no coinciden"}, status_code=422)
-    if len(password_nuevo) < 4:
-        return JSONResponse({"ok": False, "error": "La contraseña debe tener al menos 4 caracteres"}, status_code=422)
+    if len(password_nuevo) < 8:
+        return JSONResponse({"ok": False, "error": "La contraseña debe tener al menos 8 caracteres"}, status_code=422)
     if not ver(usuario["u"], password_actual):
         return JSONResponse({"ok": False, "error": "Contraseña actual incorrecta"}, status_code=401)
     ok = cambiar_password(usuario["u"], password_nuevo)
@@ -1258,6 +1286,11 @@ async def cuenta_cambiar_password(
         return templates.TemplateResponse(
             "cuenta.html",
             ctx(request, usuario, error="Las contraseñas nuevas no coinciden"),
+        )
+    if len(password_nuevo) < 8:
+        return templates.TemplateResponse(
+            "cuenta.html",
+            ctx(request, usuario, error="La contraseña debe tener al menos 8 caracteres"),
         )
     if not ver(usuario["u"], password_actual):
         return templates.TemplateResponse(

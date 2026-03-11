@@ -28,7 +28,14 @@ _serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 
 def crear_token(username: str, nombre: str = "", rol: str = "USER", ver_asistencias: bool = False) -> str:
-    """Crea un token firmado con datos del usuario."""
+    """Crea un token firmado con datos del usuario.
+
+    Claves del payload (abreviadas para reducir tamaño de cookie):
+      "u"  → username (str)
+      "n"  → nombre completo (str)
+      "r"  → rol: "ADMIN" | "USER" (str)
+      "va" → ver_asistencias (bool)
+    """
     payload = {"u": username, "n": nombre, "r": rol, "va": ver_asistencias}
     return _serializer.dumps(payload, salt="login")
 

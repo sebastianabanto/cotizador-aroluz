@@ -86,7 +86,9 @@ def init_db():
     # Migrar config de la raíz a web/data/ si aún no existe allí
     if not CONFIG_PATH.exists() and _CONFIG_RAIZ.exists():
         shutil.copy2(_CONFIG_RAIZ, CONFIG_PATH)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     c = conn.cursor()
 
     c.execute("""
@@ -206,6 +208,12 @@ def init_db():
             c.execute("INSERT OR IGNORE INTO monedas (nombre) VALUES (?)", (m,))
         conn.commit()
 
+    # Índices para consultas frecuentes
+    c.execute("CREATE INDEX IF NOT EXISTS idx_cotizaciones_username ON cotizaciones(username)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_cotizaciones_fecha ON cotizaciones(fecha DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_carrito_items_username ON carrito_items(username)")
+    conn.commit()
+
     conn.close()
 
 
@@ -256,7 +264,7 @@ def verificar_usuario(username: str, password: str) -> Optional[Dict]:
     Soporta migración transparente SHA256 → bcrypt: en el primer login con hash
     SHA256 legado, re-hashea con bcrypt automáticamente.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute(
@@ -290,7 +298,7 @@ def verificar_usuario(username: str, password: str) -> Optional[Dict]:
 def crear_usuario(username: str, password: str, nombre: str = "", rol: str = "USER", ver_asistencias: bool = False) -> bool:
     """Crea un nuevo usuario. Retorna True si fue exitoso."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         _crear_usuario(conn, username, password, nombre, rol, ver_asistencias)
         conn.close()
         return True
@@ -300,7 +308,7 @@ def crear_usuario(username: str, password: str, nombre: str = "", rol: str = "US
 
 def cambiar_password(username: str, nueva_password: str) -> bool:
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         ph = _hash_password(nueva_password)
         conn.execute(
             "UPDATE usuarios SET password_hash=? WHERE username=?",
@@ -314,7 +322,7 @@ def cambiar_password(username: str, nueva_password: str) -> bool:
 
 
 def listar_usuarios() -> List[Dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute("SELECT id, username, nombre, activo, rol, ver_asistencias FROM usuarios").fetchall()
     conn.close()
@@ -327,7 +335,7 @@ def editar_usuario(username: str, nombre: str, rol: str, ver_asistencias: bool =
         rol = "USER"
     va = 1 if (rol == "ADMIN" or ver_asistencias) else 0
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute(
             "UPDATE usuarios SET nombre=?, rol=?, ver_asistencias=? WHERE username=?",
             (nombre, rol, va, username),
@@ -342,7 +350,7 @@ def editar_usuario(username: str, nombre: str, rol: str, ver_asistencias: bool =
 def toggle_activo_usuario(username: str) -> dict:
     """Alterna el estado activo/inactivo de un usuario."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         row = conn.execute("SELECT activo FROM usuarios WHERE username=?", (username,)).fetchone()
         if not row:
             conn.close()
@@ -359,7 +367,7 @@ def toggle_activo_usuario(username: str) -> dict:
 def eliminar_usuario(username: str) -> bool:
     """Elimina un usuario permanentemente."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute("DELETE FROM usuarios WHERE username=?", (username,))
         conn.commit()
         conn.close()
@@ -414,7 +422,7 @@ def _fusionar(defecto: Dict, cargada: Dict) -> Dict:
 
 def obtener_catalogo() -> Dict[str, List]:
     """Devuelve clientes, atenciones y monedas desde SQLite."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
 
     clientes = [dict(r) for r in conn.execute(
@@ -431,7 +439,7 @@ def obtener_catalogo() -> Dict[str, List]:
 
 def obtener_cliente(codigo: str) -> Optional[Dict]:
     """Devuelve un cliente por su código, o None si no existe."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     row = conn.execute(
         "SELECT codigo, nombre, ruc, ubicacion FROM clientes WHERE codigo=?", (codigo,)
@@ -442,7 +450,7 @@ def obtener_cliente(codigo: str) -> Optional[Dict]:
 
 def obtener_atenciones_de_cliente(codigo_cliente: str) -> List[Dict]:
     """Devuelve las atenciones asociadas a un cliente."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT nombre, codigo_empresa, email FROM atenciones WHERE codigo_empresa=? ORDER BY nombre",
@@ -474,7 +482,7 @@ def importar_catalogo_desde_excel(ruta_excel: str) -> Dict[str, int]:
 
     # keep_vba=True permite abrir .xlsm sin errores
     wb = openpyxl.load_workbook(ruta_excel, read_only=True, data_only=True, keep_vba=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conteo = {"clientes": 0, "atenciones": 0, "monedas": 0}
 
     def _s(val) -> str:
@@ -539,7 +547,7 @@ def importar_catalogo_desde_excel(ruta_excel: str) -> Dict[str, int]:
 
 def agregar_cliente(codigo: str, nombre: str = "", ruc: str = "", ubicacion: str = "") -> bool:
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute(
             "INSERT OR IGNORE INTO clientes (codigo, nombre, ruc, ubicacion) VALUES (?, ?, ?, ?)",
             (codigo.strip(), nombre.strip() or codigo.strip(), ruc.strip(), ubicacion.strip()),
@@ -553,7 +561,7 @@ def agregar_cliente(codigo: str, nombre: str = "", ruc: str = "", ubicacion: str
 
 def agregar_atencion(nombre: str, codigo_empresa: str, email: str = "") -> bool:
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute(
             "INSERT OR IGNORE INTO atenciones (nombre, codigo_empresa, email) VALUES (?, ?, ?)",
             (nombre.strip(), codigo_empresa.strip(), email.strip()),
@@ -566,7 +574,7 @@ def agregar_atencion(nombre: str, codigo_empresa: str, email: str = "") -> bool:
 
 
 def eliminar_cliente(codigo: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute("DELETE FROM clientes WHERE codigo = ?", (codigo,))
     conn.commit()
     conn.close()
@@ -574,7 +582,7 @@ def eliminar_cliente(codigo: str) -> bool:
 
 
 def eliminar_atencion(nombre: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute("DELETE FROM atenciones WHERE nombre = ?", (nombre,))
     conn.commit()
     conn.close()
@@ -584,7 +592,7 @@ def eliminar_atencion(nombre: str) -> bool:
 def editar_cliente(codigo: str, nuevo_nombre: str, ruc: str = "", ubicacion: str = "") -> bool:
     """Actualiza nombre, RUC y dirección de un cliente existente."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute(
             "UPDATE clientes SET nombre=?, ruc=?, ubicacion=? WHERE codigo=?",
             (nuevo_nombre.strip(), ruc.strip(), ubicacion.strip(), codigo.strip()),
@@ -599,7 +607,7 @@ def editar_cliente(codigo: str, nuevo_nombre: str, ruc: str = "", ubicacion: str
 def editar_atencion(nombre_actual: str, nuevo_nombre: str, nuevo_codigo_empresa: str, email: str = "") -> bool:
     """Actualiza nombre, código de empresa y email de una atención."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute(
             "UPDATE atenciones SET nombre=?, codigo_empresa=?, email=? WHERE nombre=?",
             (nuevo_nombre.strip(), nuevo_codigo_empresa.strip(), email.strip(), nombre_actual.strip()),
@@ -692,7 +700,7 @@ def importar_contactos_desde_xlsx(contenido_bytes: bytes) -> Dict[str, int]:
     from io import BytesIO
 
     wb = openpyxl.load_workbook(BytesIO(contenido_bytes), read_only=True, data_only=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conteo = {"clientes": 0, "atenciones": 0, "monedas": 0}
 
     def _s(val) -> str:
@@ -762,7 +770,7 @@ def importar_catalogo_desde_json(ruta: str) -> Dict[str, int]:
         raise FileNotFoundError(f"Archivo no encontrado: {ruta}")
     with open(ruta, encoding="utf-8") as f:
         data = json.load(f)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conteo = {"clientes": 0, "atenciones": 0, "monedas": 0}
     for c in data.get("clientes", []):
         conn.execute(
@@ -792,7 +800,7 @@ def importar_catalogo_desde_json(ruta: str) -> Dict[str, int]:
 
 def get_carrito_db(username: str) -> List[Dict]:
     """Devuelve los items del carrito del usuario desde SQLite."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT * FROM carrito_items WHERE username=? ORDER BY id",
@@ -804,7 +812,7 @@ def get_carrito_db(username: str) -> List[Dict]:
 
 def add_item_carrito_db(username: str, item: Dict) -> int:
     """Inserta un item en el carrito. Retorna el id generado."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         """INSERT INTO carrito_items
@@ -831,7 +839,7 @@ def add_item_carrito_db(username: str, item: Dict) -> int:
 
 def update_cantidad_carrito_db(item_id: int, username: str, cantidad: int) -> bool:
     """Actualiza la cantidad de un item. Retorna True si se actualizó."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         "UPDATE carrito_items SET cantidad=? WHERE id=? AND username=?",
@@ -845,7 +853,7 @@ def update_cantidad_carrito_db(item_id: int, username: str, cantidad: int) -> bo
 
 def update_item_precio_carrito_db(item_id: int, username: str, precio_unitario: float, peso_unitario: float, descripcion: str) -> bool:
     """Actualiza precio, peso y descripción de un item del carrito."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion=? WHERE id=? AND username=?",
@@ -859,7 +867,7 @@ def update_item_precio_carrito_db(item_id: int, username: str, precio_unitario: 
 
 def delete_item_carrito_db(item_id: int, username: str) -> bool:
     """Elimina un item del carrito. Retorna True si se eliminó."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         "DELETE FROM carrito_items WHERE id=? AND username=?",
@@ -873,7 +881,7 @@ def delete_item_carrito_db(item_id: int, username: str) -> bool:
 
 def clear_carrito_db(username: str):
     """Vacía todo el carrito del usuario."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute("DELETE FROM carrito_items WHERE username=?", (username,))
     conn.commit()
     conn.close()
@@ -886,7 +894,7 @@ def cargar_cotizacion_al_carrito_db(cotizacion_id: int, username: str, require_o
     Si require_ownership=False (admin), permite cargar cualquier cotización.
     Retorna None si la cotización no existe o (con require_ownership=True) no pertenece al usuario.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
 
     if require_ownership:
@@ -968,7 +976,7 @@ def guardar_cotizacion_db(
     total_precio = sum(i.get("precio_unitario", 0) * i.get("cantidad", 1) for i in items)
     total_peso = sum(i.get("peso_unitario", 0) * i.get("cantidad", 1) for i in items)
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute("PRAGMA foreign_keys = ON")
     c = conn.cursor()
     c.execute(
@@ -1020,7 +1028,7 @@ def listar_cotizaciones_db(
         q        — texto libre; filtra cotizaciones cuya descripción de ítem contenga
                    este texto (case-insensitive)
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
 
     conditions: List[str] = []
@@ -1062,7 +1070,7 @@ def listar_cotizaciones_db(
 
 def get_cotizacion_db(cotizacion_id: int) -> Optional[Dict]:
     """Devuelve cabecera + items de una cotización guardada."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     row = conn.execute(
         "SELECT * FROM cotizaciones WHERE id=?", (cotizacion_id,)
@@ -1082,7 +1090,7 @@ def get_cotizacion_db(cotizacion_id: int) -> Optional[Dict]:
 
 def eliminar_cotizacion_db(cotizacion_id: int, username: Optional[str]) -> bool:
     """Elimina una cotización. Si username es None (admin), elimina sin restricción de propiedad."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute("PRAGMA foreign_keys = ON")
     c = conn.cursor()
     if username is None:
@@ -1114,7 +1122,7 @@ ADJUNTOS_DIR = BASE_DIR / "data" / "adjuntos"
 
 def init_proyectos():
     """Crea tablas proyectos + proyecto_adjuntos + proyecto_oc_items."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS proyectos (
             nombre TEXT PRIMARY KEY,
@@ -1150,6 +1158,9 @@ def init_proyectos():
     _add_column_if_missing(conn, "proyectos", "created_at", "TEXT")
     _add_column_if_missing(conn, "proyectos", "contacto",  "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "proyecto_adjuntos", "categoria", "TEXT NOT NULL DEFAULT 'oc'")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_proyectos_estado ON proyectos(estado)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_proyecto_adjuntos_proyecto ON proyecto_adjuntos(proyecto)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_proyecto_oc_items_proyecto ON proyecto_oc_items(proyecto)")
     conn.commit()
     conn.close()
     ADJUNTOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1157,7 +1168,7 @@ def init_proyectos():
 
 def get_proyectos_con_stats() -> List[Dict]:
     """Lista todos los proyectos con estadísticas, conteo de adjuntos e items OC."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute("""
         SELECT
@@ -1195,7 +1206,7 @@ def get_proyectos_con_stats() -> List[Dict]:
 def set_proyecto_estado(nombre: str, estado: str):
     """Actualiza el estado Kanban de un proyecto."""
     from datetime import datetime
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute(
         "UPDATE proyectos SET estado=?, updated_at=? WHERE nombre=?",
         (estado, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), nombre),
@@ -1206,7 +1217,7 @@ def set_proyecto_estado(nombre: str, estado: str):
 
 def get_kpis_proyectos() -> Dict:
     """KPIs del pipeline: proyectos aprobados, en producción, despachados e items pendientes."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     row = conn.execute("""
         SELECT
@@ -1235,7 +1246,7 @@ def get_kpis_proyectos() -> Dict:
 
 def update_proyecto_direccion(nombre: str, direccion: str):
     """Actualiza la dirección manual de la obra."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute(
         "UPDATE proyectos SET direccion=? WHERE nombre=?",
         (direccion.strip(), nombre),
@@ -1246,7 +1257,7 @@ def update_proyecto_direccion(nombre: str, direccion: str):
 
 def update_proyecto_contacto(nombre: str, contacto: str):
     """Actualiza el contacto de la obra."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute(
         "UPDATE proyectos SET contacto=? WHERE nombre=?",
         (contacto.strip(), nombre),
@@ -1257,7 +1268,7 @@ def update_proyecto_contacto(nombre: str, contacto: str):
 
 def update_proyecto_numero_oc(nombre: str, numero_oc: str):
     """Actualiza el número de orden de compra de la obra."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.execute(
         "UPDATE proyectos SET numero_oc=? WHERE nombre=?",
         (numero_oc.strip(), nombre),
@@ -1270,7 +1281,7 @@ def update_proyecto_numero_oc(nombre: str, numero_oc: str):
 
 def add_adjunto(proyecto: str, filename: str, filepath: str, content_type: str = "", categoria: str = "oc") -> int:
     from datetime import datetime
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         """INSERT INTO proyecto_adjuntos (proyecto, filename, filepath, content_type, uploaded_at, categoria)
@@ -1284,7 +1295,7 @@ def add_adjunto(proyecto: str, filename: str, filepath: str, content_type: str =
 
 
 def list_adjuntos(proyecto: str) -> List[Dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT id, proyecto, filename, content_type, uploaded_at, categoria FROM proyecto_adjuntos"
@@ -1297,7 +1308,7 @@ def list_adjuntos(proyecto: str) -> List[Dict]:
 
 def get_adjunto_filepath(adjunto_id: int, proyecto: str) -> Optional[dict]:
     """Devuelve el filepath de un adjunto verificando que pertenezca al proyecto."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     row = conn.execute(
         "SELECT filepath, filename, content_type FROM proyecto_adjuntos WHERE id=? AND proyecto=?",
@@ -1309,7 +1320,7 @@ def get_adjunto_filepath(adjunto_id: int, proyecto: str) -> Optional[dict]:
 
 def delete_adjunto(adjunto_id: int) -> Optional[str]:
     """Elimina el registro y retorna el filepath para borrar el archivo físico."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     row = conn.execute(
         "SELECT filepath FROM proyecto_adjuntos WHERE id=?", (adjunto_id,)
     ).fetchone()
@@ -1331,7 +1342,7 @@ def renombrar_proyecto(nombre: str, nuevo_nombre: str, nuevo_cliente: str) -> bo
     nuevo_cliente = nuevo_cliente.strip()
     if not nuevo_nombre:
         return False
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     try:
         conn.execute("BEGIN")
         if nuevo_nombre != nombre:
@@ -1361,7 +1372,7 @@ def renombrar_proyecto(nombre: str, nuevo_nombre: str, nuevo_cliente: str) -> bo
 def crear_proyecto(nombre: str, cliente: str) -> bool:
     """Crea un proyecto manualmente en estado APROBADO. Retorna False si ya existe."""
     from datetime import datetime
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         "INSERT OR IGNORE INTO proyectos (nombre, cliente, estado, created_at) VALUES (?, ?, 'APROBADO', ?)",
@@ -1375,7 +1386,7 @@ def crear_proyecto(nombre: str, cliente: str) -> bool:
 
 def eliminar_proyecto(nombre: str) -> bool:
     """Elimina un proyecto, sus adjuntos físicos y sus items OC."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     adjuntos = conn.execute(
         "SELECT filepath FROM proyecto_adjuntos WHERE proyecto=?", (nombre,)
@@ -1387,8 +1398,8 @@ def eliminar_proyecto(nombre: str) -> bool:
             pass
     conn.execute("DELETE FROM proyecto_adjuntos WHERE proyecto=?", (nombre,))
     conn.execute("DELETE FROM proyecto_oc_items WHERE proyecto=?", (nombre,))
-    conn.execute("DELETE FROM proyectos WHERE nombre=?", (nombre,))
-    deleted = conn.total_changes > 0
+    c_del = conn.execute("DELETE FROM proyectos WHERE nombre=?", (nombre,))
+    deleted = c_del.rowcount > 0
     conn.commit()
     conn.close()
     return deleted
@@ -1397,7 +1408,7 @@ def eliminar_proyecto(nombre: str) -> bool:
 # ── OC Items CRUD ──
 
 def get_oc_items(proyecto: str) -> List[Dict]:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT * FROM proyecto_oc_items WHERE proyecto=? ORDER BY orden, id",
@@ -1415,7 +1426,7 @@ def add_oc_item(
     cantidad_despachada: float,
     orden: int = 0,
 ) -> int:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         """INSERT INTO proyecto_oc_items
@@ -1437,7 +1448,7 @@ def update_oc_item(
     cantidad_pedida: float,
     cantidad_despachada: float,
 ) -> bool:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         """UPDATE proyecto_oc_items
@@ -1452,7 +1463,7 @@ def update_oc_item(
 
 
 def delete_oc_item(item_id: int, proyecto: str) -> bool:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
         "DELETE FROM proyecto_oc_items WHERE id=? AND proyecto=?",

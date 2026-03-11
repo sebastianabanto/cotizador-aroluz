@@ -808,8 +808,11 @@ def _generar_xlsx(
     # Fila total
     total_row = len(carrito) + data_start_row
     ws.merge_cells(f"A{total_row}:C{total_row}")
-    ws.cell(row=total_row, column=1).fill = PatternFill("solid", fgColor=COLOR_TOTAL)
-    ws.cell(row=total_row, column=1).border = border
+    _tc_label = ws.cell(row=total_row, column=1)
+    _tc_label.fill = PatternFill("solid", fgColor=COLOR_TOTAL)
+    _tc_label.border = border
+    _tc_label.font = Font(bold=True, size=11, color=COLOR_HEADER)
+    _tc_label.alignment = Alignment(horizontal="left", vertical="center")
 
     tc = ws.cell(row=total_row, column=4, value="TOTAL")
     tc.font = Font(bold=True, size=11, color=COLOR_HEADER)
@@ -876,8 +879,9 @@ async def exportar_pdf(
             cliente_ubicacion=cliente_ubicacion, atencion_email=atencion_email,
             dolar_rate=dolar, validez=validez, encabezado_tabla=encabezado_tabla,
         )
-    except Exception:
-        pass  # fallo silencioso — la descarga no se interrumpe
+    except Exception as _hist_err:
+        import sys as _sys
+        print(f"[exportar] guardar historial falló: {type(_hist_err).__name__}: {_hist_err}", file=_sys.stderr)
 
     try:
         pdf_bytes = _generar_pdf(

@@ -679,7 +679,9 @@ async function exportar(formato, btnEl) {
     toast('El carrito está vacío', 'error');
     return;
   }
-  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Generando PDF…'; }
+  const labelOriginal = btnEl ? btnEl.textContent : '';
+  const labelGenerando = formato === 'xlsx' ? 'Generando XLSX…' : 'Generando PDF…';
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = labelGenerando; }
 
   const clienteNombre = document.getElementById('cliente-nombre')?.value
     || document.getElementById('cliente-input')?.value
@@ -698,11 +700,18 @@ async function exportar(formato, btnEl) {
     encabezado_tabla: document.getElementById('encabezado-tabla')?.value || '',
   });
 
-  const resp = await fetch(`/api/exportar/${formato}`, { method: 'POST', body: fd });
+  let resp;
+  try {
+    resp = await fetch(`/api/exportar/${formato}`, { method: 'POST', body: fd });
+  } catch (fetchErr) {
+    toast('Error de red al exportar', 'error');
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = labelOriginal; }
+    return;
+  }
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
     toast(err.error || 'Error al exportar', 'error');
-    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Descargar PDF'; }
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = labelOriginal; }
     return;
   }
   const blob = await resp.blob();
@@ -713,7 +722,8 @@ async function exportar(formato, btnEl) {
     || `cotizacion.${formato}`;
   a.click();
   URL.revokeObjectURL(url);
-  toast('PDF descargado — redirigiendo al historial…', 'success');
+  const msgDescargado = formato === 'xlsx' ? 'XLSX descargado — redirigiendo al historial…' : 'PDF descargado — redirigiendo al historial…';
+  toast(msgDescargado, 'success');
   await fetch('/api/carrito/limpiar', { method: 'POST' });
   sessionStorage.removeItem('carrito_form_v1');
   sessionStorage.removeItem('editando_desde_cotizacion_id');

@@ -714,7 +714,12 @@
 
   /* ─── Eliminar proyecto ─── */
   window.eliminarProyecto = async function (nombre) {
-    if (!confirm('¿Eliminar la obra "' + nombre + '"?\nSe borrarán todos los adjuntos e ítems OC.')) return;
+    const confirmado = prompt('Para confirmar, escribí el nombre exacto de la obra:\n"' + nombre + '"');
+    if (confirmado === null) return;  // canceló
+    if (confirmado.trim() !== nombre) {
+      alert('El nombre no coincide. No se eliminó la obra.');
+      return;
+    }
     try {
       const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre), { method: 'DELETE' });
       const d = await r.json();
