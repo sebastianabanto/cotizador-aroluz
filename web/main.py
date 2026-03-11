@@ -322,12 +322,34 @@ async def api_upload_adjunto(
     # Normalizar Unicode (ej. tildes, ñ) a ASCII básico, reemplazar caracteres no seguros
     _ascii_name = _ud.normalize("NFKD", _raw_name).encode("ascii", "ignore").decode("ascii")
     _ascii_name = "".join(c if c.isalnum() or c in "-_. " else "_" for c in _ascii_name).strip() or "archivo"
-    safe_name = f"{ts}_{_ascii_name}"
-    dest = dest_dir / safe_name
-    with dest.open("wb") as f:
-        _shutil.copyfileobj(archivo.file, f)
 
-    adj_id = add_adjunto(nombre, archivo.filename or safe_name, str(dest), archivo.content_type or "", cat)
+    _es_imagen = ext in {".jpg", ".jpeg", ".png", ".webp"}
+
+    if _es_imagen:
+        # Imágenes → comprimir con Pillow: máx 1920px, JPEG 75%
+        from PIL import Image as _Image
+        import io as _io
+        safe_name = f"{ts}_{Path(_ascii_name).stem}.jpg"
+        dest = dest_dir / safe_name
+        _img_data = await archivo.read()
+        _img = _Image.open(_io.BytesIO(_img_data))
+        _img = _img.convert("RGB")  # elimina canal alfa (PNG transparente → blanco)
+        _MAX_W, _MAX_H = 1920, 1920
+        if _img.width > _MAX_W or _img.height > _MAX_H:
+            _img.thumbnail((_MAX_W, _MAX_H), _Image.LANCZOS)
+        _buf = _io.BytesIO()
+        _img.save(_buf, format="JPEG", quality=75, optimize=True)
+        dest.write_bytes(_buf.getvalue())
+        content_type = "image/jpeg"
+    else:
+        # PDFs → guardar sin modificar
+        safe_name = f"{ts}_{_ascii_name}"
+        dest = dest_dir / safe_name
+        with dest.open("wb") as f:
+            _shutil.copyfileobj(archivo.file, f)
+        content_type = archivo.content_type or "application/pdf"
+
+    adj_id = add_adjunto(nombre, archivo.filename or safe_name, str(dest), content_type, cat)
     return JSONResponse({"ok": True, "id": adj_id, "filename": archivo.filename})
 
 
