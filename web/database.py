@@ -839,6 +839,20 @@ def update_cantidad_carrito_db(item_id: int, username: str, cantidad: int) -> bo
     return updated
 
 
+def update_item_precio_carrito_db(item_id: int, username: str, precio_unitario: float, peso_unitario: float, descripcion: str) -> bool:
+    """Actualiza precio, peso y descripción de un item del carrito."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion=? WHERE id=? AND username=?",
+        (round(precio_unitario, 4), round(peso_unitario, 6), descripcion, item_id, username),
+    )
+    updated = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
+
+
 def delete_item_carrito_db(item_id: int, username: str) -> bool:
     """Elimina un item del carrito. Retorna True si se eliminó."""
     conn = sqlite3.connect(DB_PATH)

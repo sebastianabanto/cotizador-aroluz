@@ -12,10 +12,10 @@
     {% endif %}
   </div>
 
-  <!-- Datos del proyecto -->
-  <div class="card" style="margin-bottom: 1rem;">
-    <div class="card-title">Datos del Proyecto</div>
-    <div class="grid-2">
+  <!-- Datos del proyecto (colapsable) -->
+  <details class="card" style="margin-bottom:1rem;" open id="det-proyecto">
+    <summary>Datos del Proyecto</summary>
+    <div class="grid-2" style="margin-top:0.25rem;">
       <!-- Cliente: autocomplete -->
       <div class="form-group">
         <label class="form-label" for="cliente-input">Cliente</label>
@@ -57,12 +57,23 @@
         <input type="text" id="encabezado-tabla" class="form-control" placeholder="Ej: BANDEJA PORTACABLE Y ACCESORIOS">
       </div>
     </div>
-  </div>
+  </details>
 
   {% if carrito %}
-  <!-- Tabla del carrito -->
-  <div class="card table-carrito" style="margin-bottom: 1rem;">
-    <div class="card-title">Productos ({{ carrito|length }} items)</div>
+  <!-- Tabla del carrito (colapsable) -->
+  <details class="card table-carrito" style="margin-bottom:1rem;" open id="det-lista">
+    <summary class="carrito-summary">
+      <span>Productos ({{ carrito|length }} items)</span>
+      <div class="espesor-header-btns" onclick="event.stopPropagation()">
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalEspesor('cuerpo','all')" title="Cambiar espesor de todos los cuerpos">
+          ▣ Espesor Cuerpo
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalEspesor('tapa','all')" title="Cambiar espesor de todas las tapas">
+          ▤ Espesor Tapa
+        </button>
+      </div>
+    </summary>
+
     <div class="table-container" style="max-height:420px; overflow-y:auto;">
       <table id="tabla-carrito">
         <thead>
@@ -73,7 +84,7 @@
             <th style="width:60px;">Und</th>
             <th style="width:120px;" class="td-num" id="th-pu">P.U. (S/)</th>
             <th style="width:120px;" class="td-num" id="th-pt">P.T. (S/)</th>
-            <th style="width:80px;"></th>
+            <th style="width:100px;"></th>
           </tr>
         </thead>
         <tbody id="tbody-carrito">
@@ -109,7 +120,12 @@
             <td data-label="P.T." class="td-num" id="pt-{{ item.id }}">
               S/ {{ "%.2f"|format(item.precio_unitario * item.cantidad) }}
             </td>
-            <td data-label="">
+            <td data-label="" style="white-space:nowrap;">
+              {% if item.tipo_galvanizado != 'N/A' %}
+              <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
+                onclick="abrirModalEspesorItem({{ item.id }})"
+                title="Cambiar espesor de este ítem">↕</button>
+              {% endif %}
               <button class="btn btn-danger btn-sm" onclick="eliminarItem({{ item.id }})"
                 aria-label="Eliminar {{ item.descripcion }}">✕</button>
             </td>
@@ -144,7 +160,8 @@
       </div>
       <span class="total-movil-label">Total</span>
     </div>
-  </div>
+  </details>
+
   {% else %}
   <!-- Carrito vacío -->
   <div class="card" style="text-align:center; padding: 3rem;">
@@ -154,7 +171,7 @@
   </div>
   {% endif %}
 
-  <!-- Agregar manual — siempre visible -->
+  <!-- Agregar manual (colapsable) -->
   <details class="card" style="margin-bottom: 1rem;">
     <summary>Agregar producto manual</summary>
     <div class="grid-2" style="margin-top:0.5rem;">
@@ -217,6 +234,64 @@
   </div>
   {% endif %}
 </div>
+
+<!-- ══════════════════════════════════════════
+     Modal cambio de espesor
+════════════════════════════════════════════ -->
+<div id="modal-espesor" role="dialog" aria-modal="true" aria-labelledby="modal-esp-titulo"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100;
+            align-items:center; justify-content:center; padding:1rem;">
+  <div class="modal-inner" style="max-width:420px; width:100%;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 id="modal-esp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Cambiar espesor</h2>
+      <button onclick="cerrarModalEspesor()" aria-label="Cerrar"
+              style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--texto-suave);
+                     min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">✕</button>
+    </div>
+
+    <p id="modal-esp-desc" style="margin:0 0 1rem; font-size:0.875rem; color:var(--texto-suave);"></p>
+
+    <div class="form-group" style="margin-bottom:1.25rem;">
+      <label class="form-label" for="modal-esp-select">Nuevo espesor de plancha</label>
+      <select id="modal-esp-select" class="form-control" style="font-size:1rem;">
+        <option value="1.2">1.2 mm</option>
+        <option value="1.5" selected>1.5 mm</option>
+        <option value="2.0">2.0 mm</option>
+      </select>
+    </div>
+
+    <div id="modal-esp-aviso" style="display:none; background:#fff3cd; border:1px solid #ffc107;
+         border-radius:6px; padding:0.6rem 0.85rem; font-size:0.82rem; margin-bottom:1rem;"></div>
+
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="cerrarModalEspesor()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-aplicar-espesor" onclick="aplicarEspesor()">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ── Carrito summary con botones inline ── */
+.carrito-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.espesor-header-btns {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+/* evitar que el click en los botones propague y cierre el details */
+.espesor-header-btns button { pointer-events: auto; }
+details[open] .carrito-summary { margin-bottom: 0.75rem; }
+/* Eliminar el triángulo nativo dentro del summary del carrito
+   para que los botones se vean bien sin el marcador por defecto */
+.carrito-summary::-webkit-details-marker { display: none; }
+.carrito-summary::marker { font-size: 0.9em; }
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -305,14 +380,11 @@ function onClienteInput() {
 }
 
 function onClienteFocus() {
-  // Al enfocar: limpiar el texto para que el usuario pueda escribir o ver toda la lista
   document.getElementById('cliente-input').value = '';
-  // No limpiar el hidden 'cliente' aqui; se limpia en onClienteInput() al escribir
   renderLista(CLIENTES);
 }
 
 function onClienteBlur() {
-  // Si el usuario cierra sin elegir, restaurar el texto del cliente anterior
   setTimeout(() => {
     const inp = document.getElementById('cliente-input');
     if (!inp.value.trim() && _clienteActual.codigo) {
@@ -320,7 +392,7 @@ function onClienteBlur() {
       document.getElementById('cliente').value = _clienteActual.codigo;
       guardarFormulario();
     }
-  }, 200); // demora para que mousedown de la lista se ejecute primero
+  }, 200);
 }
 
 function seleccionarCliente(codigo, nombre) {
@@ -443,7 +515,6 @@ function actualizarTotales() {
   if (document.getElementById('peso-display')) {
     document.getElementById('peso-display').textContent = `${peso.toFixed(2)} kg`;
   }
-  // Actualizar total móvil (visible en ≤600px)
   const movil = document.getElementById('total-movil-val');
   if (movil) movil.textContent = `${sym()} ${conv(totalSoles).toFixed(2)}`;
   const pesoMovil = document.getElementById('peso-movil-val');
@@ -476,15 +547,12 @@ async function agregarManual() {
 }
 
 async function exportar(formato, btnEl) {
-  // Validar que el carrito no esté vacío
   if (document.querySelectorAll('#tbody-carrito tr').length === 0) {
     toast('El carrito está vacío', 'error');
     return;
   }
-  // Deshabilitar botón mientras se genera el archivo
   if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Generando PDF…'; }
 
-  // cliente_nombre: preferir hidden (autocomplete seleccionado), si no usar lo que se escribió
   const clienteNombre = document.getElementById('cliente-nombre')?.value
     || document.getElementById('cliente-input')?.value
     || '';
@@ -571,13 +639,12 @@ window.addEventListener('beforeunload', e => {
   setTimeout(() => { _navegandoInternamente = false; }, 200);
 });
 
-// ── Persistencia del formulario (cliente, atención, proyecto…) ──
+// ── Persistencia del formulario ──
 function restaurarFormulario() {
   let f;
   try { f = JSON.parse(sessionStorage.getItem(_FORM_KEY) || 'null'); } catch { return; }
   if (!f) return;
 
-  // Cliente
   if (f.cliente) {
     _clienteActual = { codigo: f.cliente, nombre: f.clienteNombre };
     document.getElementById('cliente-input').value = f.clienteInput;
@@ -587,35 +654,28 @@ function restaurarFormulario() {
     document.getElementById('cliente-ubicacion').value = f.clienteUbicacion;
     filtrarAtenciones(f.cliente);
   }
-  // Atención (después de filtrarAtenciones para que existan las opciones)
   if (f.atencion) {
     document.getElementById('atencion').value = f.atencion;
     document.getElementById('atencion-email').value = f.atencionEmail || '';
   }
-  // Proyecto
   if (f.proyecto) document.getElementById('proyecto').value = f.proyecto;
-  // Texto fila amarilla
   if (f.encabezadoTabla) document.getElementById('encabezado-tabla').value = f.encabezadoTabla;
-  // Moneda (actualiza encabezados de tabla si existen)
   if (f.moneda) {
     document.getElementById('moneda').value = f.moneda;
     if (document.getElementById('th-pu')) cambiarMoneda();
   }
-  // Validez
   if (f.validez) {
     const vs = document.getElementById('validez');
     if (vs) vs.value = f.validez;
   }
 }
 
-// Guardar automáticamente en cada cambio
 document.getElementById('cliente-input')?.addEventListener('input', guardarFormulario);
 document.getElementById('proyecto')?.addEventListener('input', guardarFormulario);
 document.getElementById('encabezado-tabla')?.addEventListener('input', guardarFormulario);
 document.getElementById('atencion')?.addEventListener('change', guardarFormulario);
 document.getElementById('moneda')?.addEventListener('change', guardarFormulario);
 document.getElementById('validez')?.addEventListener('change', guardarFormulario);
-// Guardar al salir de la página (navegar a otra sección) como red de seguridad
 window.addEventListener('pagehide', guardarFormulario);
 
 // ── Vaciar carrito real Y panel en vivo si el usuario hace F5 ──
@@ -626,7 +686,6 @@ sessionStorage.removeItem('_reloadProgramatico');
 
 // ── Banner: editando copia desde historial ──
 const _editandoDesdeId = sessionStorage.getItem('editando_desde_cotizacion_id');
-// Restaurar formulario siempre que haya datos guardados (incluye volver desde catálogo u otra página)
 restaurarFormulario();
 if (_editandoDesdeId) {
   const banner = document.createElement('div');
@@ -644,6 +703,106 @@ if (_navType === 'reload' && !_yaVaciado && !_esProgramatico) {
   });
 } else {
   sessionStorage.removeItem('carritoVaciadoPorF5');
+}
+
+// ════════════════════════════════════════════
+// Modal cambio de espesor
+// ════════════════════════════════════════════
+let _espParte   = 'cuerpo';  // 'cuerpo' o 'tapa'
+let _espItemId  = 'all';     // 'all' o número
+
+function abrirModalEspesor(parte, itemId) {
+  _espParte  = parte;
+  _espItemId = String(itemId);
+
+  const titulos = { cuerpo: 'Cambiar espesor — Cuerpos', tapa: 'Cambiar espesor — Tapas' };
+  document.getElementById('modal-esp-titulo').textContent = titulos[parte] || 'Cambiar espesor';
+
+  const scope = itemId === 'all'
+    ? `Todos los <strong>${parte === 'tapa' ? 'tapas' : 'cuerpos'}</strong> del carrito serán recalculados.`
+    : `Solo este ítem será recalculado. Los ítems manuales o de catálogo se omiten automáticamente.`;
+  document.getElementById('modal-esp-desc').innerHTML =
+    scope + '<br><span style="font-size:0.8em;color:#888;">Nota: el precio se ajusta proporcionalmente al precio de plancha configurado.</span>';
+
+  document.getElementById('modal-esp-aviso').style.display = 'none';
+  document.getElementById('modal-espesor').style.display = 'flex';
+}
+
+function abrirModalEspesorItem(itemId) {
+  // Detectar automáticamente si el ítem es cuerpo o tapa
+  const item = carritoMap.get(itemId);
+  if (!item) return;
+  const esTapa = item.descripcion.toUpperCase().includes('TAPA');
+  abrirModalEspesor(esTapa ? 'tapa' : 'cuerpo', itemId);
+  // Ajustar título para ítem específico
+  document.getElementById('modal-esp-titulo').textContent =
+    esTapa ? 'Cambiar espesor — Esta tapa' : 'Cambiar espesor — Este cuerpo';
+  document.getElementById('modal-esp-desc').innerHTML =
+    `<strong>Ítem:</strong> ${item.descripcion.slice(0, 80)}${item.descripcion.length > 80 ? '…' : ''}` +
+    '<br><span style="font-size:0.8em;color:#888;">Los ítems manuales o de catálogo no son recalculables.</span>';
+}
+
+function cerrarModalEspesor() {
+  document.getElementById('modal-espesor').style.display = 'none';
+}
+
+document.getElementById('modal-espesor').addEventListener('click', function(e) {
+  if (e.target === this) cerrarModalEspesor();
+});
+
+async function aplicarEspesor() {
+  const nuevoEspesor = document.getElementById('modal-esp-select').value;
+  const btn = document.getElementById('btn-aplicar-espesor');
+  btn.disabled = true;
+  btn.textContent = 'Aplicando…';
+
+  const fd = formData({
+    nuevo_espesor: nuevoEspesor,
+    parte: _espParte,
+    item_id: _espItemId,
+  });
+
+  const data = await apiFetch('/api/carrito/cambiar_espesor', { method: 'POST', body: fd });
+
+  btn.disabled = false;
+  btn.textContent = 'Aplicar';
+
+  if (!data.ok) {
+    toast(data.error || 'Error al cambiar espesor', 'error');
+    return;
+  }
+
+  let msg = `${data.actualizados} ítem(s) actualizados a ${nuevoEspesor} mm.`;
+
+  if (data.omitidos && data.omitidos.length > 0) {
+    // Mostrar aviso en el modal antes de cerrar
+    const avisoEl = document.getElementById('modal-esp-aviso');
+    avisoEl.innerHTML = `<strong>⚠️ ${data.omitidos.length} ítem(s) omitidos</strong> (manuales o sin cálculo predeterminado):<ul style="margin:0.4rem 0 0; padding-left:1.2rem;">` +
+      data.omitidos.map(d => `<li style="font-size:0.78rem;">${d.slice(0, 70)}${d.length > 70 ? '…' : ''}</li>`).join('') +
+      '</ul>';
+    avisoEl.style.display = 'block';
+    msg += ` (${data.omitidos.length} omitidos — ver detalle en el modal)`;
+    toast(msg, data.actualizados > 0 ? 'success' : 'error');
+    // No cerrar aún para que el usuario lea los omitidos
+    if (data.actualizados > 0) {
+      setTimeout(() => {
+        cerrarModalEspesor();
+        sessionStorage.setItem('_reloadProgramatico', '1');
+        _navegandoInternamente = true;
+        window.location.reload();
+      }, 3500);
+    }
+  } else {
+    cerrarModalEspesor();
+    if (data.actualizados > 0) {
+      toast(msg, 'success');
+      sessionStorage.setItem('_reloadProgramatico', '1');
+      _navegandoInternamente = true;
+      setTimeout(() => window.location.reload(), 700);
+    } else {
+      toast('No hay ítems para cambiar con esos parámetros.', 'error');
+    }
+  }
 }
 </script>
 {% endblock %}
