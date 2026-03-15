@@ -189,6 +189,7 @@ def procesar_reporte(contenido_bytes: bytes, sin_sabados: set = None) -> dict:
             estimado_entrada = False   # solo la entrada fue estimada
             estimado_salida  = False   # solo la salida fue estimada
             ausente  = False
+            nota: str = ""
 
             if len(marcas) == 0:
                 ausente = True
@@ -199,43 +200,51 @@ def procesar_reporte(contenido_bytes: bytes, sin_sabados: set = None) -> dict:
                 marca_min = _hhmm_a_min(marcas[0])
 
                 es_sabado = fecha is not None and fecha.weekday() == 5
-                umbral = 13 * 60 if es_sabado else 14 * 60
-                p_entrada = prom_entrada_sab if es_sabado else prom_entrada
-                p_salida  = prom_salida_sab  if es_sabado else prom_salida
 
-                if marca_min < umbral:
-                    # Marca real = ENTRADA, se estima la SALIDA
-                    if p_salida is not None:
-                        dias_asistidos += 1
+                if es_sabado:
+                    # Sábado con una sola marca: asistido pero sin horas calculables
+                    dias_asistidos += 1
+                    if _hhmm_a_min(marcas[0]) < 13 * 60:
                         entrada = marcas[0]
-                        salida = _min_a_hhmm(p_salida)
-                        mins = max(0, int(round(p_salida)) - marca_min)
-                        horas = mins / 60
-                        horas_fmt = f"{mins // 60}h {mins % 60:02d}m"
-                        total_min += mins
-                        estimado = True
-                        estimado_salida = True
-                        dias_estimados += 1
                     else:
-                        ausente = True
-                        if not es_fin_semana:
-                            dias_habiles_ausentes += 1
-                else:
-                    # Marca real = SALIDA, se estima la ENTRADA
-                    if p_entrada is not None:
-                        dias_asistidos += 1
                         salida = marcas[0]
-                        entrada = _min_a_hhmm(p_entrada)
-                        mins = max(0, marca_min - int(round(p_entrada)))
-                        horas = mins / 60
-                        horas_fmt = f"{mins // 60}h {mins % 60:02d}m"
-                        total_min += mins
-                        estimado = True
-                        estimado_entrada = True
-                        dias_estimados += 1
+                    nota = "Asist. sin horas"
+                else:
+                    umbral = 14 * 60
+                    p_entrada = prom_entrada
+                    p_salida  = prom_salida
+
+                    if marca_min < umbral:
+                        # Marca real = ENTRADA, se estima la SALIDA
+                        if p_salida is not None:
+                            dias_asistidos += 1
+                            entrada = marcas[0]
+                            salida = _min_a_hhmm(p_salida)
+                            mins = max(0, int(round(p_salida)) - marca_min - 60)
+                            horas = mins / 60
+                            horas_fmt = f"{mins // 60}h {mins % 60:02d}m"
+                            total_min += mins
+                            estimado = True
+                            estimado_salida = True
+                            dias_estimados += 1
+                        else:
+                            ausente = True
+                            dias_habiles_ausentes += 1
                     else:
-                        ausente = True
-                        if not es_fin_semana:
+                        # Marca real = SALIDA, se estima la ENTRADA
+                        if p_entrada is not None:
+                            dias_asistidos += 1
+                            salida = marcas[0]
+                            entrada = _min_a_hhmm(p_entrada)
+                            mins = max(0, marca_min - int(round(p_entrada)) - 60)
+                            horas = mins / 60
+                            horas_fmt = f"{mins // 60}h {mins % 60:02d}m"
+                            total_min += mins
+                            estimado = True
+                            estimado_entrada = True
+                            dias_estimados += 1
+                        else:
+                            ausente = True
                             dias_habiles_ausentes += 1
 
             else:
@@ -245,7 +254,7 @@ def procesar_reporte(contenido_bytes: bytes, sin_sabados: set = None) -> dict:
                 salida  = marcas[-1]
                 e = _hhmm_a_min(entrada)
                 s = _hhmm_a_min(salida)
-                mins = max(0, s - e)
+                mins = max(0, s - e - 60)
                 horas = mins / 60
                 horas_fmt = f"{mins // 60}h {mins % 60:02d}m"
                 total_min += mins
@@ -262,6 +271,7 @@ def procesar_reporte(contenido_bytes: bytes, sin_sabados: set = None) -> dict:
                 "estimado_entrada": estimado_entrada,
                 "estimado_salida":  estimado_salida,
                 "ausente":          ausente,
+                "nota":             nota,
             })
 
         h = total_min // 60

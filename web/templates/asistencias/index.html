@@ -2,106 +2,76 @@
 {% block title %}Asistencias — AROLUZ{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="/asistencias/static/style.css">
+<link rel="stylesheet" href="/static/asistencias.css">
 {% endblock %}
 
 {% block content %}
 <div class="container">
 
-    <!-- ── Upload / Reprocesar ── -->
+    <!-- ── 1. Reportes guardados ── -->
+    {% if reportes %}
     <div class="card">
-        <h2>Reporte biométrico</h2>
-
-        {% if ultimo_archivo %}
-        <div class="reporte-guardado">
-            <div class="reporte-guardado-info">
-                <span class="reporte-icon">📄</span>
-                <span>{{ ultimo_archivo }}</span>
-            </div>
-            <a href="/asistencias/reprocesar" class="btn">Procesar</a>
-        </div>
-        <div class="upload-sep">— o subir un archivo diferente —</div>
-        {% endif %}
-
-        <form class="upload-form" method="post" action="/asistencias/procesar" enctype="multipart/form-data">
-            <input type="file" name="archivo" accept=".xls,application/vnd.ms-excel" {% if not ultimo_archivo %}required{% endif %}>
-            <button type="submit" class="btn {% if ultimo_archivo %}btn-outline{% endif %}">
-                {% if ultimo_archivo %}Subir nuevo archivo{% else %}Subir y procesar{% endif %}
-            </button>
-        </form>
-    </div>
-
-    <!-- ── Configuración de excepciones ── -->
-    <details class="card card-config" id="reglas" {% if not resultado %}open{% endif %}>
-        <summary>
-            <span>Reglas especiales</span>
-            {% if excepciones %}
-            <span class="badge badge-naranja" style="margin-left:8px">
-                {{ excepciones | length }} empleado{% if excepciones | length != 1 %}s{% endif %}
-            </span>
-            {% endif %}
-        </summary>
-        <div class="config-body">
-            <p class="config-desc">Empleados que <strong>no cuentan sábados</strong> (ni entrada, ni salida, ni horas):</p>
-            {% if excepciones %}
-            {% for exc in excepciones %}
-            <div class="excepcion-item">
-                <span class="exc-nombre">{{ exc.nombre }}</span>
-                <span class="exc-id">ID {{ exc.id }}</span>
-                <form method="post" action="/asistencias/excepciones/toggle" style="display:inline">
-                    <input type="hidden" name="emp_id" value="{{ exc.id }}">
-                    <input type="hidden" name="nombre" value="{{ exc.nombre }}">
-                    <button type="submit" class="btn btn-outline btn-sm">Quitar</button>
-                </form>
-            </div>
+        <h3 style="margin-bottom:12px">Reportes guardados</h3>
+        <table class="tabla-reportes">
+            <thead>
+                <tr>
+                    <th>Período</th>
+                    <th class="center">Empleados</th>
+                    <th>Subido el</th>
+                    <th>Por</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in reportes %}
+            <tr>
+                <td>
+                    <strong>{{ r.periodo_label | periodo_mes_solo }}</strong>
+                    <span class="periodo-raw">{{ r.periodo }}</span>
+                </td>
+                <td class="center">{{ r.num_empleados }}</td>
+                <td>{{ r.fecha_subida[:10] }}</td>
+                <td>{{ r.subido_por }}</td>
+                <td class="acciones-reporte">
+                    <a href="/asistencias/dashboard/{{ r.id }}" class="btn btn-sm">Dashboard</a>
+                    <a href="/asistencias/reportes/{{ r.id }}/procesar" class="btn btn-sm btn-outline">Procesar</a>
+                    <a href="/asistencias/reportes/{{ r.id }}/pdf" class="btn btn-sm btn-outline">PDF</a>
+                    <button class="btn btn-sm btn-outline btn-danger-outline"
+                            onclick="eliminarReporte({{ r.id }}, '{{ r.periodo_label | replace("'", "\\'") }}')">
+                        Eliminar
+                    </button>
+                </td>
+            </tr>
             {% endfor %}
-            {% else %}
-            <p class="config-vacio">Sin excepciones configuradas.</p>
-            {% endif %}
-            {% if resultado %}
-            <p class="config-hint">Usa el botón <strong>"Sin sáb"</strong> en la tabla de resultados para agregar empleados.</p>
-            {% else %}
-            <p class="config-hint">Procesa un reporte para agregar empleados a esta lista.</p>
-            {% endif %}
+            </tbody>
+        </table>
+    </div>
+    {% elif not resultado %}
+    <div class="card empty-state-reportes">
+        <p>No hay reportes guardados aún. Sube un archivo .xls para comenzar.</p>
+    </div>
+    {% endif %}
+
+    <!-- ── 2. Subir y procesar reportes ── -->
+    <div class="card">
+        <div class="upload-header">
+            <h2>Reportes de asistencia</h2>
+            <span class="upload-hint">Arrastra archivos .xls o haz clic para seleccionar</span>
         </div>
-    </details>
 
-    <!-- ── Cómo funciona ── -->
-    <details class="card card-info">
-        <summary>¿Cómo funciona el cálculo?</summary>
-        <div class="info-body">
-
-            <div class="info-bloque">
-                <div class="info-titulo">Días hábiles y sábados</div>
-                <p>Los días <strong>lunes a viernes</strong> son días hábiles. Un día hábil sin ninguna marca biométrica se cuenta como <span class="chip chip-rojo">ausencia</span>.</p>
-                <p>Los <strong>sábados</strong> aparecen en el detalle y sus horas se suman al total, pero <em>no generan ausencia</em> si el empleado no asistió — simplemente no se contabilizan como día hábil.</p>
-                <p>Los <strong>domingos</strong> se muestran como fin de semana y nunca cuentan como falta ni como horas.</p>
-            </div>
-
-            <div class="info-bloque">
-                <div class="info-titulo">Estimación por promedio <span class="chip chip-naranja">* estimado</span></div>
-                <p>El reloj biométrico registra cada marca de forma individual. Si un empleado solo tiene <strong>una marca en el día</strong> (olvidó marcar entrada o salida), el sistema la clasifica así:</p>
-                <ul>
-                    <li>Si la marca es <strong>antes de las 14:00</strong> → se interpreta como <em>entrada</em>. La salida se estima con el promedio de sus salidas de los demás días.</li>
-                    <li>Si la marca es <strong>después de las 14:00</strong> → se interpreta como <em>salida</em>. La entrada se estima con el promedio de sus entradas.</li>
-                </ul>
-                <p>Para sábados el umbral es <strong>13:00</strong> (horario reducido). La hora estimada aparece en <span style="color:var(--naranja);font-style:italic">naranja con asterisco</span> para distinguirla de la hora real.</p>
-                <p>Si el empleado aún no tiene días completos suficientes para calcular un promedio, el día se marca como ausente en lugar de estimarse.</p>
-            </div>
-
-            <div class="info-bloque">
-                <div class="info-titulo">Regla "Sin sáb"</div>
-                <p>Algunos empleados tienen horario estrictamente de lunes a viernes. Activando <strong>Sin sáb</strong> en su fila, todas las marcas del sábado se ignoran por completo: no suman horas, no se usan para calcular promedios y no aparecen en el detalle.</p>
-                <p>Esta regla es útil cuando el biométrico registra por error entradas/salidas en sábado para empleados que no trabajan ese día.</p>
-            </div>
-
-            <div class="info-bloque">
-                <div class="info-titulo">Columna "Días estimados"</div>
-                <p>Indica cuántos días del período tuvieron al menos una hora completada por promedio. Es un indicador de calidad del reporte: a mayor cantidad de días estimados, más marcas le faltan al empleado en el biométrico.</p>
-            </div>
-
+        <div class="upload-zona" id="upload-zona">
+            <input type="file" id="file-input-multi" multiple accept=".xls,application/vnd.ms-excel" style="display:none">
+            <label for="file-input-multi" class="upload-label-multi">
+                <span class="upload-icono">📂</span>
+                <span>Seleccionar archivos .xls</span>
+                <span class="upload-sub">Puedes subir varios a la vez</span>
+            </label>
         </div>
-    </details>
+        <div id="upload-progreso" style="display:none" class="upload-progreso">
+            <span class="upload-spinner"></span> Procesando archivos...
+        </div>
+        <div id="upload-resultado"></div>
+    </div>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
@@ -124,8 +94,8 @@
             <button class="btn btn-outline btn-sm" id="btn-solo-empresa" onclick="filtrarDepartamento('Empresa')">Solo Empresa</button>
             <button class="btn btn-outline btn-sm" id="btn-ver-todos" onclick="filtrarDepartamento('todos')">Todos</button>
         </div>
-        <span class="controles-sep"></span>
-        <div class="controles-grupo">
+        <span class="controles-sep" id="sep-quincena"></span>
+        <div class="controles-grupo" id="grupo-quincena">
             <span class="controles-label">Detalle:</span>
             <button class="btn btn-sm btn-outline" id="btn-q1" onclick="filtrarQuincena(1)">1ª Quincena</button>
             <button class="btn btn-sm btn-outline" id="btn-q2" onclick="filtrarQuincena(2)">2ª Quincena</button>
@@ -264,10 +234,10 @@
                                     <td class="center">
                                         {% if d.estimado %}
                                             <span class="badge badge-naranja" title="Hora completada con promedio del empleado">* estimado</span>
+                                        {% elif d.nota %}
+                                            <span class="badge badge-gris">{{ d.nota }}</span>
                                         {% elif d.ausente and not d.es_fin_semana %}
                                             <span class="badge badge-rojo">falta</span>
-                                        {% elif d.es_fin_semana and not d.ausente %}
-                                            <span class="badge badge-gris">no hábil</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -293,6 +263,113 @@
 
     {% endif %}
 
+    <!-- ── 3. Cómo funciona el cálculo ── -->
+    <details class="card card-info">
+        <summary>¿Cómo funciona el cálculo?</summary>
+        <div class="info-body">
+
+            <div class="info-bloque">
+                <div class="info-titulo">Días hábiles y fines de semana</div>
+                <p>Los días <strong>lunes a viernes</strong> son días hábiles. Un día hábil sin ninguna marca biométrica se cuenta como <span class="chip chip-rojo">ausencia</span>.</p>
+                <p>Los <strong>sábados</strong> aparecen en el detalle y sus horas se suman al total, pero <em>no generan ausencia</em> si el empleado no asistió.</p>
+                <p>Los <strong>domingos</strong> se muestran como fin de semana y no cuentan como falta. Si el biométrico registra marcas en domingo, las horas sí se suman al total (igual que un sábado).</p>
+            </div>
+
+            <div class="info-bloque">
+                <div class="info-titulo">Cálculo de horas — deducción de 1 hora</div>
+                <p>Las horas trabajadas se calculan como:</p>
+                <p style="margin-left:16px; font-family:monospace; background:var(--fondo-tabla,#f5f5f5); padding:6px 10px; border-radius:4px; display:inline-block">
+                    horas = (salida − entrada) − <strong>60 min</strong>
+                </p>
+                <p>Se descuenta automáticamente <strong>1 hora</strong> en todos los días (pausa de almuerzo). El resultado nunca puede ser negativo.</p>
+                <p>Ejemplo: entrada 08:00 → salida 17:00 = 9 h − 1 h = <strong>8 h 00 m</strong>.</p>
+            </div>
+
+            <div class="info-bloque">
+                <div class="info-titulo">Estimación por promedio <span class="chip chip-naranja">* estimado</span></div>
+                <p>El reloj biométrico registra cada marca de forma individual. Si un empleado solo tiene <strong>una marca en el día</strong> (olvidó marcar entrada o salida), el sistema la clasifica así:</p>
+                <ul>
+                    <li>Si la marca es <strong>antes de las 14:00</strong> → se interpreta como <em>entrada</em>. La salida se estima con el promedio de sus salidas de los demás días.</li>
+                    <li>Si la marca es <strong>después de las 14:00</strong> → se interpreta como <em>salida</em>. La entrada se estima con el promedio de sus entradas.</li>
+                </ul>
+                <p>Para sábados el umbral es <strong>13:00</strong> (horario reducido). Si el sábado tiene solo una marca, se registra como <em>"Asist. sin horas"</em> sin sumar tiempo.</p>
+                <p>La hora estimada aparece en <span style="color:var(--naranja);font-style:italic">naranja con asterisco</span> para distinguirla de la hora real.</p>
+                <p>Si el empleado aún no tiene días completos suficientes para calcular un promedio, el día se marca como ausente en lugar de estimarse.</p>
+            </div>
+
+            <div class="info-bloque">
+                <div class="info-titulo">Regla "Sin sáb"</div>
+                <p>Algunos empleados tienen horario estrictamente de lunes a viernes. Activando <strong>Sin sáb</strong> en su fila, todas las marcas del sábado se ignoran por completo: no suman horas, no se usan para calcular promedios y no aparecen en el detalle.</p>
+                <p>Esta regla es útil cuando el biométrico registra por error entradas/salidas en sábado para empleados que no trabajan ese día.</p>
+            </div>
+
+            <div class="info-bloque">
+                <div class="info-titulo">Columna "Días estimados"</div>
+                <p>Indica cuántos días del período tuvieron al menos una hora completada por promedio. Es un indicador de calidad del reporte: a mayor cantidad de días estimados, más marcas le faltan al empleado en el biométrico.</p>
+            </div>
+
+        </div>
+    </details>
+
+    <!-- ── 4. Reglas especiales ── -->
+    <details class="card card-config" id="reglas" {% if not resultado %}open{% endif %}>
+        <summary>
+            <span>Reglas especiales</span>
+            {% if excepciones %}
+            <span class="badge badge-naranja" style="margin-left:8px">
+                {{ excepciones | length }} empleado{% if excepciones | length != 1 %}s{% endif %}
+            </span>
+            {% endif %}
+        </summary>
+        <div class="config-body">
+            <p class="config-desc">Empleados que <strong>no cuentan sábados</strong> (ni entrada, ni salida, ni horas):</p>
+            {% if excepciones %}
+            {% for exc in excepciones %}
+            <div class="excepcion-item">
+                <span class="exc-nombre">{{ exc.nombre }}</span>
+                <span class="exc-id">ID {{ exc.id }}</span>
+                <form method="post" action="/asistencias/excepciones/toggle" style="display:inline">
+                    <input type="hidden" name="emp_id" value="{{ exc.id }}">
+                    <input type="hidden" name="nombre" value="{{ exc.nombre }}">
+                    <button type="submit" class="btn btn-outline btn-sm">Quitar</button>
+                </form>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="config-vacio">Sin excepciones configuradas.</p>
+            {% endif %}
+            {% if resultado %}
+            <p class="config-hint">Usa el botón <strong>"Sin sáb"</strong> en la tabla de resultados para agregar empleados.</p>
+            {% else %}
+            <p class="config-hint">Procesa un reporte para agregar empleados a esta lista.</p>
+            {% endif %}
+        </div>
+    </details>
+
+    <!-- ── 5. Procesar un reporte sin guardar ── -->
+    <details class="card card-config" id="proc-rapido">
+        <summary><span>Procesar un reporte sin guardar</span></summary>
+        <div class="config-body">
+            <p class="config-desc">Para revisar rápidamente un reporte sin almacenarlo, usa el formulario habitual:</p>
+            {% if ultimo_archivo %}
+            <div class="reporte-guardado">
+                <div class="reporte-guardado-info">
+                    <span class="reporte-icon">📄</span>
+                    <span>{{ ultimo_archivo }}</span>
+                </div>
+                <a href="/asistencias/reprocesar" class="btn">Procesar</a>
+            </div>
+            <div class="upload-sep">— o subir un archivo diferente —</div>
+            {% endif %}
+            <form class="upload-form" method="post" action="/asistencias/procesar" enctype="multipart/form-data">
+                <input type="file" name="archivo" accept=".xls,application/vnd.ms-excel" {% if not ultimo_archivo %}required{% endif %}>
+                <button type="submit" class="btn {% if ultimo_archivo %}btn-outline{% endif %}">
+                    {% if ultimo_archivo %}Subir nuevo archivo{% else %}Subir y procesar{% endif %}
+                </button>
+            </form>
+        </div>
+    </details>
+
     <div class="footer">AROLUZ E.I.R.L. — Sistema de Control de Asistencias</div>
 </div>
 {% endblock %}
@@ -301,11 +378,41 @@
 <script>
 let quincenaActiva = 0;
 let deptoActivo = "Trabajador";
+
 {% if resultado and resultado.empleados and resultado.empleados[0].detalle %}
+const _primerDiaMes = {{ resultado.empleados[0].detalle[0].dia }};
 const _ultimoDiaMes = {{ resultado.empleados[0].detalle[-1].dia }};
 {% else %}
+const _primerDiaMes = 1;
 const _ultimoDiaMes = 31;
 {% endif %}
+
+// Determina qué opciones de quincena tienen datos reales
+const _tieneQ1   = _primerDiaMes <= 15;
+const _tieneQ2   = _ultimoDiaMes >= 16;
+const _tieneTodo = _tieneQ1 && _tieneQ2;
+
+function _inicializarBotonesQuincena() {
+    const btnQ1   = document.getElementById("btn-q1");
+    const btnQ2   = document.getElementById("btn-q2");
+    const btnTodo = document.getElementById("btn-qtodo");
+
+    if (!btnQ1) return; // no hay resultado activo
+
+    // Deshabilitar botones sin datos (grises, no clickeables)
+    if (!_tieneQ1)   { btnQ1.disabled   = true; btnQ1.classList.add("btn-disabled");   }
+    if (!_tieneQ2)   { btnQ2.disabled   = true; btnQ2.classList.add("btn-disabled");   }
+    if (!_tieneTodo) { btnTodo.disabled = true; btnTodo.classList.add("btn-disabled"); }
+
+    // Selección por defecto según los datos disponibles
+    if (_tieneTodo) {
+        filtrarQuincena(0);      // mes completo
+    } else if (_tieneQ1) {
+        filtrarQuincena(1);      // solo 1ª quincena
+    } else {
+        filtrarQuincena(2);      // solo 2ª quincena
+    }
+}
 
 function filtrarQuincena(q) {
     quincenaActiva = q;
@@ -461,10 +568,10 @@ function renderFilaDetalle(d) {
     let notaHtml = "";
     if (d.estimado) {
         notaHtml = '<span class="badge badge-naranja" title="Hora completada con promedio del empleado">* estimado</span>';
+    } else if (d.nota) {
+        notaHtml = `<span class="badge badge-gris">${d.nota}</span>`;
     } else if (d.ausente && !d.es_fin_semana) {
         notaHtml = '<span class="badge badge-rojo">falta</span>';
-    } else if (d.es_fin_semana && !d.ausente) {
-        notaHtml = '<span class="badge badge-gris">no hábil</span>';
     }
 
     return `<tr class="${clsFin}" data-dia="${d.dia}">
@@ -554,7 +661,98 @@ document.addEventListener("DOMContentLoaded", function() {
         history.replaceState(null, document.title, "/asistencias/");
     }
     filtrarDepartamento("Trabajador");
+    _inicializarBotonesQuincena();
     {% endif %}
+
+    // ── Upload múltiple drag-and-drop ──
+    const uploadZona  = document.getElementById("upload-zona");
+    const fileInput   = document.getElementById("file-input-multi");
+    if (!uploadZona || !fileInput) return;
+
+    uploadZona.addEventListener("dragover", function(e) {
+        e.preventDefault();
+        uploadZona.classList.add("drag-over");
+    });
+    uploadZona.addEventListener("dragleave", function() {
+        uploadZona.classList.remove("drag-over");
+    });
+    uploadZona.addEventListener("drop", function(e) {
+        e.preventDefault();
+        uploadZona.classList.remove("drag-over");
+        subirArchivos(e.dataTransfer.files, false);
+    });
+    fileInput.addEventListener("change", function() {
+        if (fileInput.files.length > 0) subirArchivos(fileInput.files, false);
+    });
 });
+
+async function subirArchivos(files, forzar) {
+    const progreso  = document.getElementById("upload-progreso");
+    const resultado = document.getElementById("upload-resultado");
+    const fd = new FormData();
+    Array.from(files).forEach(function(f) { fd.append("archivos", f); });
+    if (forzar) fd.append("forzar", "1");
+
+    progreso.style.display  = "";
+    resultado.innerHTML     = "";
+
+    let data;
+    try {
+        const resp = await fetch("/asistencias/subir", { method: "POST", body: fd });
+        data = await resp.json();
+    } catch(err) {
+        progreso.style.display = "none";
+        resultado.innerHTML = '<div class="alert alert-error">Error de conexión al subir archivos.</div>';
+        return;
+    }
+    progreso.style.display = "none";
+
+    let html = "";
+    if (data.guardados && data.guardados.length > 0) {
+        html += '<div class="alert alert-success">';
+        html += data.guardados.map(function(g) {
+            if (g.fusionado) {
+                return "✓ " + g.periodo_label + " — quincenas fusionadas en un solo registro";
+            }
+            return "✓ " + g.periodo_label + " guardado";
+        }).join("<br>");
+        html += "</div>";
+    }
+    if (data.errores && data.errores.length > 0) {
+        html += '<div class="alert alert-error">';
+        html += data.errores.map(function(e) {
+            return "✗ " + e.nombre_archivo + ": " + e.error;
+        }).join("<br>");
+        html += "</div>";
+    }
+    resultado.innerHTML = html;
+
+    if (data.duplicados && data.duplicados.length > 0) {
+        const nombres = data.duplicados.map(function(d) { return d.periodo_label; }).join(", ");
+        const conf = confirm("Ya existe un reporte para: " + nombres + ".\n¿Deseas sobreescribirlo?");
+        if (conf) {
+            await subirArchivos(files, true);
+            return;
+        }
+    }
+
+    if ((data.guardados && data.guardados.length > 0) || (data.duplicados && data.duplicados.length > 0 && !forzar)) {
+        setTimeout(function() { location.reload(); }, 800);
+    }
+}
+
+async function eliminarReporte(id, label) {
+    if (!confirm("¿Eliminar el reporte de " + label + "?\nEsta acción no se puede deshacer.")) return;
+    try {
+        const resp = await fetch("/asistencias/reportes/" + id, { method: "DELETE" });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert("Error al eliminar el reporte.");
+        }
+    } catch(err) {
+        alert("Error de conexión.");
+    }
+}
 </script>
 {% endblock %}

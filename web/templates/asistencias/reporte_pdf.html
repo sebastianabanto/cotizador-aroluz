@@ -169,8 +169,8 @@
             </td>
             <td class="center">
                 {% if d.estimado %}<span class="badge badge-naranja">* estimado</span>
+                {% elif d.nota %}<span class="badge badge-gris">{{ d.nota }}</span>
                 {% elif d.ausente and not d.es_fin_semana %}<span class="badge badge-rojo">falta</span>
-                {% elif d.es_fin_semana and not d.ausente %}<span class="badge badge-gris">no hábil</span>
                 {% endif %}
             </td>
         </tr>
@@ -231,8 +231,8 @@
         </td>
         <td class="center">
             {% if d.estimado %}<span class="badge badge-naranja">* estimado</span>
+            {% elif d.nota %}<span class="badge badge-gris">{{ d.nota }}</span>
             {% elif d.ausente and not d.es_fin_semana %}<span class="badge badge-rojo">falta</span>
-            {% elif d.es_fin_semana and not d.ausente %}<span class="badge badge-gris">no hábil</span>
             {% endif %}
         </td>
     </tr>

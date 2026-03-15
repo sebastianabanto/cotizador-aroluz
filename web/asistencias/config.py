@@ -1,12 +1,12 @@
 """
 config.py — Persistencia de reglas especiales por empleado.
-Almacena en asistencias/data/excepciones.json
+Almacena en web/data/asistencias/excepciones.json
 """
 
 import json
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = Path(__file__).parent.parent / "data" / "asistencias"
 EXCEPCIONES_PATH = DATA_DIR / "excepciones.json"
 
 
@@ -38,7 +38,7 @@ def toggle_excepcion(emp_id: str, nombre: str) -> bool:
         excepciones.append({"id": emp_id, "nombre": nombre})
         added = True
 
-    DATA_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     EXCEPCIONES_PATH.write_text(
         json.dumps({"sin_sabados": excepciones}, indent=2, ensure_ascii=False),
         encoding="utf-8",

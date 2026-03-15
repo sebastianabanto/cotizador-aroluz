@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ reporte.periodo_label }} — AROLUZ{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="/static/asistencias.css">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <!-- ── Encabezado ── -->
+    <div class="dash-header">
+        <div>
+            <h1 class="dash-titulo">{{ reporte.periodo_label }}</h1>
+            <p class="dash-sub">{{ reporte.periodo }} &nbsp;·&nbsp; {{ reporte.num_empleados }} empleado{% if reporte.num_empleados != 1 %}s{% endif %}</p>
+        </div>
+        <div class="dash-acciones">
+            <a href="/asistencias/reportes/{{ reporte.id }}/pdf" class="btn btn-outline btn-sm" target="_blank">↓ PDF</a>
+            <a href="/asistencias/" class="btn btn-outline btn-sm">← Volver</a>
+        </div>
+    </div>
+
+    <!-- ── KPI Cards ── -->
+    <div class="kpi-grid">
+        <div class="kpi-card kpi-verde">
+            <span class="kpi-valor">{{ kpis.pct_asistencia }}%</span>
+            <span class="kpi-label">Asistencia</span>
+        </div>
+        <div class="kpi-card kpi-rojo">
+            <span class="kpi-valor">{{ kpis.total_ausencias }}</span>
+            <span class="kpi-label">Ausencias hábiles</span>
+        </div>
+        <div class="kpi-card kpi-naranja">
+            <span class="kpi-valor">{{ kpis.total_estimados }}</span>
+            <span class="kpi-label">Sin marcado</span>
+        </div>
+        <div class="kpi-card kpi-azul">
+            <span class="kpi-valor">{{ kpis.prom_horas_dia }}h</span>
+            <span class="kpi-label">Prom. horas / día</span>
+        </div>
+    </div>
+
+    <!-- ── Descripción de KPIs ── -->
+    <div class="kpi-descs">
+        <div class="kpi-desc-item kpi-desc-verde">
+            <span class="kpi-desc-nombre">Asistencia</span>
+            <span class="kpi-desc-texto">Porcentaje promedio de días trabajados sobre el total de días hábiles del período, considerando todos los empleados activos.</span>
+        </div>
+        <div class="kpi-desc-item kpi-desc-rojo">
+            <span class="kpi-desc-nombre">Ausencias hábiles</span>
+            <span class="kpi-desc-texto">Total de días hábiles en los que un empleado no registró ningún marcado de entrada ni salida.</span>
+        </div>
+        <div class="kpi-desc-item kpi-desc-naranja">
+            <span class="kpi-desc-nombre">Sin marcado</span>
+            <span class="kpi-desc-texto">Días con registro incompleto: faltó la marca de entrada o de salida. La asistencia se estimó automáticamente.</span>
+        </div>
+        <div class="kpi-desc-item kpi-desc-azul">
+            <span class="kpi-desc-nombre">Prom. horas / día</span>
+            <span class="kpi-desc-texto">Promedio de horas trabajadas por día hábil, calculado solo sobre los días con marcado completo de entrada y salida.</span>
+        </div>
+    </div>
+
+    <!-- ── Gráfico: Asistencia por empleado (fila completa) ── -->
+    <div class="card">
+        <h3 class="chart-titulo">Asistencia por empleado</h3>
+        <div class="chart-leyenda">
+            <span class="ley-item ley-verde">Presente</span>
+            <span class="ley-item ley-naranja">Sin marca</span>
+            <span class="ley-item ley-rojo">Ausente</span>
+        </div>
+        <div id="grafico-barras"></div>
+    </div>
+
+    <!-- ── Heatmap ── -->
+    <div class="card">
+        <h3 class="chart-titulo">Mapa de asistencia</h3>
+        <div class="chart-leyenda">
+            <span class="ley-item ley-verde">Completo</span>
+            <span class="ley-item ley-naranja">Estimado</span>
+            <span class="ley-item ley-rojo">Ausente</span>
+            <span class="ley-item ley-gris">Fin de semana</span>
+        </div>
+        <div class="heatmap-wrap" id="heatmap-wrap"></div>
+    </div>
+
+    <!-- ── Hora de entrada ── -->
+    <div class="card">
+        <h3 class="chart-titulo">Hora de entrada por día y empleado</h3>
+        <div class="chart-leyenda">
+            <span class="ley-item ley-verde">Antes de 9:00</span>
+            <span class="ley-item ley-naranja">9:00 – 9:14</span>
+            <span class="ley-item ley-rojo">9:15 o más tarde</span>
+        </div>
+        <div class="heatmap-wrap" id="grafico-entrada"></div>
+    </div>
+
+    <!-- ── Comparador ── -->
+    <div class="card">
+        <div class="comparador-header">
+            <h3>Comparar con otro período</h3>
+            {% if todos_reportes | length > 1 %}
+            <select id="sel-periodo-b" onchange="cargarComparador(this.value)">
+                <option value="">— Seleccionar período —</option>
+                {% for r in todos_reportes %}
+                {% if r.id != reporte.id %}
+                <option value="{{ r.id }}">{{ r.periodo_label }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            {% else %}
+            <p class="config-vacio" style="margin:0">No hay otros reportes para comparar. Sube más archivos desde <a href="/asistencias/">Asistencias</a>.</p>
+            {% endif %}
+        </div>
+        <div id="grafico-comparacion" style="display:none"></div>
+    </div>
+
+</div>
+
+<!-- Datos para el JS -->
+<script>
+const DATOS_REPORTE = {{ datos | tojson }};
+const KPIS = {{ kpis | tojson }};
+</script>
+<script src="/static/asistencias-dashboard.js"></script>
+{% endblock %}

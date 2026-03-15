@@ -175,7 +175,7 @@ def _generar_pdf_reportlab(
         os.path.join(os.path.dirname(__file__), "..", "templates")
     )
     env  = Environment(loader=FileSystemLoader(template_dir))
-    tmpl = env.get_template("cotizacion_pdf.html")
+    tmpl = env.get_template("cotizacion/cotizacion_pdf.html")
     html_str = tmpl.render(
         numero_cotizacion = numero_cotizacion,
         fecha_completa    = _fecha_larga(fecha),
@@ -602,7 +602,7 @@ def _generar_pdf_html(
 
     template_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "templates"))
     env  = Environment(loader=FileSystemLoader(template_dir))
-    html = env.get_template("cotizacion_pdf.html").render(
+    html = env.get_template("cotizacion/cotizacion_pdf.html").render(
         numero_cotizacion = numero_cotizacion,
         fecha_completa    = _fecha_larga(fecha),
         razon_social      = cliente_nombre or cliente or "—",

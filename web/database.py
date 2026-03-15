@@ -168,6 +168,19 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS reportes_asistencia (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            periodo        TEXT NOT NULL UNIQUE,
+            periodo_label  TEXT NOT NULL,
+            fecha_subida   TEXT NOT NULL,
+            subido_por     TEXT NOT NULL,
+            nombre_archivo TEXT NOT NULL,
+            num_empleados  INTEGER NOT NULL,
+            datos_json     TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
 
     # Migraciones: agregar columnas nuevas si no existen (bases de datos existentes)
@@ -183,6 +196,7 @@ def init_db():
     _add_column_if_missing(conn, "cotizaciones", "encabezado_tabla", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "usuarios", "rol", "TEXT NOT NULL DEFAULT 'USER'")
     _add_column_if_missing(conn, "usuarios", "ver_asistencias", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "carrito_items", "descripcion_calculada", "TEXT DEFAULT NULL")
     # Promover al usuario admin a ADMIN si aún no lo es
     conn.execute("UPDATE usuarios SET rol='ADMIN' WHERE username='admin' AND rol='USER'")
     # ADMIN siempre tiene acceso a asistencias
@@ -212,6 +226,7 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_cotizaciones_username ON cotizaciones(username)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_cotizaciones_fecha ON cotizaciones(fecha DESC)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_carrito_items_username ON carrito_items(username)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_reportes_asistencia_periodo ON reportes_asistencia(periodo DESC)")
     conn.commit()
 
     conn.close()
@@ -817,8 +832,8 @@ def add_item_carrito_db(username: str, item: Dict) -> int:
     c.execute(
         """INSERT INTO carrito_items
            (username, tipo, descripcion, precio_unitario, peso_unitario,
-            cantidad, unidad, tipo_galvanizado, porcentaje_ganancia)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, descripcion_calculada)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             username,
             item.get("tipo", ""),
@@ -829,6 +844,7 @@ def add_item_carrito_db(username: str, item: Dict) -> int:
             item.get("unidad", "UND"),
             item.get("tipo_galvanizado", "GO"),
             item.get("porcentaje_ganancia", "30"),
+            item.get("descripcion_calculada") or None,
         ),
     )
     item_id = c.lastrowid
@@ -851,13 +867,45 @@ def update_cantidad_carrito_db(item_id: int, username: str, cantidad: int) -> bo
     return updated
 
 
-def update_item_precio_carrito_db(item_id: int, username: str, precio_unitario: float, peso_unitario: float, descripcion: str) -> bool:
-    """Actualiza precio, peso y descripción de un item del carrito."""
+def update_item_precio_carrito_db(
+    item_id: int, username: str,
+    precio_unitario: float, peso_unitario: float,
+    descripcion: str, descripcion_calculada: Optional[str] = None,
+) -> bool:
+    """Actualiza precio, peso y descripción de un item del carrito.
+    Si se pasa descripcion_calculada, actualiza ese campo en vez de descripcion."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    c = conn.cursor()
+    if descripcion_calculada is not None:
+        c.execute(
+            "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion_calculada=? WHERE id=? AND username=?",
+            (round(precio_unitario, 4), round(peso_unitario, 6), descripcion_calculada, item_id, username),
+        )
+    else:
+        c.execute(
+            "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion=? WHERE id=? AND username=?",
+            (round(precio_unitario, 4), round(peso_unitario, 6), descripcion, item_id, username),
+        )
+    updated = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
+
+
+def update_item_campos_carrito_db(
+    item_id: int, username: str,
+    descripcion: str, unidad: str,
+    precio_unitario: float, descripcion_calculada: Optional[str] = None,
+) -> bool:
+    """Actualiza descripción, unidad, precio y opcionalmente descripcion_calculada de un item."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
-        "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion=? WHERE id=? AND username=?",
-        (round(precio_unitario, 4), round(peso_unitario, 6), descripcion, item_id, username),
+        """UPDATE carrito_items
+           SET descripcion=?, unidad=?, precio_unitario=?, descripcion_calculada=?
+           WHERE id=? AND username=?""",
+        (descripcion, unidad, round(precio_unitario, 4),
+         descripcion_calculada or None, item_id, username),
     )
     updated = c.rowcount > 0
     conn.commit()
@@ -1473,6 +1521,134 @@ def delete_oc_item(item_id: int, proyecto: str) -> bool:
     conn.commit()
     conn.close()
     return deleted
+
+
+# ─────────────────────────────────────────────
+# Reportes de asistencia
+# ─────────────────────────────────────────────
+
+def guardar_reporte_asistencia(
+    periodo: str,
+    periodo_label: str,
+    subido_por: str,
+    nombre_archivo: str,
+    num_empleados: int,
+    datos_json_str: str,
+) -> int:
+    """Inserta un reporte procesado. Devuelve el id insertado."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    c = conn.cursor()
+    c.execute(
+        """INSERT INTO reportes_asistencia
+           (periodo, periodo_label, fecha_subida, subido_por, nombre_archivo, num_empleados, datos_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (periodo, periodo_label, _dt.now().isoformat(timespec="seconds"),
+         subido_por, nombre_archivo, num_empleados, datos_json_str),
+    )
+    nuevo_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return nuevo_id
+
+
+def listar_reportes_asistencia() -> List[Dict]:
+    """Devuelve todos los reportes sin datos_json, ordenados por fecha_subida DESC."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(
+        """SELECT id, periodo, periodo_label, fecha_subida, subido_por, nombre_archivo, num_empleados
+           FROM reportes_asistencia ORDER BY fecha_subida DESC"""
+    )
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def obtener_reporte_asistencia(reporte_id: int) -> Optional[Dict]:
+    """Devuelve el reporte completo incluyendo datos_json, o None si no existe."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM reportes_asistencia WHERE id=?", (reporte_id,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def eliminar_reporte_asistencia(reporte_id: int) -> bool:
+    """Elimina el reporte de DB. Devuelve True si existía."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    c = conn.cursor()
+    c.execute("DELETE FROM reportes_asistencia WHERE id=?", (reporte_id,))
+    deleted = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def periodo_existe(periodo: str) -> Optional[int]:
+    """Devuelve el id del reporte si el período ya existe, o None."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    c = conn.cursor()
+    c.execute("SELECT id FROM reportes_asistencia WHERE periodo=?", (periodo,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def buscar_reporte_por_mes(anio: int, mes: int) -> Optional[Dict]:
+    """Busca un reporte existente que cubra el mismo mes/año (quincena o mes completo)."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    patron = f"{anio:04d}-{mes:02d}-%"
+    c.execute("SELECT * FROM reportes_asistencia WHERE periodo LIKE ?", (patron,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def actualizar_reporte_asistencia(
+    reporte_id: int,
+    nombre_archivo: str,
+    subido_por: str,
+    num_empleados: int,
+    datos_json_str: str,
+):
+    """Sobreescribe datos de un reporte existente (para duplicados confirmados)."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute(
+        """UPDATE reportes_asistencia
+           SET nombre_archivo=?, subido_por=?, fecha_subida=?, num_empleados=?, datos_json=?
+           WHERE id=?""",
+        (nombre_archivo, subido_por, _dt.now().isoformat(timespec="seconds"),
+         num_empleados, datos_json_str, reporte_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def fusionar_reporte_asistencia(
+    reporte_id: int,
+    periodo: str,
+    periodo_label: str,
+    subido_por: str,
+    num_empleados: int,
+    datos_json_str: str,
+) -> None:
+    """Actualiza un reporte con datos fusionados de dos quincenas del mismo mes."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute(
+        """UPDATE reportes_asistencia
+           SET periodo=?, periodo_label=?, subido_por=?, fecha_subida=?,
+               num_empleados=?, datos_json=?
+           WHERE id=?""",
+        (periodo, periodo_label, subido_por, _dt.now().isoformat(timespec="seconds"),
+         num_empleados, datos_json_str, reporte_id),
+    )
+    conn.commit()
+    conn.close()
 
 
 # Inicializar al importar

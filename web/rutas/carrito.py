@@ -7,6 +7,7 @@ import re
 
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from typing import Optional
 
 from web.auth import require_login
@@ -15,9 +16,20 @@ from web.database import (
     add_item_carrito_db,
     update_cantidad_carrito_db,
     update_item_precio_carrito_db,
+    update_item_campos_carrito_db,
     delete_item_carrito_db,
     clear_carrito_db,
     cargar_config,
+)
+from web.motor import (
+    PricingConfig,
+    cotizar_bandeja,
+    cotizar_curva_horizontal,
+    cotizar_curva_vertical,
+    cotizar_tee,
+    cotizar_cruz,
+    cotizar_reduccion,
+    cotizar_caja_pase,
 )
 
 router = APIRouter(prefix="/api/carrito", tags=["carrito"])
@@ -54,6 +66,7 @@ async def api_agregar_al_carrito(
     unidad: str = Form("UND"),
     tipo_galvanizado: str = Form("GO"),
     porcentaje_ganancia: str = Form("30"),
+    descripcion_calculada: Optional[str] = Form(None),
 ):
     item = {
         "tipo": tipo,
@@ -64,6 +77,7 @@ async def api_agregar_al_carrito(
         "unidad": unidad,
         "tipo_galvanizado": tipo_galvanizado,
         "porcentaje_ganancia": porcentaje_ganancia,
+        "descripcion_calculada": descripcion_calculada,
     }
     add_item_carrito_db(usuario["u"], item)
     n = len(get_carrito(usuario["u"]))
@@ -182,7 +196,10 @@ async def api_cambiar_espesor(
             continue
 
         desc = item["descripcion"]
-        es_tapa = "TAPA" in desc.upper()
+        desc_calc = item.get("descripcion_calculada") or None
+        # Para detectar tapa y extraer espesor: preferir descripcion_calculada si existe
+        desc_ref = desc_calc if desc_calc else desc
+        es_tapa = "TAPA" in desc_ref.upper()
 
         # Solo procesar la parte solicitada
         if parte == "tapa" and not es_tapa:
@@ -190,8 +207,11 @@ async def api_cambiar_espesor(
         if parte == "cuerpo" and es_tapa:
             continue
 
-        # Extraer espesor actual
-        esp_actual = _extraer_espesor(desc)
+        # Extraer espesor actual desde la referencia (calculada si existe, si no la original)
+        esp_actual = _extraer_espesor(desc_ref)
+        if esp_actual is None:
+            # Último fallback: intentar desde la descripción original
+            esp_actual = _extraer_espesor(desc)
         if esp_actual is None:
             omitidos.append(desc)
             continue
@@ -216,12 +236,22 @@ async def api_cambiar_espesor(
         nuevo_precio = item["precio_unitario"] * (pp_nuevo / pp_viejo)
         # Nuevo peso: proporcional al espesor (más material = más peso)
         nuevo_peso = item["peso_unitario"] * (nuevo_espesor / esp_actual)
-        nueva_desc = _reemplazar_espesor(desc, nuevo_espesor)
 
-        update_item_precio_carrito_db(
-            item["id"], usuario["u"],
-            nuevo_precio, nuevo_peso, nueva_desc,
-        )
+        if desc_calc:
+            # Tiene descripcion_calculada: actualizarla y dejar descripcion intacta
+            nueva_desc_calc = _reemplazar_espesor(desc_calc, nuevo_espesor)
+            update_item_precio_carrito_db(
+                item["id"], usuario["u"],
+                nuevo_precio, nuevo_peso, desc,
+                descripcion_calculada=nueva_desc_calc,
+            )
+        else:
+            # Sin descripcion_calculada: comportamiento original (actualiza descripcion)
+            nueva_desc = _reemplazar_espesor(desc, nuevo_espesor)
+            update_item_precio_carrito_db(
+                item["id"], usuario["u"],
+                nuevo_precio, nuevo_peso, nueva_desc,
+            )
         actualizados += 1
 
     return JSONResponse({
@@ -229,6 +259,59 @@ async def api_cambiar_espesor(
         "actualizados": actualizados,
         "omitidos": omitidos,
     })
+
+
+@router.post("/editar/{item_id}")
+async def api_editar_item(
+    item_id: int,
+    usuario: dict = Depends(require_login),
+    descripcion: str = Form(...),
+    unidad: str = Form("UND"),
+    precio_unitario: float = Form(...),
+    descripcion_calculada: Optional[str] = Form(None),
+):
+    """Edita descripción, unidad, precio y opcionalmente ítem programa de un item."""
+    updated = update_item_campos_carrito_db(
+        item_id, usuario["u"],
+        descripcion.strip(), unidad.strip(),
+        precio_unitario,
+        descripcion_calculada.strip() if descripcion_calculada else None,
+    )
+    if updated:
+        return JSONResponse({"ok": True})
+    return JSONResponse({"ok": False, "error": "Item no encontrado"}, status_code=404)
+
+
+@router.post("/und_a_ml/{item_id}")
+async def api_und_a_ml(
+    item_id: int,
+    usuario: dict = Depends(require_login),
+):
+    """Convierte un item de bandeja de UND a ML (divide precio y peso por 2.4)."""
+    carrito = get_carrito(usuario["u"])
+    item = next((i for i in carrito if i["id"] == item_id), None)
+    if not item:
+        return JSONResponse({"ok": False, "error": "Item no encontrado"}, status_code=404)
+    if item["tipo"] != "B":
+        return JSONResponse({"ok": False, "error": "Solo bandejas pueden convertirse a ML"}, status_code=400)
+    if item["unidad"] == "ML":
+        return JSONResponse({"ok": False, "error": "El item ya está en ML"}, status_code=400)
+
+    nuevo_precio = item["precio_unitario"] / 2.4
+    nuevo_peso   = item["peso_unitario"]   / 2.4
+    desc_calc    = item.get("descripcion_calculada")
+    nueva_desc_calc = (desc_calc + " - POR ML") if desc_calc else None
+
+    update_item_campos_carrito_db(
+        item_id, usuario["u"],
+        item["descripcion"], "ML", nuevo_precio, nueva_desc_calc,
+    )
+    # Actualizar también el peso
+    update_item_precio_carrito_db(
+        item_id, usuario["u"], nuevo_precio, nuevo_peso,
+        item["descripcion"], nueva_desc_calc,
+    )
+    return JSONResponse({"ok": True})
 
 
 @router.get("/resumen")
@@ -240,3 +323,280 @@ async def api_resumen_carrito(usuario: dict = Depends(require_login)):
         "cantidad_items": len(carrito),
         "total": round(total, 2),
     })
+
+
+# ─────────────────────────────────────────────
+# Importar tabla desde portapapeles
+# ─────────────────────────────────────────────
+
+# Orden de prioridad: más específico primero para evitar falsos positivos
+# Los keywords de una sola letra/código corto usan word-boundary (ver matching abajo)
+_PRODUCT_KEYWORDS_ORDERED = [
+    ("CP",  ["CAJA DE PASE", "CAJA DE PASO", "CAJAS DE PASE", "CAJAS DE PASO",
+             "CAJA PASE", "CAJA FE GALV", "CAJA FE", "CAJA METALICA",
+             "CAJAS METALICA", "CAJA FG", "CAJA F.G.", "CAJA F°G°", "CAJA F@G@"]),
+    ("CVE", ["CURVA VERTICAL EXTERNA", "ACCESORIO CURVA VERTICAL EXTERNA",
+             "CVE", "ACCESORIO CVE"]),
+    ("CVI", ["CURVA VERTICAL INTERNA", "ACCESORIO CURVA VERTICAL INTERNA",
+             "CVI", "ACCESORIO CVI"]),
+    ("CH",  ["CURVA HORIZONTAL", "ACCESORIO CURVA HORIZONTAL",
+             "CURVA H", "ACCESORIO CURVA H", "ACCESORIO CH"]),
+    ("T",   ["TEE", "ACCESORIO TEE", "ACCESORIO T", "T"]),
+    ("C",   ["CRUZ", "ACCESORIO CRUZ", "ACCESORIO C"]),
+    ("R",   ["REDUCCION", "REDUCCIÓN", "REDUC",
+             "ACCESORIO REDUCCION", "ACCESORIO REDUCCIÓN", "ACCESORIO REDUC",
+             "ACCESORIO R"]),
+    ("B",   ["BANDEJA", "BDJ"]),
+]
+
+_DIM_RE = re.compile(
+    r'(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)'
+    r'(?:\s*[xX×]\s*(\d+(?:[.,]\d+)?))?'
+    r'(?:\s*[xX×]\s*(\d+(?:[.,]\d+)?))?'
+)
+_ESP_RE = re.compile(r'(\d+[.,]\d+)\s*MM', re.IGNORECASE)
+_ESPESORES_VALIDOS = {1.2, 1.5, 2.0}
+
+# Detecta patrón "enteroXenteroXenteroMM" en Caja de Pase (dims en mm, no en cm)
+# Ej: "500X300X200MM" → dims en mm → dividir /10 para pasar al motor (que espera cm)
+_CP_DIMS_MM_RE = re.compile(r'\b(\d+)\s*[xX×]\s*(\d+)\s*[xX×]\s*(\d+)\s*MM\b', re.IGNORECASE)
+
+# Espesores en notación fraccionaria pulgadas → mm equivalente en nuestro sistema
+_FRAC_ESPESOR = {"1/20": 1.2, "1/16": 1.5}
+_FRAC_ESP_RE = re.compile(r'1/(?:20|16)', re.IGNORECASE)
+
+
+def parsear_descripcion(desc_raw: str) -> dict:
+    """Extrae tipo, dimensiones, espesor, galvanizado y superficie de la descripción."""
+    desc = desc_raw.upper().strip()
+
+    # Tipo de producto (primer keyword que coincida)
+    # Códigos cortos (≤3 chars) usan word-boundary para evitar falsos positivos
+    tipo = None
+    for codigo, keywords in _PRODUCT_KEYWORDS_ORDERED:
+        for kw in keywords:
+            if len(kw) <= 3:
+                if re.search(r'\b' + re.escape(kw) + r'\b', desc):
+                    tipo = codigo
+                    break
+            else:
+                if kw in desc:
+                    tipo = codigo
+                    break
+        if tipo:
+            break
+
+    # Normalizar separador "A" entre grupos de dimensiones (ej: "600X100 A 400X100")
+    desc_dims = re.sub(r'(?<=[0-9])\s+[Aa]\s+(?=[0-9])', 'X', desc)
+    # Reemplazar coma decimal por punto para el regex
+    desc_dims = desc_dims.replace(",", ".")
+
+    dims: list[float] = []
+    m = _DIM_RE.search(desc_dims)
+    if m:
+        for g in m.groups():
+            if g is not None:
+                try:
+                    dims.append(float(g))
+                except ValueError:
+                    pass
+
+    # Espesor: último número decimal seguido de MM (ej: "1.20 MM", "1.5MM")
+    esp_matches = _ESP_RE.findall(desc.replace(",", "."))
+    espesor = 1.5
+    espesor_explicito = False
+    if esp_matches:
+        try:
+            val = float(esp_matches[-1])
+            espesor = val if val in _ESPESORES_VALIDOS else 1.5
+            espesor_explicito = True
+        except ValueError:
+            pass
+    else:
+        # Fallback: notación fraccionaria en pulgadas (ej: "1/20"" → 1.2mm, "1/16"" → 1.5mm)
+        frac_m = _FRAC_ESP_RE.search(desc)
+        if frac_m:
+            espesor = _FRAC_ESPESOR.get(frac_m.group(0).upper(), 1.5)
+            espesor_explicito = True
+
+    galvanizado = "GC" if re.search(r'\bGC\b', desc) else "GO"
+
+    if "ESCALERILLA" in desc:
+        superficie = "ESCALERILLA"
+    elif "RANURADA" in desc:
+        superficie = "RANURADA"
+    else:
+        superficie = "LISA"
+
+    # Tipo de apertura para Caja de Pase
+    knockout = "CIEGA"
+    knockout_explicito = False
+    if tipo == "CP":
+        if any(kw in desc for kw in ("CON SALIDA", "C/SALIDA", "C/S", "KNOCKOUT", "K.O.", "KO")):
+            knockout = "CON SALIDA"
+            knockout_explicito = True
+        elif "CIEGA" in desc:
+            knockout = "CIEGA"
+            knockout_explicito = True
+
+    # Caja de Pase: el motor espera dims en CM (multiplica ×10 internamente).
+    # Reglas de conversión de unidades:
+    #   1. Sufijo MM explícito (ej: "500X300X200MM") → dividir /10
+    #   2. Sufijo CM explícito (ej: "15 X 15 X 10 CM") → ya están en CM, sin cambio
+    #   3. Sin sufijo y max(dim) ≥ 100 → interpretar como MM → dividir /10
+    #      (ej: "CAJA PASE 100X100X50 SAP" = 100x100x50 mm = 10x10x5 cm)
+    if tipo == "CP" and dims:
+        cp_mm_m = _CP_DIMS_MM_RE.search(desc)
+        if cp_mm_m:
+            dims = [d / 10.0 for d in dims]
+        elif "CM" not in desc and dims and max(dims) >= 100:
+            dims = [d / 10.0 for d in dims]
+
+    return {
+        "tipo": tipo,
+        "dims": dims,
+        "espesor": espesor,
+        "espesor_explicito": espesor_explicito,
+        "galvanizado": galvanizado,
+        "superficie": superficie,
+        "knockout": knockout,
+        "knockout_explicito": knockout_explicito,
+    }
+
+
+def calcular_precio_importado(parsed: dict, config: dict):
+    """
+    Calcula precio y peso usando motor.py dado un parsed de parsear_descripcion().
+    Retorna (precio_unitario, peso_unitario) o None si no es calculable.
+    """
+    tipo = parsed.get("tipo")
+    dims = parsed.get("dims", [])
+    espesor = parsed.get("espesor", 1.5)
+    galvanizado = parsed.get("galvanizado", "GO")
+    superficie = parsed.get("superficie", "LISA")
+    knockout = parsed.get("knockout", "CIEGA")
+
+    if not tipo:
+        return None
+
+    valores = config.get("valores_defecto", {})
+    ganancia = valores.get("ganancia", "30")
+    dolar = float(valores.get("dolar", 3.8))
+    usd_kg_productos = float(valores.get("usd_kg_productos", 1.0))
+    usd_kg_cajas = float(valores.get("usd_kg_cajas", 3.0))
+
+    esp_str = f"{espesor:.1f}"
+    precios_key = "precios_go" if galvanizado == "GO" else "precios_gc"
+    precios = valores.get(precios_key, {})
+
+    # Precio de plancha para el espesor del producto
+    fallback_pl = float(list(precios.values())[0]) if precios else 180.0
+    precio_pl = float(precios.get(esp_str, fallback_pl))
+    # Tapa: siempre 1.2mm
+    precio_pl_tapa = float(precios.get("1.2", precio_pl))
+
+    cfg = PricingConfig(
+        tipo_galvanizado=galvanizado,
+        dolar=dolar,
+        precio_galvanizado_kg=usd_kg_productos,
+        porcentaje_ganancia=ganancia,
+        usd_kg_cajas=usd_kg_cajas,
+    )
+
+    try:
+        if tipo == "B":
+            if len(dims) < 2:
+                return None
+            r = cotizar_bandeja(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], superficie)
+
+        elif tipo == "CH":
+            if len(dims) < 2:
+                return None
+            r = cotizar_curva_horizontal(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], superficie)
+
+        elif tipo == "CVE":
+            if len(dims) < 2:
+                return None
+            r = cotizar_curva_vertical(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], "EXTERNA", superficie)
+
+        elif tipo == "CVI":
+            if len(dims) < 2:
+                return None
+            r = cotizar_curva_vertical(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], "INTERNA", superficie)
+
+        elif tipo == "T":
+            if len(dims) < 4:
+                return None
+            r = cotizar_tee(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], dims[2], dims[3], superficie)
+
+        elif tipo == "C":
+            if len(dims) < 2:
+                return None
+            r = cotizar_cruz(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], superficie)
+
+        elif tipo == "R":
+            if len(dims) < 3:
+                return None
+            r = cotizar_reduccion(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], dims[2], superficie)
+
+        elif tipo == "CP":
+            if len(dims) < 3:
+                return None
+            r = cotizar_caja_pase(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], dims[2], knockout)
+
+        else:
+            return None
+
+        return r[0]["precio_unitario"], r[0]["peso_unitario"], r[0]["descripcion"]
+
+    except Exception:
+        return None
+
+
+class _ImportarItemIn(BaseModel):
+    descripcion: str
+    unidad: str = "UND"
+    cantidad: int = 1
+
+
+@router.post("/importar/procesar")
+async def importar_procesar(
+    items: list[_ImportarItemIn],
+    usuario: dict = Depends(require_login),
+):
+    """Analiza una lista de ítems pegada desde portapapeles y devuelve precios calculados."""
+    config = cargar_config()
+    ganancia = config.get("valores_defecto", {}).get("ganancia", "30")
+    results = []
+    for item in items:
+        parsed = parsear_descripcion(item.descripcion)
+        precio_data = calcular_precio_importado(parsed, config)
+
+        # Enriquecer descripción con espesor y/o knockout si no venían explícitos
+        desc_final = item.descripcion
+        if precio_data is not None and parsed["tipo"] is not None:
+            espesor_str = f"{parsed['espesor']:.1f}MM"
+            falta_espesor = not parsed["espesor_explicito"]
+            falta_knockout = parsed["tipo"] == "CP" and not parsed["knockout_explicito"]
+
+            if falta_knockout and falta_espesor:
+                desc_final = item.descripcion.rstrip() + f" {parsed['knockout']} {espesor_str}"
+            elif falta_knockout:
+                desc_final = item.descripcion.rstrip() + f" {parsed['knockout']}"
+            elif falta_espesor:
+                desc_final = item.descripcion.rstrip() + f" {espesor_str}"
+
+        results.append({
+            "descripcion": desc_final,
+            "unidad": item.unidad,
+            "cantidad": item.cantidad,
+            "tipo": parsed["tipo"] or "MANUAL",
+            "precio_unitario":      round(precio_data[0], 4) if precio_data else None,
+            "peso_unitario":        round(precio_data[1], 6) if precio_data else None,
+            "descripcion_calculada": precio_data[2] if precio_data else None,
+            "tipo_galvanizado":  parsed["galvanizado"],
+            "porcentaje_ganancia": ganancia,
+            "reconocido": precio_data is not None,
+            "error": None if precio_data else "No se reconoció el tipo o las dimensiones",
+        })
+    return JSONResponse({"ok": True, "items": results})

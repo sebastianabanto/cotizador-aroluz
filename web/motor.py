@@ -450,6 +450,10 @@ def cotizar_caja_pase(
     dim3: float,
     tipo_salida: str,
 ) -> List[Dict[str, Any]]:
+    # La tapa siempre usa el mismo espesor y precio de plancha que el cuerpo
+    espesor_tapa = espesor_producto
+    precio_pl_tapa = precio_pl_producto
+
     # Para cajas de pase GC se usa usd_kg_cajas (configurable, por defecto 3.0 USD/kg)
     cfg_caja = PricingConfig(
         tipo_galvanizado=cfg.tipo_galvanizado,

@@ -47,7 +47,7 @@ from web.rutas import carrito as rutas_carrito
 from web.rutas import exportar as rutas_exportar
 from web.rutas import historial as rutas_historial
 from web.rutas.carrito import get_carrito
-from asistencias.main import router as asistencias_router
+from web.asistencias.router import router as asistencias_router
 
 # ─────────────────────────────────────────────
 # Configurar app
@@ -108,13 +108,6 @@ app.include_router(rutas_carrito.router)
 app.include_router(rutas_exportar.router)
 app.include_router(rutas_historial.router)
 app.include_router(asistencias_router, prefix="/asistencias")
-
-# Static de asistencias (CSS/imágenes propias del módulo)
-_ASISTENCIAS_STATIC = Path(__file__).parent.parent / "asistencias" / "static"
-if _ASISTENCIAS_STATIC.exists():
-    app.mount("/asistencias/static",
-              StaticFiles(directory=str(_ASISTENCIAS_STATIC)),
-              name="asistencias_static")
 
 
 # ─────────────────────────────────────────────
@@ -519,7 +512,7 @@ async def cotizar_page(request: Request, usuario: dict = Depends(require_login))
     config = cargar_config()
     valores = config.get("valores_defecto", {})
     return templates.TemplateResponse(
-        "cotizacion.html",
+        "cotizacion/cotizacion.html",
         ctx(request, usuario, config=valores),
     )
 
@@ -538,7 +531,7 @@ async def carrito_page(request: Request, usuario: dict = Depends(require_login))
 
     dolar = config.get("valores_defecto", {}).get("dolar", 3.8)
     return templates.TemplateResponse(
-        "carrito.html",
+        "cotizacion/carrito.html",
         ctx(
             request,
             usuario,
@@ -562,7 +555,7 @@ async def historial_page(request: Request, usuario: dict = Depends(require_login
         return RedirectResponse("/cotizar?msg=nopermiso", status_code=303)
     es_admin = usuario.get("r") == "ADMIN"
     return templates.TemplateResponse(
-        "historial.html",
+        "cotizacion/historial.html",
         ctx(request, usuario, es_admin=es_admin),
     )
 
@@ -583,7 +576,7 @@ async def catalogo_page(request: Request, usuario: dict = Depends(require_login)
     except Exception:
         catalogo_productos = {"categorias": []}
     return templates.TemplateResponse(
-        "catalogo.html",
+        "cotizacion/catalogo.html",
         ctx(request, usuario, catalogo_productos=catalogo_productos),
     )
 
@@ -769,7 +762,7 @@ async def configuracion_catalogo_page(request: Request, usuario: dict = Depends(
     except Exception:
         datos = {"version": "1.0", "categorias": []}
     return templates.TemplateResponse(
-        "configuracion_catalogo.html",
+        "cotizacion/configuracion_catalogo.html",
         ctx(request, usuario, catalogo=datos),
     )
 
@@ -939,7 +932,7 @@ async def api_eliminar_producto(
 async def clientes_page(request: Request, usuario: dict = Depends(require_admin)):
     catalogo = obtener_catalogo()
     return templates.TemplateResponse(
-        "clientes.html",
+        "cotizacion/clientes.html",
         ctx(request, usuario, catalogo=catalogo),
     )
 

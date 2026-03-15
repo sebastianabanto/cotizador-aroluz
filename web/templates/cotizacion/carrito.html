@@ -126,6 +126,12 @@
               S/ {{ "%.2f"|format(item.precio_unitario * item.cantidad) }}
             </td>
             <td data-label="" style="white-space:nowrap;">
+              <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
+                onclick="abrirModalEditar({{ item.id }})" title="Editar ítem">✏️</button>
+              {% if item.tipo == 'B' and item.unidad == 'UND' %}
+              <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
+                onclick="convertirAML({{ item.id }})" title="Convertir a metro lineal">ML</button>
+              {% endif %}
               {% if item.tipo_galvanizado != 'N/A' %}
               <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
                 onclick="abrirModalEspesorItem({{ item.id }})"
@@ -175,6 +181,16 @@
     <a href="/cotizar" class="btn btn-primary">Ir a Cotizar</a>
   </div>
   {% endif %}
+
+  <!-- Importar tabla desde portapapeles -->
+  <div class="card importar-bar" style="margin-bottom:1rem;">
+    <button class="btn btn-secondary" onclick="abrirModalImportar()">
+      📋 Importar tabla desde portapapeles
+    </button>
+    <span style="font-size:0.82rem; color:var(--texto-suave);">
+      Pega una tabla de Excel o Google Sheets con columnas Descripción / UND / Cantidad
+    </span>
+  </div>
 
   <!-- Agregar manual (colapsable) -->
   <details class="card" style="margin-bottom: 1rem;">
@@ -238,6 +254,103 @@
     </p>
   </div>
   {% endif %}
+</div>
+
+<!-- ══════════════════════════════════════════
+     Modal importar tabla desde portapapeles
+════════════════════════════════════════════ -->
+<div id="modal-importar" role="dialog" aria-modal="true" aria-labelledby="modal-imp-titulo"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100;
+            align-items:center; justify-content:center; padding:1rem;">
+  <div class="modal-inner importar-modal-inner">
+
+    <!-- Cabecera -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 id="modal-imp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">📋 Importar tabla</h2>
+      <button onclick="cerrarModalImportar()" aria-label="Cerrar"
+              style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--texto-suave);
+                     min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">✕</button>
+    </div>
+
+    <!-- PASO 1: pegar tabla -->
+    <div id="importar-paso1">
+      <p style="margin:0 0 0.75rem; font-size:0.875rem; color:var(--texto-suave);">
+        Copia una tabla desde Excel o Google Sheets y pégala aquí (Ctrl+V).<br>
+        La primera fila puede ser encabezado (Descripción / UND / Cantidad) o datos directamente.
+      </p>
+      <textarea id="importar-paste" class="form-control"
+                style="width:100%; min-height:160px; font-family:monospace; font-size:0.82rem; resize:vertical;"
+                placeholder="Pega aquí la tabla (Tab entre columnas)…"></textarea>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
+        <button class="btn btn-secondary" onclick="cerrarModalImportar()">Cancelar</button>
+        <button class="btn btn-primary" id="btn-importar-procesar" onclick="procesarTexto()">Procesar tabla</button>
+      </div>
+    </div>
+
+    <!-- PASO 2: preview (oculto hasta procesar) -->
+    <div id="importar-paso2" style="display:none;">
+      <p id="importar-resumen" style="margin:0 0 0.75rem; font-size:0.875rem; font-weight:600;"></p>
+      <div style="max-height:340px; overflow-y:auto; margin-bottom:1rem;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+          <thead>
+            <tr style="background:var(--fondo-tabla, #f4f7fc);">
+              <th style="padding:4px 6px; text-align:left; width:28px;"></th>
+              <th style="padding:4px 6px; text-align:left;">Descripción</th>
+              <th style="padding:4px 6px; text-align:center; width:50px;">UND</th>
+              <th style="padding:4px 6px; text-align:center; width:50px;">Cant.</th>
+              <th style="padding:4px 6px; text-align:left;">Ítem Programa</th>
+              <th style="padding:4px 6px; text-align:right; width:100px;">Precio U.</th>
+            </tr>
+          </thead>
+          <tbody id="importar-preview-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex; gap:0.75rem; justify-content:flex-end; flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="irPaso1()">← Volver</button>
+        <button class="btn btn-primary" id="btn-importar-confirmar" onclick="confirmarImportar()">Agregar ítems al carrito</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     Modal editar ítem
+════════════════════════════════════════════ -->
+<div id="modal-editar" role="dialog" aria-modal="true" aria-labelledby="modal-edit-titulo"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100;
+            align-items:center; justify-content:center; padding:1rem;">
+  <div class="card" style="width:100%; max-width:480px; padding:1.5rem; position:relative;">
+    <h3 id="modal-edit-titulo" style="margin:0 0 1.25rem; font-size:1rem;">Editar ítem</h3>
+
+    <input type="hidden" id="edit-id">
+
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="edit-desc">Descripción</label>
+      <textarea id="edit-desc" class="form-control" rows="3" style="resize:vertical;"></textarea>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+      <div class="form-group">
+        <label class="form-label" for="edit-und">Unidad</label>
+        <input type="text" id="edit-und" class="form-control" style="text-transform:uppercase;">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-precio">Precio U. (S/)</label>
+        <input type="number" id="edit-precio" class="form-control" step="0.01" min="0">
+      </div>
+    </div>
+
+    <div id="edit-item-prog-group" class="form-group" style="margin-bottom:1rem; display:none;">
+      <label class="form-label" for="edit-item-prog">Ítem Programa</label>
+      <textarea id="edit-item-prog" class="form-control" rows="2" style="resize:vertical; font-size:0.82rem; color:#2563eb;"></textarea>
+    </div>
+
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="cerrarModalEditar()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEdicion()">Guardar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -897,6 +1010,74 @@ document.getElementById('modal-espesor').addEventListener('click', function(e) {
   if (e.target === this) cerrarModalEspesor();
 });
 
+// ════════════════════════════════════════════
+// Modal editar ítem
+// ════════════════════════════════════════════
+function abrirModalEditar(itemId) {
+  const item = carritoMap.get(itemId);
+  if (!item) return;
+  document.getElementById('edit-id').value = itemId;
+  document.getElementById('edit-desc').value = item.descripcion;
+  document.getElementById('edit-und').value = item.unidad;
+  document.getElementById('edit-precio').value = item.precio_unitario;
+
+  const progGroup = document.getElementById('edit-item-prog-group');
+  if (item.descripcion_calculada) {
+    progGroup.style.display = '';
+    document.getElementById('edit-item-prog').value = item.descripcion_calculada;
+  } else {
+    progGroup.style.display = 'none';
+    document.getElementById('edit-item-prog').value = '';
+  }
+  document.getElementById('modal-editar').style.display = 'flex';
+  setTimeout(() => document.getElementById('edit-desc').focus(), 50);
+}
+
+function cerrarModalEditar() {
+  document.getElementById('modal-editar').style.display = 'none';
+}
+
+document.getElementById('modal-editar').addEventListener('click', function(e) {
+  if (e.target === this) cerrarModalEditar();
+});
+
+async function guardarEdicion() {
+  const itemId = document.getElementById('edit-id').value;
+  const desc   = document.getElementById('edit-desc').value.trim();
+  const und    = document.getElementById('edit-und').value.trim().toUpperCase();
+  const precio = parseFloat(document.getElementById('edit-precio').value);
+  const prog   = document.getElementById('edit-item-prog').value.trim();
+
+  if (!desc) { toast('La descripción no puede estar vacía', 'error'); return; }
+  if (isNaN(precio) || precio < 0) { toast('Precio inválido', 'error'); return; }
+
+  const fd = formData({ descripcion: desc, unidad: und, precio_unitario: precio, descripcion_calculada: prog });
+  const data = await apiFetch(`/api/carrito/editar/${itemId}`, { method: 'POST', body: fd });
+  if (data.ok) {
+    cerrarModalEditar();
+    toast('Ítem actualizado', 'success');
+    _navegandoInternamente = true;
+    sessionStorage.setItem('_reloadProgramatico', '1');
+    setTimeout(() => window.location.reload(), 600);
+  } else {
+    toast(data.error || 'Error al guardar', 'error');
+  }
+}
+
+async function convertirAML(itemId) {
+  if (!confirm('¿Convertir este ítem de UND a ML (metro lineal)?\nEl precio y peso se dividirán por 2.4.')) return;
+  const data = await apiFetch(`/api/carrito/und_a_ml/${itemId}`, { method: 'POST' });
+  if (data.ok) {
+    toast('Convertido a ML', 'success');
+    _navegandoInternamente = true;
+    sessionStorage.setItem('_reloadProgramatico', '1');
+    setTimeout(() => window.location.reload(), 600);
+  } else {
+    toast(data.error || 'Error al convertir', 'error');
+  }
+}
+
+// importar.js se carga después de este bloque
 async function aplicarEspesor() {
   const nuevoEspesor = document.getElementById('modal-esp-select').value;
   const btn = document.getElementById('btn-aplicar-espesor');
@@ -952,4 +1133,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
+<script src="/static/importar.js?v=6"></script>
 {% endblock %}
