@@ -211,8 +211,8 @@ document.addEventListener('click', e => {
 <script>
 // ── Timeout de inactividad ──
 (function() {
-  const WARN_MS  = 28 * 60 * 1000;   // 28 min → mostrar aviso
-  const LOGOUT_MS = 2 * 60 * 1000;   // 2 min más → logout
+  const WARN_MS  = 8 * 60 * 1000;    // 8 min → mostrar aviso
+  const LOGOUT_MS = 2 * 60 * 1000;   // 2 min más → logout (total 10 min)
 
   let warnTimer, logoutTimer, countdownInterval;
   const modal      = document.getElementById('inactivity-modal');
