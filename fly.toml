@@ -1,4 +1,4 @@
-app = "aroluz-cotizador"
+app = "sistema-cotizador-aroluz"
 primary_region = "gru"
 
 [build]
