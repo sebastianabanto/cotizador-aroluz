@@ -136,7 +136,8 @@ async def login_page(request: Request):
     session = get_session(request)
     if session:
         return RedirectResponse("/home", status_code=302)
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    error = "Sesión cerrada por inactividad." if request.query_params.get("timeout") == "1" else None
+    return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
 
 @app.post("/login")

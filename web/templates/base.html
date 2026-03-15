@@ -9,6 +9,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Semi+Condensed:wght@600;700;800&family=Roboto+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   {% block extra_head %}{% endblock %}
+  <style>
+    .inactivity-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center}
+    .inactivity-modal.show{display:flex}
+    .inactivity-modal-box{background:#fff;border-radius:12px;padding:2rem 2.5rem;max-width:360px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+    .inactivity-modal-box p{margin:0 0 1rem;font-size:1rem;color:#333;line-height:1.5}
+    .inactivity-modal-box strong{font-size:1.4rem;color:#1a56db;font-variant-numeric:tabular-nums}
+    .inactivity-modal-box button{background:#1a56db;color:#fff;border:none;border-radius:8px;padding:.65rem 1.5rem;font-size:.95rem;cursor:pointer;font-weight:600;transition:background .2s}
+    .inactivity-modal-box button:hover{background:#1648c0}
+  </style>
 </head>
 <body>
 
@@ -190,6 +199,65 @@ document.addEventListener('click', e => {
 </nav>
 
 {% block scripts %}{% endblock %}
+
+{# ── Modal de inactividad ── #}
+<div id="inactivity-modal" class="inactivity-modal" role="dialog" aria-modal="true" aria-labelledby="inactivity-title">
+  <div class="inactivity-modal-box">
+    <p id="inactivity-title">¿Sigues ahí? Tu sesión se cerrará en<br><strong id="inactivity-countdown">2:00</strong><br>por inactividad.</p>
+    <button onclick="resetInactivityTimer()">Seguir conectado</button>
+  </div>
+</div>
+
+<script>
+// ── Timeout de inactividad ──
+(function() {
+  const WARN_MS  = 28 * 60 * 1000;   // 28 min → mostrar aviso
+  const LOGOUT_MS = 2 * 60 * 1000;   // 2 min más → logout
+
+  let warnTimer, logoutTimer, countdownInterval;
+  const modal      = document.getElementById('inactivity-modal');
+  const countdown  = document.getElementById('inactivity-countdown');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function startCountdown(ms) {
+    let remaining = ms;
+    countdownInterval = setInterval(function() {
+      remaining -= 1000;
+      if (remaining <= 0) {
+        clearInterval(countdownInterval);
+        return;
+      }
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      countdown.textContent = m + ':' + pad(s);
+    }, 1000);
+  }
+
+  function showWarning() {
+    modal.classList.add('show');
+    countdown.textContent = '2:00';
+    startCountdown(LOGOUT_MS);
+    logoutTimer = setTimeout(function() {
+      window.location.href = '/logout?timeout=1';
+    }, LOGOUT_MS);
+  }
+
+  window.resetInactivityTimer = function() {
+    clearTimeout(warnTimer);
+    clearTimeout(logoutTimer);
+    clearInterval(countdownInterval);
+    modal.classList.remove('show');
+    warnTimer = setTimeout(showWarning, WARN_MS);
+  };
+
+  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function(ev) {
+    document.addEventListener(ev, resetInactivityTimer, { passive: true });
+  });
+
+  resetInactivityTimer();
+})();
+</script>
 
 <script>
 // ── Mensaje flash desde URL param ──
