@@ -433,7 +433,9 @@ def parsear_descripcion(desc_raw: str) -> dict:
     knockout_explicito = False
     if tipo == "CP":
         if any(kw in desc for kw in ("CON SALIDA", "C/SALIDA", "C/S", "KNOCKOUT", "K.O.", "KO")):
-            knockout = "CON SALIDA"
+            # Intentar extraer la medida específica del tubo: 1/2, 3/4, 1, MIXTO
+            _size_m = re.search(r'\bC[/\\]S\s+(MIXTO|1/2|3/4|1(?![/\d]))', desc)
+            knockout = _size_m.group(1) if _size_m else "CON SALIDA"
             knockout_explicito = True
         elif "CIEGA" in desc:
             knockout = "CIEGA"

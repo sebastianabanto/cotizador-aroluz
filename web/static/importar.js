@@ -54,11 +54,77 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ──────────────────────────────────────────────────────────────
-// 2. Parser TSV con auto-detección de encabezados
+// 2a. Parser multi-línea: número / descripción / und / cantidad
+//     (formato típico al pegar desde tablas Word / PDF / sistemas externos)
+// ──────────────────────────────────────────────────────────────
+
+function _isMultiLineFormat(lines) {
+  // Necesita al menos 4 líneas (1 ítem completo)
+  const numGroups = Math.floor(lines.length / 4);
+  if (numGroups < 1) return false;
+  // Verificar los primeros 3 grupos (o menos si hay pocos): línea 0,4,8... = entero positivo
+  const check = Math.min(numGroups, 3);
+  for (let g = 0; g < check; g++) {
+    const i = g * 4;
+    const numStr = lines[i].trim();
+    const n = parseInt(numStr, 10);
+    if (isNaN(n) || n <= 0 || String(n) !== numStr) return false;
+    // línea i+3 = cantidad numérica
+    const q = parseFloat(lines[i + 3].replace(',', '.'));
+    if (isNaN(q) || q <= 0) return false;
+  }
+  return true;
+}
+
+function _parseMultiLine(lines) {
+  const rows = [];
+  for (let i = 0; i + 3 < lines.length; i += 4) {
+    const desc     = _normalizarDimensiones(lines[i + 1].trim());
+    const unidad   = (lines[i + 2].trim().toUpperCase()) || 'UND';
+    const cantRaw  = lines[i + 3].replace(',', '.');
+    const cantidad = Math.round(parseFloat(cantRaw)) || 1;
+    if (desc) rows.push({ descripcion: desc, unidad, cantidad });
+  }
+  return rows;
+}
+
+// ── Normalizar dimensiones: en un patrón N x N x 0.XX, el tercer valor
+//    < 1 no tiene sentido como milímetros → se multiplica x 100
+//    Ej: "100 X 100 X 0.50" → "100 X 100 X 50"
+//    Solo aplica a la tercera dimensión en patrones de 3 dimensiones (NxNxN).
+function _normalizarDimensiones(desc) {
+  // 1. NxNx0.X → NxNx(X*100)   ej: 100x100x0.50 → 100x100x50
+  desc = desc.replace(
+    /(\d+(?:[.,]\d+)?)\s*([xX])\s*(\d+(?:[.,]\d+)?)\s*([xX])\s*(0[.,]\d+)/g,
+    (match, d1, x1, d2, x2, d3) => {
+      const val = Math.round(parseFloat(d3.replace(',', '.')) * 100);
+      return `${d1}${x1}${d2}${x2}${val}`;
+    }
+  );
+
+  // 2. "troquelada/con troquel/con salida [para] [tubo] X" → "C/S X""
+  //    Medidas válidas: 1/2, 3/4, 1  (exactas, nada más)
+  //    Dos medidas combinadas → C/S MIXTO
+  desc = desc.replace(
+    /(troquelad[ao]|con\s+troquel|con\s+salida)\s*(?:para\s+)?(?:tubo\s+)?(1\/2|3\/4|1"?)(?:\s*[yY&,\-]\s*(1\/2|3\/4|1"?))?\s*"?/gi,
+    (_, _kw, s1, s2) => s2 ? 'C/S MIXTO' : `C/S ${s1.replace('"', '')}"`
+  );
+
+  return desc;
+}
+
+// ──────────────────────────────────────────────────────────────
+// 2b. Parser TSV con auto-detección de encabezados
 // ──────────────────────────────────────────────────────────────
 
 function _parseTSV(text) {
   const rawLines = text.trim().split('\n');
+
+  // ── Detectar formato multi-línea primero ──
+  const cleanLines = rawLines.map(l => l.trim()).filter(l => l.length > 0);
+  if (_isMultiLineFormat(cleanLines)) {
+    return _parseMultiLine(cleanLines);
+  }
 
   // Auto-detectar separador: si alguna línea tiene tab → TSV (Excel/Sheets)
   // Si no hay tabs → columnas separadas por 2+ espacios (Word, PDF, sistema externo)
@@ -123,7 +189,7 @@ function _parseTSV(text) {
   const rows = [];
   for (let i = startRow; i < lines.length; i++) {
     const row = lines[i];
-    const desc = row[colDesc] || '';
+    const desc = _normalizarDimensiones(row[colDesc] || '');
     if (!desc) continue;
 
     const unidad = (colUnd >= 0 && row[colUnd]) ? row[colUnd] : 'UND';

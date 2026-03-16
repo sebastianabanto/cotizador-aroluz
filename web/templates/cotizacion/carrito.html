@@ -188,7 +188,7 @@
       📋 Importar tabla desde portapapeles
     </button>
     <span style="font-size:0.82rem; color:var(--texto-suave);">
-      Pega una tabla de Excel o Google Sheets con columnas Descripción / UND / Cantidad
+      Excel/Sheets (columnas Desc·UND·Cant) o lista multi-línea (N°·Desc·Und·Cant por ítem)
     </span>
   </div>
 
@@ -275,8 +275,9 @@
     <!-- PASO 1: pegar tabla -->
     <div id="importar-paso1">
       <p style="margin:0 0 0.75rem; font-size:0.875rem; color:var(--texto-suave);">
-        Copia una tabla desde Excel o Google Sheets y pégala aquí (Ctrl+V).<br>
-        La primera fila puede ser encabezado (Descripción / UND / Cantidad) o datos directamente.
+        Copia una tabla y pégala aquí (Ctrl+V). Se aceptan dos formatos:<br>
+        <strong>A)</strong> Tabla de Excel / Google Sheets — columnas Descripción · UND · Cantidad (separadas por tabulador).<br>
+        <strong>B)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em> (con o sin líneas en blanco entre ellas).
       </p>
       <textarea id="importar-paste" class="form-control"
                 style="width:100%; min-height:160px; font-family:monospace; font-size:0.82rem; resize:vertical;"
@@ -1133,5 +1134,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
-<script src="/static/importar.js?v=6"></script>
+<script src="/static/importar.js?v=7"></script>
 {% endblock %}
