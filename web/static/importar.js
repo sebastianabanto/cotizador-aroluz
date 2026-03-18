@@ -1,9 +1,9 @@
 /**
- * importar.js — Modal "Importar tabla desde portapapeles" para el carrito.
+ * importar.js — Modal "Importar productos" para el carrito.
  *
  * Flujo:
- *  1. abrirModalImportar() → muestra paso 1 (textarea)
- *  2. procesarTexto()      → parsea TSV → llama POST /api/carrito/importar/procesar
+ *  1. abrirModalImportar() → muestra paso 1 directamente (texto libre activo)
+ *  2. procesarTexto()      → lee opciones globales → parsea → llama POST /api/carrito/importar/procesar
  *  3. renderPreview()      → muestra paso 2 con ✅ / 🔴 por ítem
  *  4. confirmarImportar()  → agrega todos al carrito → recarga
  */
@@ -12,6 +12,18 @@
 
 // Resultados del backend (paso 2)
 let _importarItems = [];
+
+// Modo activo en paso 1
+let _importarModo = 'tabla'; // 'tabla' | 'libre'
+
+// Parámetros globales configurados en el paso 0
+let _importarConfig = {
+  galvanizado_global: 'GO',
+  ganancia_global: '30',
+  espesor_cuerpo_global: 1.5,
+  espesor_tapa_global: 1.2,
+  superficie_global: 'LISA',
+};
 
 // ── Encabezados reconocidos para auto-detección de columnas ──
 const _HEADER_RE = {
@@ -29,6 +41,7 @@ function abrirModalImportar() {
   document.getElementById('importar-paste').value = '';
   _importarItems = [];
   document.getElementById('modal-importar').style.display = 'flex';
+  setModoImportar('libre');
   setTimeout(() => document.getElementById('importar-paste').focus(), 50);
 }
 
@@ -43,6 +56,20 @@ function irPaso1() {
   document.getElementById('importar-paso2').style.display = 'none';
 }
 
+function _leerConfigImportar() {
+  const galv = document.querySelector('input[name="imp-galv"]:checked');
+  const gan  = document.querySelector('input[name="imp-ganancia"]:checked');
+  const espC = document.querySelector('input[name="imp-esp-cuerpo"]:checked');
+  const espT = document.querySelector('input[name="imp-esp-tapa"]:checked');
+  const sup  = document.querySelector('input[name="imp-superficie"]:checked');
+
+  _importarConfig.galvanizado_global      = galv ? galv.value : 'GO';
+  _importarConfig.ganancia_global         = gan  ? gan.value  : '30';
+  _importarConfig.espesor_cuerpo_global   = espC ? parseFloat(espC.value) : 1.5;
+  _importarConfig.espesor_tapa_global     = espT ? parseFloat(espT.value) : 1.2;
+  _importarConfig.superficie_global       = sup  ? sup.value  : 'LISA';
+}
+
 // Cerrar al hacer click en el overlay
 document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('modal-importar');
@@ -52,6 +79,89 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// ──────────────────────────────────────────────────────────────
+// Cambiar modo del paso 1 (tabla / libre)
+// ──────────────────────────────────────────────────────────────
+
+function setModoImportar(modo) {
+  _importarModo = modo;
+
+  const btnTabla    = document.getElementById('btn-modo-tabla');
+  const btnLibre    = document.getElementById('btn-modo-libre');
+  const ayudaTabla  = document.getElementById('imp-ayuda-tabla');
+  const ayudaLibre  = document.getElementById('imp-ayuda-libre');
+  const textarea    = document.getElementById('importar-paste');
+  const btnProcesar = document.getElementById('btn-importar-procesar');
+
+  if (!btnTabla) return; // paso1 aún no está en DOM
+
+  // Estilos de tab: activo vs inactivo (se aplican directo para evitar conflicto con inline styles)
+  const _estiloActivo   = 'color:#2563eb; border-bottom:2px solid #2563eb; font-weight:600; margin-bottom:-2px;';
+  const _estiloInactivo = 'color:#6b7280; border-bottom:2px solid transparent; font-weight:normal; margin-bottom:-2px;';
+  const _base = 'padding:0.4rem 1rem; font-size:0.85rem; border:none; background:none; cursor:pointer; ';
+
+  if (modo === 'tabla') {
+    btnTabla.setAttribute('style', _base + _estiloActivo);
+    btnLibre.setAttribute('style', _base + _estiloInactivo);
+    ayudaTabla.style.display = 'block';
+    ayudaLibre.style.display = 'none';
+    textarea.placeholder = 'Pega aquí la tabla (Tab entre columnas)…';
+    btnProcesar.textContent = 'Procesar tabla';
+  } else {
+    btnTabla.setAttribute('style', _base + _estiloInactivo);
+    btnLibre.setAttribute('style', _base + _estiloActivo);
+    ayudaTabla.style.display = 'none';
+    ayudaLibre.style.display = 'block';
+    textarea.placeholder = 'Escribe un producto por línea:\n5 bandejas 200x100\n3 curva horizontal 300x150\n2 tee 300x200x300x150\n1 caja de pase 50x30x20cm ciega';
+    btnProcesar.textContent = 'Procesar texto';
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Parser texto libre: una línea por producto
+// Formato: [cantidad] descripcion [dimensiones]
+// ──────────────────────────────────────────────────────────────
+
+function _parseTextoLibre(text) {
+  // Acepta: "5 desc", "5x desc", "5. desc", "5- desc"
+  // NO acepta "5x200" como cantidad=5 (porque x no está seguido de espacio)
+  const _cantRe = /^(\d+)(?:\s+|[x×.,;-]\s+)(.+)$/i;
+
+  const rows = [];
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    let cantidad = 1;
+    let desc = line;
+
+    const m = _cantRe.exec(line);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > 0 && n <= 9999) {
+        cantidad = n;
+        desc = m[2].trim();
+      }
+    }
+
+    // Convertir cm → mm (antes de m, para que "cm" no sea capturado por la regla de m)
+    desc = desc.replace(/(\d+(?:[.,]\d+)?)\s*cm\b/gi, (_, v) => {
+      return String(Math.round(parseFloat(v.replace(',', '.')) * 10));
+    });
+
+    // Convertir m → mm (solo "m" suelto, no "mm" ni parte de palabra)
+    desc = desc.replace(/(\d+(?:[.,]\d+)?)\s*m\b(?!m)/gi, (_, v) => {
+      return String(Math.round(parseFloat(v.replace(',', '.')) * 1000));
+    });
+
+    desc = _normalizarDimensiones(desc);
+    if (desc) {
+      rows.push({ descripcion: desc, unidad: 'UND', cantidad });
+    }
+  }
+  return rows;
+}
 
 // ──────────────────────────────────────────────────────────────
 // 2a. Parser multi-línea: número / descripción / und / cantidad
@@ -209,15 +319,16 @@ function _parseTSV(text) {
 // ──────────────────────────────────────────────────────────────
 
 async function procesarTexto() {
+  _leerConfigImportar();
   const text = document.getElementById('importar-paste').value.trim();
   if (!text) {
-    toast('Pega primero una tabla', 'error');
+    toast(_importarModo === 'libre' ? 'Escribe al menos un producto' : 'Pega primero una tabla', 'error');
     return;
   }
 
-  const items = _parseTSV(text);
+  const items = _importarModo === 'libre' ? _parseTextoLibre(text) : _parseTSV(text);
   if (!items.length) {
-    toast('No se encontraron filas en la tabla', 'error');
+    toast(_importarModo === 'libre' ? 'No se encontraron productos en el texto' : 'No se encontraron filas en la tabla', 'error');
     return;
   }
 
@@ -230,18 +341,18 @@ async function procesarTexto() {
     const resp = await fetch('/api/carrito/importar/procesar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(items),
+      body: JSON.stringify({ items, ..._importarConfig }),
     });
     data = await resp.json();
   } catch (err) {
-    toast('Error de red al procesar la tabla', 'error');
+    toast('Error de red al procesar', 'error');
     btn.disabled = false;
-    btn.textContent = 'Procesar tabla';
+    btn.textContent = _importarModo === 'libre' ? 'Procesar texto' : 'Procesar tabla';
     return;
   }
 
   btn.disabled = false;
-  btn.textContent = 'Procesar tabla';
+  btn.textContent = _importarModo === 'libre' ? 'Procesar texto' : 'Procesar tabla';
 
   if (!data.ok) {
     toast(data.error || 'Error al procesar', 'error');

@@ -18,14 +18,11 @@
     <div class="grid-2" style="margin-top:0.25rem;">
       <!-- Cliente: autocomplete -->
       <div class="form-group">
-        <label class="form-label" for="cliente-input">Cliente <span style="font-size:0.75rem;color:var(--texto-suave);font-weight:400;">({{ catalogo.clientes|length }} disponibles)</span></label>
+        <label class="form-label" for="cliente-input">Cliente</label>
         <div class="ac-wrapper">
-          <input type="text" id="cliente-input" class="form-control ac-has-toggle"
-                 placeholder="Clic para ver lista o escribir…" autocomplete="off"
+          <input type="text" id="cliente-input" class="form-control"
+                 placeholder="Escribir para buscar…" autocomplete="off"
                  oninput="onClienteInput()" onfocus="onClienteFocus()" onblur="onClienteBlur()">
-          <button type="button" class="ac-toggle-btn" tabindex="-1"
-                  onmousedown="event.preventDefault(); document.getElementById('cliente-input').focus(); onClienteFocus();"
-                  aria-label="Ver lista de clientes">▾</button>
           <div id="cliente-lista" class="ac-lista" style="display:none;"></div>
         </div>
         <input type="hidden" id="cliente" value="">
@@ -38,12 +35,9 @@
       <div class="form-group">
         <label class="form-label" for="atencion-input">Atención</label>
         <div class="ac-wrapper">
-          <input type="text" id="atencion-input" class="form-control ac-has-toggle"
-                 placeholder="Clic para ver lista o escribir…" autocomplete="off"
+          <input type="text" id="atencion-input" class="form-control"
+                 placeholder="Escribir para buscar…" autocomplete="off"
                  oninput="onAtencionInput()" onfocus="onAtencionFocus()" onblur="onAtencionBlur()">
-          <button type="button" class="ac-toggle-btn" tabindex="-1"
-                  onmousedown="event.preventDefault(); document.getElementById('atencion-input').focus(); onAtencionFocus();"
-                  aria-label="Ver lista de atenciones">▾</button>
           <div id="atencion-lista" class="ac-lista" style="display:none;"></div>
         </div>
         <input type="hidden" id="atencion" value="">
@@ -106,11 +100,11 @@
               <div style="font-size:0.875rem;">{{ item.descripcion }}</div>
               {% if item.tipo_galvanizado == 'N/A' %}
               <div style="font-size:0.75rem; color:var(--texto-suave);">
-                {{ 'Manual' if item.tipo == 'MANUAL' else 'Catálogo' }} · {{ item.porcentaje_ganancia }}% · {{ item.unidad }}
+                {{ 'Manual' if item.tipo == 'MANUAL' else 'Catálogo' }} · {{ 'Con comisión' if item.porcentaje_ganancia == '35' else 'Sin comisión' }} · {{ item.unidad }}
               </div>
               {% else %}
               <div style="font-size:0.75rem; color:var(--texto-suave);">
-                {{ item.tipo_galvanizado }} · {{ item.porcentaje_ganancia }}% ·
+                {{ item.tipo_galvanizado }} · {{ 'Con comisión' if item.porcentaje_ganancia == '35' else 'Sin comisión' }} ·
                 {{ "%.2f"|format(item.peso_unitario) }} kg/und
               </div>
               {% endif %}
@@ -272,25 +266,138 @@
 
     <!-- Cabecera -->
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <h2 id="modal-imp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">📋 Importar tabla</h2>
+      <h2 id="modal-imp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">📋 Importar productos</h2>
       <button onclick="cerrarModalImportar()" aria-label="Cerrar"
               style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--texto-suave);
                      min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">✕</button>
     </div>
 
-    <!-- PASO 1: pegar tabla -->
-    <div id="importar-paso1">
-      <p style="margin:0 0 0.75rem; font-size:0.875rem; color:var(--texto-suave);">
+    <!-- PASO 1: pegar tabla / texto libre -->
+    <div id="importar-paso1" style="display:none;">
+
+      <!-- Tabs de modo -->
+      <div style="display:flex; gap:0; margin-bottom:0.75rem; border-bottom:2px solid var(--borde, #d1d5db);">
+        <button id="btn-modo-tabla" onclick="setModoImportar('tabla')">
+          📋 Tabla (A/B)
+        </button>
+        <button id="btn-modo-libre" onclick="setModoImportar('libre')">
+          ✍️ Texto libre
+        </button>
+      </div>
+
+      <!-- Instrucciones modo tabla -->
+      <div id="imp-ayuda-tabla" style="margin-bottom:0.75rem; font-size:0.875rem; color:var(--texto-suave);">
         Copia una tabla y pégala aquí (Ctrl+V). Se aceptan dos formatos:<br>
         <strong>A)</strong> Tabla de Excel / Google Sheets — columnas Descripción · UND · Cantidad (separadas por tabulador).<br>
-        <strong>B)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em> (con o sin líneas en blanco entre ellas).
-      </p>
+        <strong>B)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em>.<br>
+        <span style="color:var(--azul); font-weight:500;">Puedes omitir espesor, galvanizado y superficie — se usarán los parámetros de Opciones globales.</span>
+      </div>
+
+      <!-- Instrucciones modo texto libre -->
+      <div id="imp-ayuda-libre" style="display:none; margin-bottom:0.75rem; font-size:0.82rem; color:var(--texto-suave);">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+          <div>
+            <strong style="font-size:0.78rem; color:var(--texto);">Tipos reconocidos:</strong>
+            <table style="width:100%; border-collapse:collapse; margin-top:0.3rem; font-size:0.78rem;">
+              <tr><td style="padding:1px 4px; color:var(--texto);">Bandeja</td><td style="padding:1px 4px; color:#6b7280;">bandeja, bdj</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">Curva H</td><td style="padding:1px 4px; color:#6b7280;">curva horizontal, curva h, ch</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">Curva V ext</td><td style="padding:1px 4px; color:#6b7280;">curva vertical externa, cve</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">Curva V int</td><td style="padding:1px 4px; color:#6b7280;">curva vertical interna, cvi</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">Tee</td><td style="padding:1px 4px; color:#6b7280;">tee</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">Cruz</td><td style="padding:1px 4px; color:#6b7280;">cruz</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">Reducción</td><td style="padding:1px 4px; color:#6b7280;">reduccion, reduc</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">Caja de pase</td><td style="padding:1px 4px; color:#6b7280;">caja de pase, caja pase, caja metalica</td></tr>
+            </table>
+          </div>
+          <div>
+            <strong style="font-size:0.78rem; color:var(--texto);">Ejemplos:</strong>
+            <pre style="margin:0.3rem 0 0; font-size:0.78rem; background:var(--fondo-tabla,#f4f7fc); padding:0.4rem 0.5rem; border-radius:4px; line-height:1.6;">5 bandeja 200x100
+3 curva horizontal 300x150
+2 tee 300x200x300x150
+1 caja de pase 50x30x20cm
+4 reduccion 400x300x200x150
+# comentario (se ignora)</pre>
+            <div style="margin-top:0.35rem; font-size:0.78rem; color:#6b7280;">
+              Opcionales por línea: <code>GO</code>/<code>GC</code> · <code>escalerilla</code>/<code>ranurada</code> · <code>1.5mm</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <textarea id="importar-paste" class="form-control"
-                style="width:100%; min-height:160px; font-family:monospace; font-size:0.82rem; resize:vertical;"
+                style="width:100%; min-height:140px; font-family:monospace; font-size:0.82rem; resize:vertical;"
                 placeholder="Pega aquí la tabla (Tab entre columnas)…"></textarea>
+
+      <!-- Opciones globales (colapsadas) -->
+      <details style="margin-top:0.65rem; font-size:0.82rem;">
+        <summary style="cursor:pointer; color:var(--azul); user-select:none; font-size:0.82rem;">⚙️ Opciones globales</summary>
+        <div style="display:grid; grid-template-columns:130px 1fr; row-gap:0.5rem; align-items:center; margin-top:0.6rem;">
+
+          <span style="font-size:0.82rem; font-weight:600;">Galvanizado:</span>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-galv" value="GO" checked> GO (origen)
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-galv" value="GC"> GC (caliente)
+            </label>
+          </div>
+
+          <span style="font-size:0.82rem; font-weight:600;">Ganancia:</span>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-ganancia" value="30" checked> 30%
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-ganancia" value="35"> 35%
+            </label>
+          </div>
+
+          <span style="font-size:0.82rem; font-weight:600;">Espesor cuerpo:</span>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-esp-cuerpo" value="1.2"> 1.2 mm
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-esp-cuerpo" value="1.5" checked> 1.5 mm
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-esp-cuerpo" value="2.0"> 2.0 mm
+            </label>
+          </div>
+
+          <span style="font-size:0.82rem; font-weight:600;">Espesor tapa:</span>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-esp-tapa" value="1.2" checked> 1.2 mm
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-esp-tapa" value="1.5"> 1.5 mm
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-esp-tapa" value="2.0"> 2.0 mm
+            </label>
+          </div>
+
+          <span style="font-size:0.82rem; font-weight:600;">Superficie:</span>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-superficie" value="LISA" checked> LISA
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-superficie" value="RANURADA"> RANURADA
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
+              <input type="radio" name="imp-superficie" value="ESCALERILLA"> ESCALERILLA
+            </label>
+          </div>
+
+        </div>
+      </details>
+
       <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
         <button class="btn btn-secondary" onclick="cerrarModalImportar()">Cancelar</button>
-        <button class="btn btn-primary" id="btn-importar-procesar" onclick="procesarTexto()">Procesar tabla</button>
+        <button class="btn btn-primary" id="btn-importar-procesar" onclick="procesarTexto()">Procesar texto</button>
       </div>
     </div>
 
@@ -1140,5 +1247,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
-<script src="/static/importar.js?v=7"></script>
+<script src="/static/importar.js?v=8"></script>
 {% endblock %}
