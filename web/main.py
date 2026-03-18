@@ -604,7 +604,7 @@ async def guardar_configuracion(
     ganancia: str = Form("30"),
     galvanizado: str = Form("GO"),
     espesor_producto: str = Form("1.5"),
-    espesor_tapa: str = Form("1.2"),
+    espesor_tapa: str = Form("1.5"),
     go_12: float = Form(150.0),
     go_15: float = Form(180.0),
     go_20: float = Form(220.0),

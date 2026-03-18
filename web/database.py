@@ -33,7 +33,7 @@ CONFIG_DEFECTO = {
         "ganancia": "30",
         "galvanizado": "GO",
         "espesor_producto": "1.5",
-        "espesor_tapa": "1.2",
+        "espesor_tapa": "1.5",
         "precios_go": {"1.2": 150.0, "1.5": 180.0, "2.0": 220.0},
         "precios_gc": {"1.2": 140.0, "1.5": 170.0, "2.0": 210.0},
         "dolar": 3.8,
@@ -401,7 +401,13 @@ def cargar_config() -> Dict:
         try:
             with open(CONFIG_PATH, encoding="utf-8") as f:
                 cfg = json.load(f)
-            return _fusionar(CONFIG_DEFECTO, cfg)
+            resultado = _fusionar(CONFIG_DEFECTO, cfg)
+            # Migración: corregir espesor_tapa si quedó en el valor antiguo por defecto
+            vd = resultado.get("valores_defecto", {})
+            if vd.get("espesor_tapa") == "1.2" and cfg.get("valores_defecto", {}).get("espesor_tapa") == "1.2":
+                vd["espesor_tapa"] = "1.5"
+                guardar_config(resultado)
+            return resultado
         except Exception:
             pass
     return dict(CONFIG_DEFECTO)
