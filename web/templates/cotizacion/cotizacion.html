@@ -54,15 +54,15 @@
       </fieldset>
 
       <fieldset class="config-section" style="border:none; margin:0; padding:0;">
-        <legend class="config-label">Ganancia</legend>
+        <legend class="config-label">Comisión</legend>
         <div class="chip-group" id="grupo-ganancia">
           <label class="chip-label {% if config.ganancia == '30' %}selected{% endif %}">
             <input type="radio" name="ganancia" value="30"
-              {% if config.ganancia == '30' %}checked{% endif %}> 30% (×0.70)
+              {% if config.ganancia == '30' %}checked{% endif %}> Sin comisión
           </label>
           <label class="chip-label {% if config.ganancia == '35' %}selected{% endif %}">
             <input type="radio" name="ganancia" value="35"
-              {% if config.ganancia == '35' %}checked{% endif %}> 35% (×0.65)
+              {% if config.ganancia == '35' %}checked{% endif %}> Con comisión
           </label>
         </div>
       </fieldset>
@@ -95,9 +95,9 @@
       <div class="config-section">
         <label class="config-label" for="esp-tapa">Espesor Tapa</label>
         <select class="form-select-sm" id="esp-tapa">
-          {% set et = config.espesor_tapa or '1.2' %}
-          <option value="1.2" {% if et == '1.2' or et not in ['1.5','2.0'] %}selected{% endif %}>1.2 mm</option>
-          <option value="1.5" {% if et == '1.5' %}selected{% endif %}>1.5 mm</option>
+          {% set et = config.espesor_tapa or '1.5' %}
+          <option value="1.2" {% if et == '1.2' %}selected{% endif %}>1.2 mm</option>
+          <option value="1.5" {% if et == '1.5' or et not in ['1.2','2.0'] %}selected{% endif %}>1.5 mm</option>
           <option value="2.0" {% if et == '2.0' %}selected{% endif %}>2.0 mm</option>
         </select>
       </div>
