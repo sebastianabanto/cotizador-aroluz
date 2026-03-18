@@ -295,6 +295,24 @@ select.form-control { cursor: pointer; }
 .ac-wrapper {
   position: relative;
 }
+/* Input con botón ▾ visible */
+.ac-has-toggle { padding-right: 2rem; }
+.ac-toggle-btn {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+  padding: 0.15rem 0.3rem;
+  line-height: 1;
+  border-radius: 3px;
+  transition: color 0.12s;
+}
+.ac-toggle-btn:hover { color: var(--azul); }
 .ac-lista {
   position: absolute;
   top: calc(100% + 3px);

@@ -18,11 +18,14 @@
     <div class="grid-2" style="margin-top:0.25rem;">
       <!-- Cliente: autocomplete -->
       <div class="form-group">
-        <label class="form-label" for="cliente-input">Cliente</label>
+        <label class="form-label" for="cliente-input">Cliente <span style="font-size:0.75rem;color:var(--texto-suave);font-weight:400;">({{ catalogo.clientes|length }} disponibles)</span></label>
         <div class="ac-wrapper">
-          <input type="text" id="cliente-input" class="form-control"
-                 placeholder="Escribir para buscar…" autocomplete="off"
+          <input type="text" id="cliente-input" class="form-control ac-has-toggle"
+                 placeholder="Clic para ver lista o escribir…" autocomplete="off"
                  oninput="onClienteInput()" onfocus="onClienteFocus()" onblur="onClienteBlur()">
+          <button type="button" class="ac-toggle-btn" tabindex="-1"
+                  onmousedown="event.preventDefault(); document.getElementById('cliente-input').focus(); onClienteFocus();"
+                  aria-label="Ver lista de clientes">▾</button>
           <div id="cliente-lista" class="ac-lista" style="display:none;"></div>
         </div>
         <input type="hidden" id="cliente" value="">
@@ -35,9 +38,12 @@
       <div class="form-group">
         <label class="form-label" for="atencion-input">Atención</label>
         <div class="ac-wrapper">
-          <input type="text" id="atencion-input" class="form-control"
-                 placeholder="Escribir para buscar…" autocomplete="off"
+          <input type="text" id="atencion-input" class="form-control ac-has-toggle"
+                 placeholder="Clic para ver lista o escribir…" autocomplete="off"
                  oninput="onAtencionInput()" onfocus="onAtencionFocus()" onblur="onAtencionBlur()">
+          <button type="button" class="ac-toggle-btn" tabindex="-1"
+                  onmousedown="event.preventDefault(); document.getElementById('atencion-input').focus(); onAtencionFocus();"
+                  aria-label="Ver lista de atenciones">▾</button>
           <div id="atencion-lista" class="ac-lista" style="display:none;"></div>
         </div>
         <input type="hidden" id="atencion" value="">

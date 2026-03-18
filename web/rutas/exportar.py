@@ -661,28 +661,28 @@ def _generar_pdf(
 ) -> bytes:
     """Genera PDF usando cotizacion_pdf.html.
 
-    Orden de intentos:
-    1. WeasyPrint  — funciona en Linux/cloud (Fly.io). Requiere libpango/libcairo.
-    2. Playwright  — fallback para Windows local (si playwright está instalado).
+    - Windows local → Playwright (WeasyPrint necesita GTK+ que no está en Windows).
+    - Linux / Fly.io → WeasyPrint (rápido, sin navegador).
     """
     import sys
+    import platform
 
-    # 1. WeasyPrint (Linux / Fly.io)
-    try:
-        return _generar_pdf_reportlab(
-            carrito, cliente, atencion, moneda, proyecto, fecha,
-            cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
-            dolar, validez, encabezado_tabla=encabezado_tabla, cotizacion_id=cotizacion_id,
-        )
-    except Exception as e:
-        print(f"[exportar] WeasyPrint falló ({type(e).__name__}: {e}) — intentando Playwright", file=sys.stderr)
-
-    # 2. Playwright (Windows local)
-    return _generar_pdf_html(
+    args = (
         carrito, cliente, atencion, moneda, proyecto, fecha,
         cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
         dolar, validez, encabezado_tabla, cotizacion_id,
     )
+
+    if platform.system() == "Windows":
+        # Playwright funciona en Windows local; WeasyPrint requiere GTK+
+        return _generar_pdf_html(*args)
+
+    # Linux / Fly.io: WeasyPrint primero, Playwright como seguro de cierre
+    try:
+        return _generar_pdf_reportlab(*args)
+    except Exception as e:
+        print(f"[exportar] WeasyPrint falló ({type(e).__name__}: {e}) — intentando Playwright", file=sys.stderr)
+        return _generar_pdf_html(*args)
 
 
 # ─────────────────────────────────────────────
