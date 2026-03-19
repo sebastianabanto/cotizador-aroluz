@@ -472,8 +472,10 @@ async function confirmarImportar() {
       if (item.reconocido) {
         // Producto calculado → agregar con tipo y precio
         const fd = new FormData();
+        // Usar descripcion_calculada (motor) como descripcion principal del ítem en carrito
+        const descPrincipal = item.descripcion_calculada || item.descripcion;
         fd.append('tipo',                item.tipo);
-        fd.append('descripcion',         item.descripcion);
+        fd.append('descripcion',         descPrincipal);
         fd.append('precio_unitario',     item.precio_unitario);
         fd.append('peso_unitario',       item.peso_unitario || 0);
         fd.append('cantidad',            item.cantidad);
