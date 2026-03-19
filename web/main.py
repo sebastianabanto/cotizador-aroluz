@@ -46,6 +46,8 @@ from web.rutas import cotizar as rutas_cotizar
 from web.rutas import carrito as rutas_carrito
 from web.rutas import exportar as rutas_exportar
 from web.rutas import historial as rutas_historial
+from web.rutas import planchas as rutas_planchas
+from web.rutas import importar_pdf as rutas_importar_pdf
 from web.rutas.carrito import get_carrito
 from web.asistencias.router import router as asistencias_router
 
@@ -108,6 +110,8 @@ app.include_router(rutas_cotizar.router)
 app.include_router(rutas_carrito.router)
 app.include_router(rutas_exportar.router)
 app.include_router(rutas_historial.router)
+app.include_router(rutas_planchas.router)
+app.include_router(rutas_importar_pdf.router)
 app.include_router(asistencias_router, prefix="/asistencias")
 
 
@@ -509,6 +513,16 @@ def _permiso_usuario(usuario: dict, permiso: str, config: dict) -> bool:
 # Página Cotización
 # ─────────────────────────────────────────────
 
+@app.get("/planchas", response_class=HTMLResponse)
+async def planchas_page(request: Request, usuario: dict = Depends(require_login)):
+    config = cargar_config()
+    valores = config.get("valores_defecto", {})
+    return templates.TemplateResponse(
+        "cotizacion/planchas.html",
+        ctx(request, usuario, active="planchas", config=valores),
+    )
+
+
 @app.get("/cotizar", response_class=HTMLResponse)
 async def cotizar_page(request: Request, usuario: dict = Depends(require_login)):
     config = cargar_config()
@@ -708,6 +722,41 @@ async def cfg_agregar_cliente(
 @app.post("/configuracion/atencion/agregar")
 async def cfg_agregar_atencion(
     usuario: dict = Depends(require_admin),
+    nombre: str = Form(...),
+    codigo_empresa: str = Form(...),
+    email: str = Form(""),
+):
+    ok = agregar_atencion(nombre, codigo_empresa, email)
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/api/cliente/nuevo")
+async def api_nuevo_cliente(
+    usuario: dict = Depends(require_login),
+    codigo: str = Form(...),
+    nombre: str = Form(""),
+    ruc: str = Form(""),
+    ubicacion: str = Form(""),
+):
+    import re as _re
+    if ruc and not _re.fullmatch(r'\d{11}', ruc):
+        return JSONResponse({"ok": False, "error": "El RUC debe tener exactamente 11 dígitos numéricos"}, status_code=422)
+    # Si ya existe ese código, añadir sufijo numérico
+    from web.database import obtener_catalogo as _cat
+    codigos_existentes = {c["codigo"] for c in _cat().clientes}
+    cod = codigo
+    if cod in codigos_existentes:
+        i = 2
+        while f"{cod}{i}" in codigos_existentes:
+            i += 1
+        cod = f"{cod}{i}"
+    ok = agregar_cliente(cod, nombre, ruc, ubicacion)
+    return JSONResponse({"ok": ok, "codigo": cod})
+
+
+@app.post("/api/atencion/nueva")
+async def api_nueva_atencion(
+    usuario: dict = Depends(require_login),
     nombre: str = Form(...),
     codigo_empresa: str = Form(...),
     email: str = Form(""),

@@ -155,15 +155,18 @@ async def api_exportar_pdf(
     except Exception:
         _fecha_doc = datetime.now().strftime("%d-%m-%Y")
         _año = datetime.now().year
-    numero_cot = f"COT-{_año}-{cotizacion_id:05d}"
-    _partes = [p.strip() for p in [
-        numero_cot,
-        cotizacion.get("cliente_nombre") or cotizacion.get("cliente", ""),
+    es_importada = cotizacion.get("origen") == "pdf_import"
+    _cliente_str = cotizacion.get("cliente_nombre") or cotizacion.get("cliente", "")
+    _campos = [p.strip() for p in [
+        _cliente_str,
         cotizacion.get("proyecto", ""),
         cotizacion.get("atencion", ""),
         _fecha_doc,
     ] if p and p.strip()]
-    _base = " ".join(_partes) if _partes else "COTIZACIÓN"
+    if es_importada:
+        _base = "COT-" + " ".join(_campos) if _campos else "COTIZACIÓN"
+    else:
+        _base = " ".join([f"COT-{_año}-{cotizacion_id:05d}"] + _campos) if _campos else "COTIZACIÓN"
     for _c in r'\/:*?"<>|':
         _base = _base.replace(_c, "")
     nombre = _base + ".pdf"

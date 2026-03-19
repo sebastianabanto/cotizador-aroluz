@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Planchas — AROLUZ{% endblock %}
+
+{% block extra_head %}
+<style>
+.inp-error { border-color: var(--rojo) !important; }
+/* Resaltar chip seleccionado sin JS */
+.chip-label:has(input:checked) {
+  border-color: var(--azul-claro);
+  background: #eff6ff;
+  color: var(--azul-claro);
+  font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="planchas-layout">
+
+  {# ─── SIDEBAR ────────────────────────────────────────────── #}
+  <aside class="planchas-sidebar">
+
+    {# Hoja de material #}
+    <div class="form-card">
+      <div class="form-card-header">
+        <span class="form-card-title">Hoja de material</span>
+      </div>
+      <div class="form-card-body">
+
+        <div class="form-row-2">
+          <label class="form-label">
+            Ancho plancha (mm)
+            <input type="number" id="inp-ancho-plancha" class="form-input"
+                   value="2400" min="100" max="10000" step="1">
+          </label>
+          <label class="form-label">
+            Alto plancha (mm)
+            <input type="number" id="inp-alto-plancha" class="form-input"
+                   value="1200" min="100" max="10000" step="1">
+          </label>
+        </div>
+
+        <label class="form-label">Espesor</label>
+        <div class="chip-group row" style="margin-bottom:.75rem">
+          <label class="chip-label">
+            <input type="radio" name="espesor" value="1.2"
+              {% if config.espesor_producto == '1.2' %}checked{% endif %}>
+            <span>1.2 mm</span>
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="espesor" value="1.5"
+              {% if config.espesor_producto != '1.2' and config.espesor_producto != '2.0' %}checked{% endif %}>
+            <span>1.5 mm</span>
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="espesor" value="2.0"
+              {% if config.espesor_producto == '2.0' %}checked{% endif %}>
+            <span>2.0 mm</span>
+          </label>
+        </div>
+
+        <label class="form-label">Galvanizado</label>
+        <div class="chip-group row" style="margin-bottom:.75rem">
+          <label class="chip-label">
+            <input type="radio" name="galvanizado" value="GO"
+              {% if config.galvanizado != 'GC' %}checked{% endif %}>
+            <span>GO</span>
+          </label>
+          <label class="chip-label">
+            <input type="radio" name="galvanizado" value="GC"
+              {% if config.galvanizado == 'GC' %}checked{% endif %}>
+            <span>GC</span>
+          </label>
+        </div>
+
+        <label class="form-label">
+          Espaciado de corte (mm)
+          <input type="number" id="inp-espaciado" class="form-input"
+                 value="0" min="0" max="20" step="0.5">
+        </label>
+
+      </div>
+    </div>
+
+    {# Piezas #}
+    <div class="form-card">
+      <div class="form-card-header">
+        <span class="form-card-title">Piezas a cortar</span>
+      </div>
+      <div class="form-card-body">
+
+        {# Lista de piezas #}
+        <div id="piezas-lista" class="piezas-lista-wrap">
+          <p class="piezas-vacia">Sin piezas. Agregá al menos una.</p>
+        </div>
+
+        {# Fila para agregar #}
+        <div class="pieza-add-row">
+          <div class="pieza-add-inputs">
+            <input type="number" id="inp-ancho" class="form-input" placeholder="Ancho mm"
+                   min="1" max="10000" step="1" autocomplete="off">
+            <input type="number" id="inp-alto" class="form-input" placeholder="Alto mm"
+                   min="1" max="10000" step="1" autocomplete="off">
+            <input type="number" id="inp-cant" class="form-input" placeholder="Cant"
+                   value="1" min="1" max="200" step="1" style="max-width:70px">
+            <input type="text" id="inp-nombre" class="form-input" placeholder="Nombre (opcional)"
+                   maxlength="30" style="max-width:140px">
+          </div>
+          <button type="button" class="btn-add-pieza" onclick="addPiece()">+ Agregar</button>
+        </div>
+
+        <button type="button" class="btn-calcular" onclick="runPacker()">
+          Calcular cortes
+        </button>
+
+      </div>
+    </div>
+
+  </aside>
+
+  {# ─── RESULTADO ──────────────────────────────────────────── #}
+  <section class="planchas-resultado">
+
+    {# Stats bar #}
+    <div id="stats-bar" class="planchas-stats"></div>
+
+    {# Alertas de piezas no colocadas #}
+    <div id="no-colocadas" class="hidden"></div>
+
+    {# Canvas área #}
+    <div class="planchas-canvas-area" id="canvas-area">
+      <p class="planchas-empty-msg">Ingresá las piezas y presioná Calcular.</p>
+    </div>
+
+    {# Secuencia de cortes (colapsable) #}
+    <details class="planchas-cortes-details">
+      <summary>Secuencia de cortes</summary>
+      <div class="planchas-cortes-leyenda">
+        <span class="corte-legend corte-h-legend">— Corte H (horizontal)</span>
+        <span class="corte-legend corte-v-legend">— Corte V (vertical)</span>
+      </div>
+      <div id="cortes-lista" class="cortes-lista"></div>
+    </details>
+
+    {# Precio box #}
+    <div id="precio-box" class="planchas-precio-box hidden"></div>
+
+  </section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/planchas.js"></script>
+{% endblock %}

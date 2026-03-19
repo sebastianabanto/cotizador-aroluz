@@ -330,6 +330,7 @@
     </div>
   </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -387,70 +388,31 @@ async function cargarHistorial() {
 function renderHistorial() {
   const tbody  = document.getElementById('tbody-historial');
   tbody.innerHTML = '';
-  const cols = ES_ADMIN ? 8 : 7;
 
   if (!cotizacionesFiltradas.length) {
+    const cols = ES_ADMIN ? 8 : 7;
     tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; padding:2rem; color:var(--texto-suave);">No hay cotizaciones que coincidan con los filtros.</td></tr>`;
     renderPaginacion();
     return;
   }
 
-  const listaVisible = getListaVisible();
-  const inicio = (paginaActual - 1) * POR_PAGINA;
-  const pagina = listaVisible.slice(inicio, inicio + POR_PAGINA);
-
-  // Índice global de la primera pasada (pdf_import) en la lista filtrada
-  const idxPrimeraPasada = cotizacionesFiltradas.findIndex(c => c.origen === 'pdf_import');
-  const hayNormales      = cotizacionesFiltradas.some(c => c.origen !== 'pdf_import');
-  const hayPasadas       = idxPrimeraPasada !== -1;
-
-  // El separador ya se mostró si la primera pasada cae antes de la página actual (solo cuando expandido)
-  let separadorMostrado = _pasadasColapsadas || !hayNormales || !hayPasadas || idxPrimeraPasada < inicio;
+  const inicio  = (paginaActual - 1) * POR_PAGINA;
+  const pagina  = cotizacionesFiltradas.slice(inicio, inicio + POR_PAGINA);
 
   for (const c of pagina) {
-    const esPasada = c.origen === 'pdf_import';
-
-    // Insertar fila separadora justo antes de la primera pasada (solo cuando expandido)
-    if (esPasada && !separadorMostrado) {
-      const trSep = document.createElement('tr');
-      trSep.id = 'sep-pasadas';
-      trSep.style.cursor = 'pointer';
-      trSep.onclick = () => togglePasadas();
-      trSep.innerHTML = `
-        <td colspan="${cols}" style="
-          background:var(--gris-fondo,#f5f7fa);
-          padding:0.45rem 0.9rem;
-          font-size:0.72rem; font-weight:700;
-          color:var(--texto-suave);
-          letter-spacing:0.06em; text-transform:uppercase;
-          border-top:2px solid var(--gris-borde);
-          border-bottom:1px solid var(--gris-borde);
-          user-select:none;
-        "><span id="sep-flecha">▼</span> 📂 Cotizaciones pasadas</td>`;
-      tbody.appendChild(trSep);
-      separadorMostrado = true;
-    }
-
     const fecha = formatearFecha(c.fecha);
-    const dolar_rate   = c.dolar_rate || 3.8;
-    const esUSD        = c.moneda === 'DOLARES';
-    const sym          = esUSD ? '$' : 'S/';
+    const dolar_rate  = c.dolar_rate || 3.8;
+    const esUSD       = c.moneda === 'DOLARES';
+    const sym         = esUSD ? '$' : 'S/';
     const totalDisplay = esUSD
       ? (c.total_precio / dolar_rate).toFixed(2)
       : parseFloat(c.total_precio).toFixed(2);
 
-    const badgePdf = esPasada
-      ? `<span style="display:inline-block;margin-left:4px;font-size:0.6rem;background:#e8f0fe;color:#1a56db;border:1px solid #b8d0f9;border-radius:3px;padding:0px 4px;vertical-align:middle;font-weight:700;">PDF</span>`
-      : '';
-
     const tr = document.createElement('tr');
     tr.id = `row-${c.id}`;
-    if (esPasada) {
-      tr.style.background = 'var(--gris-fondo, #f9fafc)';
-    }
     tr.innerHTML = `
       <td data-label="#" style="color:var(--texto-suave);font-size:0.8rem;">${c.id}</td>
-      <td data-label="Fecha" style="font-size:0.8rem;">${fecha}${badgePdf}</td>
+      <td data-label="Fecha" style="font-size:0.8rem;">${fecha}</td>
       <td data-label="Cliente">${c.cliente || '<span style="color:var(--texto-suave);">—</span>'}</td>
       <td data-label="Proyecto" style="font-size:0.875rem;">${c.proyecto || '<span style="color:var(--texto-suave);">—</span>'}</td>
       ${ES_ADMIN ? `<td data-label="Usuario" style="font-size:0.8rem;color:var(--texto-suave);">${c.username || '—'}</td>` : ''}
@@ -472,51 +434,12 @@ function renderHistorial() {
     tbody.appendChild(tr);
   }
 
-  // Cuando colapsado: mostrar separador al final de la última página de normales
-  if (_pasadasColapsadas && hayPasadas) {
-    const totalPagsVisible = Math.ceil(listaVisible.length / POR_PAGINA) || 1;
-    if (paginaActual >= totalPagsVisible) {
-      const cantPasadas = cotizacionesFiltradas.filter(c => c.origen === 'pdf_import').length;
-      const trSep = document.createElement('tr');
-      trSep.id = 'sep-pasadas';
-      trSep.style.cursor = 'pointer';
-      trSep.onclick = () => togglePasadas();
-      trSep.innerHTML = `
-        <td colspan="${cols}" style="
-          background:var(--gris-fondo,#f5f7fa);
-          padding:0.45rem 0.9rem;
-          font-size:0.72rem; font-weight:700;
-          color:var(--texto-suave);
-          letter-spacing:0.06em; text-transform:uppercase;
-          border-top:2px solid var(--gris-borde);
-          border-bottom:1px solid var(--gris-borde);
-          user-select:none;
-        "><span id="sep-flecha">▶</span> 📂 Cotizaciones pasadas (${cantPasadas})</td>`;
-      tbody.appendChild(trSep);
-    }
-  }
-
   renderPaginacion();
-}
-
-// ── Toggle cotizaciones pasadas ──
-let _pasadasColapsadas = false;
-
-function getListaVisible() {
-  return _pasadasColapsadas
-    ? cotizacionesFiltradas.filter(c => c.origen !== 'pdf_import')
-    : cotizacionesFiltradas;
-}
-
-function togglePasadas() {
-  _pasadasColapsadas = !_pasadasColapsadas;
-  paginaActual = 1;
-  renderHistorial();
 }
 
 // ── Paginación ──
 function renderPaginacion() {
-  const totalPaginas = Math.ceil(getListaVisible().length / POR_PAGINA);
+  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
   const ctrl = document.getElementById('paginacion-ctrl');
   if (totalPaginas <= 1) { ctrl.style.display = 'none'; return; }
   ctrl.style.display = 'flex';
@@ -526,7 +449,7 @@ function renderPaginacion() {
 }
 
 function cambiarPagina(delta) {
-  const totalPaginas = Math.ceil(getListaVisible().length / POR_PAGINA);
+  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
   paginaActual = Math.max(1, Math.min(paginaActual + delta, totalPaginas));
   renderHistorial();
 }
@@ -545,21 +468,13 @@ function filtrarHistorial() {
   const filCli  = document.getElementById('fil-cliente').value.trim().toLowerCase();
   const filProy = document.getElementById('fil-proyecto').value.trim().toLowerCase();
 
-  const filtradas = todasCotizaciones.filter(c => {
+  cotizacionesFiltradas = todasCotizaciones.filter(c => {
     const fechDate = (c.fecha || '').slice(0, 10);
     return (!filCli        || (c.cliente  || '').toLowerCase().includes(filCli))
         && (!filProy       || (c.proyecto || '').toLowerCase().includes(filProy))
         && (!calFechaInicio || fechDate >= calFechaInicio)
         && (!calFechaFin   || fechDate <= calFechaFin);
   });
-
-  // Normales (creadas en la app) primero → fecha desc
-  // Pasadas (importadas de PDF)   después → fecha desc
-  const normales = filtradas.filter(c => c.origen !== 'pdf_import')
-                            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  const pasadas  = filtradas.filter(c => c.origen === 'pdf_import')
-                            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  cotizacionesFiltradas = [...normales, ...pasadas];
 
   paginaActual = 1;
   renderHistorial();

@@ -197,6 +197,7 @@ def init_db():
     _add_column_if_missing(conn, "usuarios", "rol", "TEXT NOT NULL DEFAULT 'USER'")
     _add_column_if_missing(conn, "usuarios", "ver_asistencias", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "carrito_items", "descripcion_calculada", "TEXT DEFAULT NULL")
+    _add_column_if_missing(conn, "cotizaciones", "origen", "TEXT NOT NULL DEFAULT 'web'")
     # Promover al usuario admin a ADMIN si aún no lo es
     conn.execute("UPDATE usuarios SET rol='ADMIN' WHERE username='admin' AND rol='USER'")
     # ADMIN siempre tiene acceso a asistencias
@@ -1054,6 +1055,69 @@ def guardar_cotizacion_db(
             (
                 cotizacion_id,
                 item.get("tipo", ""),
+                item.get("descripcion", ""),
+                item.get("precio_unitario", 0),
+                item.get("peso_unitario", 0),
+                item.get("cantidad", 1),
+                item.get("unidad", "UND"),
+                item.get("tipo_galvanizado", "N/A"),
+                item.get("porcentaje_ganancia", "N/A"),
+            ),
+        )
+    conn.commit()
+    conn.close()
+    return cotizacion_id
+
+
+def guardar_cotizacion_importada_db(
+    username: str,
+    cliente: str,
+    atencion: str,
+    proyecto: str,
+    moneda: str,
+    items: List[Dict],
+    cliente_nombre: str = "",
+    cliente_ruc: str = "",
+    cliente_ubicacion: str = "",
+    atencion_email: str = "",
+    dolar_rate: float = 3.8,
+    validez: str = "30 días",
+    encabezado_tabla: str = "",
+    fecha: Optional[str] = None,
+    origen: str = "pdf_import",
+) -> int:
+    """Guarda una cotización importada (p. ej. desde PDF) con fecha y origen personalizados."""
+    from datetime import datetime
+    if not fecha:
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    total_precio = sum(i.get("precio_unitario", 0) * i.get("cantidad", 1) for i in items)
+    total_peso   = sum(i.get("peso_unitario", 0)  * i.get("cantidad", 1) for i in items)
+
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA foreign_keys = ON")
+    c = conn.cursor()
+    c.execute(
+        """INSERT INTO cotizaciones
+           (username, fecha, cliente, atencion, proyecto, moneda, total_precio, total_peso,
+            cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
+            dolar_rate, validez, encabezado_tabla, origen)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (username, fecha, cliente, atencion, proyecto, moneda,
+         round(total_precio, 4), round(total_peso, 6),
+         cliente_nombre, cliente_ruc, cliente_ubicacion, atencion_email,
+         dolar_rate, validez, encabezado_tabla, origen),
+    )
+    cotizacion_id = c.lastrowid
+    for item in items:
+        c.execute(
+            """INSERT INTO cotizacion_items
+               (cotizacion_id, tipo, descripcion, precio_unitario, peso_unitario,
+                cantidad, unidad, tipo_galvanizado, porcentaje_ganancia)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                cotizacion_id,
+                item.get("tipo", "MANUAL"),
                 item.get("descripcion", ""),
                 item.get("precio_unitario", 0),
                 item.get("peso_unitario", 0),

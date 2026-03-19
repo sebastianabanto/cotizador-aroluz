@@ -31,8 +31,9 @@ let _importarConfig = {
 // ── Encabezados reconocidos para auto-detección de columnas ──
 const _HEADER_RE = {
   descripcion: /DESCRIP|DETALLE|PRODUCTO|ITEM|C[ÓO]DIGO|NOMBRE/i,
-  unidad:      /\bUND\b|\bUNIDAD\b|\bUN\b|\bU\.M\.\b|\bUM\b/i,
-  cantidad:    /CANT|QTY|\bN[°º]\b|N[°]|CANTIDAD|METRADO|\bTOTAL\b/i,
+  unidad:      /\bUND\b|\bUNIDAD\b|\bUN\/ML\b|\bUN\b|\bU\.M\.\b|\bUM\b/i,
+  cantidad:    /CANT|QTY|\bN[°º]\b|N[°]|CANTIDAD|METRADO/i,
+  // TOTAL se excluye adrede: en tablas de cotización TOTAL = precio total, no cantidad
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -291,21 +292,118 @@ function _normalizarDimensiones(desc) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// 2b. Parser TSV con auto-detección de encabezados
+// 2b. Parser regex para tablas pegadas sin tabuladores
+//     (copiadas de PDF, Word, web — espacios simples entre columnas)
+// ──────────────────────────────────────────────────────────────
+
+// Formato: N° + descripción + UND/ML/... + cantidad [+ precio unitario] [+ total]
+// El grupo (.+) es greedy → backtracking fuerza a encontrar la ÚLTIMA keyword de unidad
+const _REGEX_TABLE_LINE = /^\s*\d+\s+(.+)\s+(UND|ML|M2|KG|JGO|GLB|PZA)\s+(\d+(?:[.,]\d+)?)(?:\s+[\d.,]+)*\s*$/i;
+
+function _isRegexTableFormat(cleanLines) {
+  const dataLines = cleanLines.filter(l => /^\s*\d/.test(l));
+  if (dataLines.length < 1) return false;
+  const matches = dataLines.filter(l => _REGEX_TABLE_LINE.test(l)).length;
+  return matches / dataLines.length >= 0.6;
+}
+
+function _parseRegexTable(cleanLines) {
+  const rows = [];
+  for (const line of cleanLines) {
+    const m = _REGEX_TABLE_LINE.exec(line);
+    if (!m) continue;
+    const desc = _normalizarDimensiones(m[1].trim());
+    if (!desc) continue;
+    const unidad   = m[2].toUpperCase();
+    const cantidad = Math.round(parseFloat(m[3].replace(',', '.'))) || 1;
+    rows.push({ descripcion: desc, unidad, cantidad });
+  }
+  return rows;
+}
+
+// ──────────────────────────────────────────────────────────────
+// 2d. Parser para formato metrado/presupuesto externo
+//     Estructura por ítem:
+//       {código_largo} {inicio_descripción}
+//       {continuación_descripción...}  (0 o más líneas)
+//       {N°} {UND|ML} {cantidad.decimal} {precio} {dcto} {parcial}
+//     Ítems sin línea de datos (sin código asignado) se ignoran.
+// ──────────────────────────────────────────────────────────────
+
+const _METRADO_DATA_RE = /^\s*\d{1,3}\s+(UND|ML|M2|KG|JGO|GLB|PZA)\s+(\d+[.,]\d+)/i;
+const _METRADO_CODE_RE = /^\s*\d{6,}\s+(.*)/;
+
+function _isMetradoFormat(lines) {
+  const dataLines = lines.filter(l => _METRADO_DATA_RE.test(l));
+  const codeLines = lines.filter(l => _METRADO_CODE_RE.test(l));
+  return dataLines.length >= 1 && codeLines.length >= 1;
+}
+
+function _parseMetrado(lines) {
+  const rows = [];
+  const headerRe = /^Item\b|^C[oó]digo\b|^ITEM\b/i;
+  let descParts = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (headerRe.test(trimmed)) continue;
+
+    // Línea de datos: N° + UND/ML + cantidad decimal + precios
+    const dataM = _METRADO_DATA_RE.exec(trimmed);
+    if (dataM) {
+      const unidad   = dataM[1].toUpperCase();
+      const cantidad = Math.round(parseFloat(dataM[2].replace(',', '.'))) || 1;
+      const desc     = _normalizarDimensiones(descParts.join(' ').trim());
+      if (desc) rows.push({ descripcion: desc, unidad, cantidad });
+      descParts = [];
+      continue;
+    }
+
+    // Línea de código: inicia nueva descripción
+    const codeM = _METRADO_CODE_RE.exec(trimmed);
+    if (codeM) {
+      descParts = codeM[1].trim() ? [codeM[1].trim()] : [];
+      continue;
+    }
+
+    // Línea de continuación de descripción
+    if (descParts.length > 0) {
+      descParts.push(trimmed);
+    }
+    // Líneas huérfanas (tras línea de datos, antes del siguiente código) → se ignoran
+  }
+
+  return rows;
+}
+
+// ──────────────────────────────────────────────────────────────
+// 2c. Parser TSV con auto-detección de encabezados
 // ──────────────────────────────────────────────────────────────
 
 function _parseTSV(text) {
   const rawLines = text.trim().split('\n');
 
-  // ── Detectar formato multi-línea primero ──
   const cleanLines = rawLines.map(l => l.trim()).filter(l => l.length > 0);
+
+  // ── Detectar formato metrado/presupuesto externo primero ──
+  if (_isMetradoFormat(cleanLines)) {
+    return _parseMetrado(cleanLines);
+  }
+
+  // ── Detectar formato multi-línea ──
   if (_isMultiLineFormat(cleanLines)) {
     return _parseMultiLine(cleanLines);
   }
 
   // Auto-detectar separador: si alguna línea tiene tab → TSV (Excel/Sheets)
-  // Si no hay tabs → columnas separadas por 2+ espacios (Word, PDF, sistema externo)
+  // Si no hay tabs → intentar regex (tablas PDF/web) antes de 2+ espacios
   const hasTabs = rawLines.some(l => l.includes('\t'));
+
+  // ── Regex-based: tablas PDF/web con espacios simples ──
+  if (!hasTabs && _isRegexTableFormat(cleanLines)) {
+    return _parseRegexTable(cleanLines);
+  }
   const _splitLine = hasTabs
     ? (l) => l.split('\t').map(c => c.trim().replace(/^["']|["']$/g, ''))
     : (l) => l.split(/\s{2,}/).map(c => c.trim().replace(/^["']|["']$/g, ''));
@@ -361,6 +459,18 @@ function _parseTSV(text) {
       colDesc = firstRow.length - 1; // descripción en la última columna
       colCant = 1;
       colUnd  = 2;
+    } else if (firstRow.length >= 4 && _isIntCol(0) && !_isIntCol(1)) {
+      // Formato: [N°ítem, descripción, unidad?, cantidad, precio?, total?]
+      // (típico al copiar una tabla de cotización completa)
+      colDesc = 1;
+      // Buscar desde col 2: primera columna no-entera = unidad, primera entera después = cantidad
+      let foundUnit = false;
+      for (let c = 2; c < firstRow.length; c++) {
+        if (!foundUnit && !_isIntCol(c)) { colUnd = c; foundUnit = true; }
+        else if (foundUnit && colCant === -1 && _isIntCol(c)) { colCant = c; break; }
+      }
+      // Fallback: si no hay columna de unidad, la primera entera desde col2 = cantidad
+      if (!foundUnit && _isIntCol(2)) colCant = 2;
     } else if (firstRow.length >= 3) {
       // Tres columnas: desc, und, cant (orden clásico)
       // Pero si col1 parece entero, puede ser cant y col2 und

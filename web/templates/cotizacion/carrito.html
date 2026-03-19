@@ -34,11 +34,21 @@
       <!-- Atención: autocomplete filtrada por cliente -->
       <div class="form-group">
         <label class="form-label" for="atencion-input">Atención</label>
-        <div class="ac-wrapper">
-          <input type="text" id="atencion-input" class="form-control"
-                 placeholder="Escribir para buscar…" autocomplete="off"
-                 oninput="onAtencionInput()" onfocus="onAtencionFocus()" onblur="onAtencionBlur()">
-          <div id="atencion-lista" class="ac-lista" style="display:none;"></div>
+        <div style="display:flex; align-items:flex-start; gap:0.35rem;">
+          <div class="ac-wrapper" style="flex:1;">
+            <input type="text" id="atencion-input" class="form-control"
+                   placeholder="Escribir para buscar…" autocomplete="off"
+                   oninput="onAtencionInput()" onfocus="onAtencionFocus()" onblur="onAtencionBlur()">
+            <div id="atencion-lista" class="ac-lista" style="display:none;"></div>
+          </div>
+          <button type="button" onclick="abrirModalNuevoCliente()"
+                  title="Agregar Cliente"
+                  style="background:#16a34a;color:#fff;border:none;border-radius:4px;width:32px;height:32px;font-size:1.1rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;"
+                  onmouseenter="this.querySelector('.tt-ag').style.display='block'"
+                  onmouseleave="this.querySelector('.tt-ag').style.display='none'">
+            +
+            <span class="tt-ag" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#000;color:#fff;font-size:0.7rem;white-space:nowrap;padding:2px 6px;border-radius:3px;pointer-events:none;z-index:200;">Agregar Cliente</span>
+          </button>
         </div>
         <input type="hidden" id="atencion" value="">
       </div>
@@ -173,6 +183,13 @@
     </div>
   </details>
 
+  <!-- Botón Ver planchas necesarias -->
+  <button class="btn btn-secondary" id="btn-ver-planchas"
+          onclick="verPlanchasNecesarias()"
+          style="margin-bottom:1rem; width:100%;">
+    Ver planchas necesarias
+  </button>
+
   {% else %}
   <!-- Carrito vacío -->
   <div class="card" style="text-align:center; padding: 3rem;">
@@ -188,7 +205,7 @@
       📋 Importar tabla desde portapapeles
     </button>
     <span style="font-size:0.82rem; color:var(--texto-suave);">
-      Excel/Sheets (columnas Desc·UND·Cant) o lista multi-línea (N°·Desc·Und·Cant por ítem)
+      Excel/Sheets · lista multi-línea · metrado (Código+Desc / N°·Und·Cant)
     </span>
   </div>
 
@@ -287,9 +304,11 @@
 
       <!-- Instrucciones modo tabla -->
       <div id="imp-ayuda-tabla" style="margin-bottom:0.75rem; font-size:0.875rem; color:var(--texto-suave);">
-        Copia una tabla y pégala aquí (Ctrl+V). Se aceptan dos formatos:<br>
+        Copia una tabla y pégala aquí (Ctrl+V). Se aceptan varios formatos:<br>
         <strong>A)</strong> Tabla de Excel / Google Sheets — columnas Descripción · UND · Cantidad (separadas por tabulador).<br>
-        <strong>B)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em>.<br>
+        <strong>B)</strong> Tabla completa con N°ítem, precio y total — se extraen solo Descripción, UND y Cant. (las demás columnas se ignoran).<br>
+        <strong>C)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em>.<br>
+        <strong>D)</strong> Metrado / presupuesto externo — línea <em>Código Descripción</em>, continuaciones, luego <em>N° Und Cant Precio Dcto Total</em>. Los ítems sin línea de datos se omiten.<br>
         <span style="color:var(--azul); font-weight:500;">Puedes omitir espesor, galvanizado y superficie — se ajustan en el preview (paso 2).</span>
       </div>
 
@@ -527,6 +546,52 @@
     <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
       <button class="btn btn-secondary" onclick="cerrarModalEspesor()">Cancelar</button>
       <button class="btn btn-primary" id="btn-aplicar-espesor" onclick="aplicarEspesor()">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     Modal agregar nuevo cliente + atención
+════════════════════════════════════════════ -->
+<div id="modal-nuevo-cliente" role="dialog" aria-modal="true"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1200;
+            align-items:center; justify-content:center; padding:1rem;">
+  <div style="background:#fff; border-radius:10px; padding:1.5rem; width:100%; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,.25);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 style="margin:0; font-size:1.05rem; color:var(--azul);">Nuevo Cliente</h2>
+      <button onclick="cerrarModalNuevoCliente()" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--texto-suave); line-height:1;">✕</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="nc-nombre">Nombre del cliente <span style="color:#e53e3e;">*</span></label>
+      <input type="text" id="nc-nombre" class="form-control" placeholder="Ej: Empresa SAC">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="nc-ruc">RUC <span style="font-weight:400; color:var(--texto-suave);">(opcional, 11 dígitos)</span></label>
+      <input type="text" id="nc-ruc" class="form-control" placeholder="Ej: 20512345678" maxlength="11" inputmode="numeric">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="nc-ubicacion">Ubicación <span style="font-weight:400; color:var(--texto-suave);">(opcional)</span></label>
+      <input type="text" id="nc-ubicacion" class="form-control" placeholder="Ej: Lima">
+    </div>
+
+    <hr style="border:none; border-top:1px solid #e5e7eb; margin:0.75rem 0;">
+    <p style="margin:0 0 0.6rem; font-size:0.82rem; color:var(--texto-suave);">Atención / Contacto</p>
+
+    <div class="form-group">
+      <label class="form-label" for="nc-atencion">Nombre del contacto <span style="color:#e53e3e;">*</span></label>
+      <input type="text" id="nc-atencion" class="form-control" placeholder="Ej: Juan Pérez">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="nc-email">Email <span style="font-weight:400; color:var(--texto-suave);">(opcional)</span></label>
+      <input type="email" id="nc-email" class="form-control" placeholder="Ej: juan@empresa.com">
+    </div>
+
+    <div id="nc-error" style="display:none; color:#e53e3e; font-size:0.82rem; margin-bottom:0.75rem;"></div>
+
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="cerrarModalNuevoCliente()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-nc-guardar" onclick="guardarNuevoCliente()">Guardar</button>
     </div>
   </div>
 </div>
@@ -1266,6 +1331,283 @@ async function aplicarEspesor() {
     }
   }
 }
+
+// ════════════════════════════════════════════
+// Ver planchas necesarias
+// ════════════════════════════════════════════
+
+function _pl_hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function _pl_escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function _pl_renderCanvas(canvasEl, binW, binH, piezasColocadas, cortes) {
+  const dpr = window.devicePixelRatio || 1;
+  const wrap = canvasEl.parentElement;
+  const maxW = Math.max(200, (wrap.clientWidth || 700) - 8);
+  const maxH = 460;
+  const scale = Math.min(maxW / binW, maxH / binH);
+
+  // Tamaño CSS (lo que se ve en pantalla)
+  const cssW = Math.round(binW * scale);
+  const cssH = Math.round(binH * scale);
+
+  // Tamaño físico del buffer (dpr × para pantallas de alta densidad)
+  canvasEl.width  = Math.round(cssW * dpr);
+  canvasEl.height = Math.round(cssH * dpr);
+  canvasEl.style.width  = cssW + 'px';
+  canvasEl.style.height = cssH + 'px';
+  canvasEl.style.maxWidth = '100%';
+
+  const ctx = canvasEl.getContext('2d');
+  ctx.scale(dpr, dpr);   // a partir de aquí todo se dibuja en coordenadas CSS
+
+  // Fondo
+  ctx.fillStyle = '#dde6f5';
+  ctx.fillRect(0, 0, cssW, cssH);
+
+  // Grilla de referencia
+  ctx.strokeStyle = 'rgba(150,175,215,0.35)'; ctx.lineWidth = 0.5;
+  const gStep = 200 * scale;
+  for (let x = gStep; x < cssW; x += gStep) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cssH); ctx.stroke(); }
+  for (let y = gStep; y < cssH; y += gStep) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cssW,y); ctx.stroke(); }
+
+  // Piezas
+  for (const p of piezasColocadas) {
+    const px=p.x*scale, py=p.y*scale, pw=p.ancho_colocado*scale, ph=p.alto_colocado*scale;
+    ctx.fillStyle = _pl_hexToRgba(p.color, 0.72);
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = p.color; ctx.lineWidth = 1.5;
+    ctx.strokeRect(px+0.75, py+0.75, pw-1.5, ph-1.5);
+
+    const minDim = Math.min(pw, ph);
+    if (minDim > 18) {
+      const fs = Math.max(8, Math.min(13, minDim * 0.17));
+      const dimLbl = `${p.ancho_original}×${p.alto_original}`;
+      const hasName = p.nombre && p.nombre !== dimLbl;
+      ctx.fillStyle = 'rgba(20,30,60,0.88)';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const cx = px + pw/2, cy = py + ph/2;
+      if (hasName) {
+        ctx.font = `600 ${fs}px system-ui,sans-serif`;
+        ctx.fillText(dimLbl, cx, cy - fs * 0.75);
+        ctx.font = `${Math.max(7, fs - 1)}px system-ui,sans-serif`;
+        let nm = p.nombre; const mxW = pw - 6;
+        while (ctx.measureText(nm).width > mxW && nm.length > 3) nm = nm.slice(0, -1);
+        if (nm !== p.nombre) nm += '…';
+        ctx.fillText(nm, cx, cy + fs * 0.65);
+      } else {
+        ctx.font = `600 ${fs}px system-ui,sans-serif`;
+        ctx.fillText(dimLbl, cx, cy - (p.rotada ? fs * 0.7 : 0));
+        if (p.rotada) {
+          ctx.font = `${fs - 1}px system-ui,sans-serif`;
+          ctx.fillText('↺', cx, cy + fs * 0.8);
+        }
+      }
+    }
+  }
+
+  // Líneas de corte
+  for (const c of cortes) {
+    ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+    if (c.tipo === 'H') {
+      ctx.strokeStyle = 'rgba(22,160,133,0.75)';
+      ctx.beginPath(); ctx.moveTo(c.desde*scale, c.posicion*scale); ctx.lineTo(c.hasta*scale, c.posicion*scale); ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(211,84,0,0.75)';
+      ctx.beginPath(); ctx.moveTo(c.posicion*scale, c.desde*scale); ctx.lineTo(c.posicion*scale, c.hasta*scale); ctx.stroke();
+    }
+  }
+
+  // Borde exterior y dimensión
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#7b96c0'; ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, cssW - 2, cssH - 2);
+  ctx.fillStyle = '#4a6080'; ctx.font = '10px system-ui,sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`${binW}×${binH}mm`, 5, 4);
+}
+
+function _plSetTab(gi, ti) {
+  document.querySelectorAll(`[id^="plm-g${gi}-tab-"]`).forEach((b,i) => b.classList.toggle('active', i===ti));
+  document.querySelectorAll(`[id^="plm-g${gi}-cv-"]`).forEach((d,i) => d.classList.toggle('hidden', i!==ti));
+}
+
+async function verPlanchasNecesarias() {
+  const btn = document.getElementById('btn-ver-planchas');
+  if (btn) { btn.disabled = true; btn.textContent = 'Calculando…'; }
+  try {
+    const data = await apiFetch('/api/planchas/desde-carrito', { method: 'POST' });
+    if (!data.ok) { toast(data.error || 'Error al calcular planchas', 'error'); return; }
+    _renderModalPlanchas(data);
+  } catch(e) {
+    toast('Error de conexión', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Ver planchas necesarias'; }
+  }
+}
+
+function _renderModalPlanchas(data) {
+  document.getElementById('modal-planchas-overlay')?.remove();
+  const { grupos, items_ignorados, leyenda } = data;
+
+  let warnHtml = '';
+  if (items_ignorados && items_ignorados.length > 0) {
+    warnHtml = `<div class="modal-planchas-alert-warn">
+      ⚠️ Ítems sin desarrollos calculables (manuales, catálogo, planchas):
+      <ul style="margin:0.35rem 0 0;padding-left:1.2rem;">
+        ${items_ignorados.map(d=>`<li>${_pl_escHtml(d.slice(0,80))}</li>`).join('')}
+      </ul></div>`;
+  }
+
+  let gruposHtml = '';
+  if (!grupos || grupos.length === 0) {
+    gruposHtml = `<div class="modal-planchas-vacio">No hay productos con desarrollos calculables en el carrito.</div>`;
+  } else {
+    grupos.forEach((g, gi) => {
+      const res = g.resumen;
+      const util = Math.round((res.utilizacion_promedio||0)*100);
+      const statsHtml = `<div class="planchas-stats" style="margin-bottom:0.75rem;">
+        <div class="stat-box"><span class="stat-val">${res.n_planchas}</span><span class="stat-lbl">Plancha${res.n_planchas!==1?'s':''}</span></div>
+        <div class="stat-box"><span class="stat-val">${res.total_colocadas}/${res.total_solicitadas}</span><span class="stat-lbl">Piezas</span></div>
+        <div class="stat-box stat-util" data-util="${util}"><span class="stat-val">${util}%</span><span class="stat-lbl">Utilización</span></div>
+        <div class="stat-box"><span class="stat-val">${res.desperdicio_m2.toFixed(3)} m²</span><span class="stat-lbl">Desperdicio</span></div>
+      </div>`;
+      let tabsHtml = '', canvasesHtml = '';
+      if (g.planchas.length > 1) {
+        tabsHtml = `<div class="planchas-tabs">${g.planchas.map((_,i)=>`<button class="ptab-btn${i===0?' active':''}" id="plm-g${gi}-tab-${i}" onclick="_plSetTab(${gi},${i})" type="button">Plancha ${i+1}</button>`).join('')}</div>`;
+        canvasesHtml = g.planchas.map((pl,i)=>`<div id="plm-g${gi}-cv-${i}" class="modal-planchas-canvas-wrap${i>0?' hidden':''}"><canvas id="plm-g${gi}-canvas-${i}" class="modal-planchas-canvas"></canvas></div>`).join('');
+      } else if (g.planchas.length === 1) {
+        canvasesHtml = `<div class="modal-planchas-canvas-wrap"><canvas id="plm-g${gi}-canvas-0" class="modal-planchas-canvas"></canvas></div>`;
+      }
+      let noColHtml = '';
+      if (g.no_colocadas && g.no_colocadas.length > 0) {
+        noColHtml = `<div class="modal-planchas-alert-danger">⚠️ ${g.no_colocadas.length} pieza(s) no caben en 2400×1200mm:<ul style="margin:0.35rem 0 0;padding-left:1.2rem;">${g.no_colocadas.map(p=>`<li>${_pl_escHtml(p.nombre)} (${p.ancho}×${p.alto}mm)</li>`).join('')}</ul></div>`;
+      }
+      gruposHtml += `<div class="modal-planchas-grupo"><div class="modal-planchas-grupo-title">Plancha ${g.espesor}mm — ${g.tipo_galvanizado}</div>${statsHtml}${tabsHtml}${canvasesHtml}${noColHtml}</div>`;
+    });
+  }
+
+  let leyendaHtml = '';
+  if (leyenda && leyenda.length > 0) {
+    leyendaHtml = `<div class="modal-planchas-leyenda">${leyenda.map(l=>`<div class="leyenda-item"><span class="leyenda-dot" style="background:${l.color};"></span><span>${_pl_escHtml(l.label)}</span></div>`).join('')}</div>`;
+  }
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="modal-planchas-overlay" class="modal-planchas-overlay" role="dialog" aria-modal="true"
+         onclick="if(event.target===this)cerrarModalPlanchas()">
+      <div class="modal-planchas-inner">
+        <div class="modal-planchas-header">
+          <h2 class="modal-planchas-titulo">Planchas Necesarias</h2>
+          <button class="modal-planchas-close" onclick="cerrarModalPlanchas()" aria-label="Cerrar">✕</button>
+        </div>
+        ${warnHtml}${gruposHtml}${leyendaHtml}
+      </div>
+    </div>`);
+
+  if (grupos) {
+    grupos.forEach((g, gi) => {
+      g.planchas.forEach((pl, pi) => {
+        const cv = document.getElementById(`plm-g${gi}-canvas-${pi}`);
+        if (cv) _pl_renderCanvas(cv, 2400, 1200, pl.piezas, pl.cortes);
+      });
+    });
+  }
+}
+
+function cerrarModalPlanchas() {
+  document.getElementById('modal-planchas-overlay')?.remove();
+}
+
+// ════════════════════════════════════════════
+// Modal nuevo cliente + atención
+// ════════════════════════════════════════════
+function abrirModalNuevoCliente() {
+  ['nc-nombre','nc-ruc','nc-ubicacion','nc-atencion','nc-email'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('nc-error').style.display = 'none';
+  const modal = document.getElementById('modal-nuevo-cliente');
+  modal.style.display = 'flex';
+  document.getElementById('nc-nombre').focus();
+}
+
+function cerrarModalNuevoCliente() {
+  document.getElementById('modal-nuevo-cliente').style.display = 'none';
+}
+
+document.getElementById('modal-nuevo-cliente').addEventListener('click', function(e) {
+  if (e.target === this) cerrarModalNuevoCliente();
+});
+
+async function guardarNuevoCliente() {
+  const nombre   = document.getElementById('nc-nombre').value.trim();
+  const ruc      = document.getElementById('nc-ruc').value.trim();
+  const ubicacion= document.getElementById('nc-ubicacion').value.trim();
+  const atencion = document.getElementById('nc-atencion').value.trim();
+  const email    = document.getElementById('nc-email').value.trim();
+  const errEl    = document.getElementById('nc-error');
+
+  if (!nombre) { errEl.textContent = 'El nombre del cliente es obligatorio.'; errEl.style.display=''; return; }
+  if (!atencion) { errEl.textContent = 'El nombre del contacto es obligatorio.'; errEl.style.display=''; return; }
+  if (ruc && !/^\d{11}$/.test(ruc)) { errEl.textContent = 'El RUC debe tener exactamente 11 dígitos.'; errEl.style.display=''; return; }
+  errEl.style.display = 'none';
+
+  // Generar código de cliente a partir del nombre (3-4 letras en mayúscula)
+  const codigo = nombre.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase() || 'CLI' + Date.now();
+
+  const btn = document.getElementById('btn-nc-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  try {
+    // 1. Crear cliente
+    const fdCliente = new FormData();
+    fdCliente.append('codigo', codigo);
+    fdCliente.append('nombre', nombre);
+    fdCliente.append('ruc', ruc);
+    fdCliente.append('ubicacion', ubicacion);
+    const r1 = await fetch('/api/cliente/nuevo', { method: 'POST', body: fdCliente });
+    const d1 = await r1.json();
+    if (!d1.ok) { errEl.textContent = d1.error || 'Error al crear cliente.'; errEl.style.display=''; return; }
+
+    // 2. Crear atención
+    const fdAt = new FormData();
+    fdAt.append('nombre', atencion);
+    fdAt.append('codigo_empresa', d1.codigo);
+    fdAt.append('email', email);
+    const r2 = await fetch('/api/atencion/nueva', { method: 'POST', body: fdAt });
+    const d2 = await r2.json();
+    if (!d2.ok) { errEl.textContent = d2.error || 'Error al crear atención.'; errEl.style.display=''; return; }
+
+    // 3. Actualizar arrays en memoria y pre-seleccionar
+    const nuevoCliente = { codigo: d1.codigo, nombre: nombre, ruc: ruc, ubicacion: ubicacion };
+    CLIENTES.push(nuevoCliente);
+    ATENCIONES.push({ nombre: atencion, codigo_empresa: d1.codigo, email: email });
+
+    // Pre-seleccionar el nuevo cliente
+    _clienteActual = { codigo: d1.codigo, nombre: nombre };
+    document.getElementById('cliente-input').value = nombre;
+    document.getElementById('cliente').value = d1.codigo;
+    document.getElementById('cliente-nombre').value = nombre;
+    document.getElementById('cliente-ruc').value = ruc;
+    document.getElementById('cliente-ubicacion').value = ubicacion;
+
+    // Pre-seleccionar la nueva atención
+    _atencionActual = { valor: atencion, nombre: atencion };
+    document.getElementById('atencion-input').value = atencion;
+    document.getElementById('atencion').value = atencion;
+    document.getElementById('atencion-email').value = email;
+
+    cerrarModalNuevoCliente();
+    toast('Cliente y contacto guardados correctamente', 'success');
+  } catch(e) {
+    errEl.textContent = 'Error de conexión.'; errEl.style.display='';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
 </script>
-<script src="/static/importar.js?v=15"></script>
+<script src="/static/importar.js?v=16"></script>
 {% endblock %}
