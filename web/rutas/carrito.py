@@ -3,7 +3,10 @@ carrito.py — Endpoints del carrito de compras por sesión
 
 El carrito se almacena en SQLite (tabla carrito_items), persistente entre reinicios.
 """
+import json
 import re
+import unicodedata
+from pathlib import Path
 
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import JSONResponse
@@ -349,6 +352,107 @@ _PRODUCT_KEYWORDS_ORDERED = [
              "ACCESORIO R"]),
     ("B",   ["BANDEJA", "BDJ"]),
 ]
+
+_CATALOGO_PATH = Path(__file__).resolve().parent.parent.parent / "catalogo_productos.json"
+
+# ─────────────────────────────────────────────
+# Búsqueda en catálogo de productos fijos
+# ─────────────────────────────────────────────
+
+def _cargar_catalogo_plano() -> list:
+    """Carga catalogo_productos.json y devuelve todos los productos como lista plana."""
+    try:
+        with open(_CATALOGO_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return []
+    productos = []
+    for cat in data.get("categorias", []):
+        for sub in cat.get("subcategorias", []):
+            for prod in sub.get("productos", []):
+                productos.append({
+                    "descripcion": prod.get("descripcion", ""),
+                    "unidad": prod.get("unidad", "UND"),
+                    "precio": float(prod.get("precio", 0)),
+                })
+    return productos
+
+
+def _normalizar_para_match(texto: str) -> set:
+    """Normaliza texto a conjunto de tokens para comparación fuzzy.
+
+    Estrategia especial para especificaciones de diámetro en pulgadas:
+    - Fracciones: "3/4" → "3_4" (token único para no confundir "3" y "4" por separado)
+    - Pulgadas compuestas: '1 1/4"' → "1_1_4pul"
+    - Pulgadas simples: '4"' → "4pul"
+    Esto evita que "tubo EMT 4\"" coincida con "tubo EMT 3/4\"" por el token "4".
+    """
+    # Quitar acentos (NFD → ASCII)
+    nfd = unicodedata.normalize("NFD", texto.lower())
+    ascii_str = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+    # Normalizar pulgadas compuestas antes de reemplazar chars especiales
+    # "1 1/4\"" → "1_1_4pul"
+    ascii_str = re.sub(r'(\d+)\s+(\d+)/(\d+)\s*"', r'\1_\2_\3pul', ascii_str)
+    # "3/4\"" → "3_4pul"
+    ascii_str = re.sub(r'(\d+)/(\d+)\s*"', r'\1_\2pul', ascii_str)
+    # "4\"" → "4pul"
+    ascii_str = re.sub(r'(\d+)\s*"', r'\1pul', ascii_str)
+    # Preservar fracciones sin pulgadas: "3/4" → "3_4"
+    ascii_str = re.sub(r'(\d+)/(\d+)', r'\1_\2', ascii_str)
+    # Reemplazar caracteres no alfanuméricos por espacios
+    limpio = re.sub(r"[^a-z0-9_]", " ", ascii_str)
+    tokens = set(limpio.split())
+    # Quitar tokens de una sola letra que no sean medidas conocidas
+    tokens = {t for t in tokens if len(t) > 1 or t in ("m",)}
+    return tokens
+
+
+def _buscar_en_catalogo(descripcion: str, ganancia: str = "30") -> Optional[dict]:
+    """
+    Busca el mejor match para la descripción en el catálogo de precio fijo.
+    Retorna dict con {descripcion, unidad, precio_catalogo, score} o None si no hay match >= 0.45.
+
+    Si la descripción menciona explícitamente "IMC" no se busca en el catálogo
+    (el catálogo solo tiene productos EMT).
+    """
+    if re.search(r'\bIMC\b', descripcion, re.IGNORECASE):
+        return None
+
+    productos = _cargar_catalogo_plano()
+    if not productos:
+        return None
+
+    tokens_query = _normalizar_para_match(descripcion)
+    if not tokens_query:
+        return None
+
+    mejor_score = 0.0
+    mejor_prod = None
+
+    for prod in productos:
+        tokens_prod = _normalizar_para_match(prod["descripcion"])
+        if not tokens_prod:
+            continue
+        interseccion = tokens_query & tokens_prod
+        # score = intersección / mínimo de los dos conjuntos
+        score = len(interseccion) / min(len(tokens_query), len(tokens_prod))
+        if score > mejor_score:
+            mejor_score = score
+            mejor_prod = prod
+
+    if mejor_score < 0.45 or mejor_prod is None:
+        return None
+
+    precio_base = mejor_prod["precio"]
+    precio = precio_base * 0.7 / 0.65 if ganancia == "35" else precio_base
+
+    return {
+        "descripcion": mejor_prod["descripcion"],
+        "unidad": mejor_prod["unidad"],
+        "precio_catalogo": precio,
+        "score": mejor_score,
+    }
+
 
 _DIM_RE = re.compile(
     r'(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)'
@@ -731,18 +835,36 @@ async def importar_procesar(
                     "error": None,
                 })
         else:
-            results.append({
-                "descripcion": item.descripcion,
-                "unidad": item.unidad,
-                "cantidad": item.cantidad,
-                "tipo": "MANUAL",
-                "precio_unitario":       None,
-                "peso_unitario":         None,
-                "descripcion_calculada": None,
-                "tipo_galvanizado":      galv_efectivo,
-                "porcentaje_ganancia":   ganancia_efectiva,
-                "reconocido": False,
-                "error": "No se reconoció el tipo o las dimensiones",
-            })
+            # Intentar match contra catálogo de productos fijos
+            cat_match = _buscar_en_catalogo(item.descripcion, ganancia_efectiva)
+            if cat_match:
+                results.append({
+                    "descripcion": cat_match["descripcion"],
+                    "unidad": item.unidad,
+                    "cantidad": item.cantidad,
+                    "tipo": "CATALOGO",
+                    "precio_unitario":       round(cat_match["precio_catalogo"], 4),
+                    "peso_unitario":         0,
+                    "descripcion_calculada": cat_match["descripcion"],
+                    "tipo_galvanizado":      "N/A",
+                    "porcentaje_ganancia":   ganancia_efectiva,
+                    "reconocido": True,
+                    "error": None,
+                    "es_catalogo": True,
+                })
+            else:
+                results.append({
+                    "descripcion": item.descripcion,
+                    "unidad": item.unidad,
+                    "cantidad": item.cantidad,
+                    "tipo": "MANUAL",
+                    "precio_unitario":       None,
+                    "peso_unitario":         None,
+                    "descripcion_calculada": None,
+                    "tipo_galvanizado":      galv_efectivo,
+                    "porcentaje_ganancia":   ganancia_efectiva,
+                    "reconocido": False,
+                    "error": "No se reconoció el tipo o las dimensiones",
+                })
 
     return JSONResponse({"ok": True, "items": results})

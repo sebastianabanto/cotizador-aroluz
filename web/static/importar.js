@@ -13,6 +13,9 @@
 // Resultados del backend (paso 2)
 let _importarItems = [];
 
+// Ítems parseados del paso 1 (para poder re-procesar desde paso 2 sin volver)
+let _ultimoItemsParsed = [];
+
 // Modo activo en paso 1
 let _importarModo = 'tabla'; // 'tabla' | 'libre'
 
@@ -21,8 +24,8 @@ let _importarConfig = {
   galvanizado_global: 'GO',
   ganancia_global: '30',
   espesor_cuerpo_global: 1.5,
-  espesor_tapa_global: 1.2,
-  superficie_global: 'LISA',
+  espesor_tapa_global: 1.5,
+  superficie_global: 'RANURADA',
 };
 
 // ── Encabezados reconocidos para auto-detección de columnas ──
@@ -70,6 +73,21 @@ function _leerConfigImportar() {
   _importarConfig.espesor_tapa_global     = _importarModo === 'libre' ? null : (espT ? parseFloat(espT.value) : 1.2);
   // Libre: superficie null → backend usa RANURADA por defecto; per-ítem overrides desde desc
   _importarConfig.superficie_global       = _importarModo === 'libre' ? null : (sup ? sup.value  : 'LISA');
+}
+
+// Actualiza el estilo visual de los botones Sin/Con comisión
+function _actualizarBotonesComision() {
+  const lbl30 = document.getElementById('imp-lbl-30');
+  const lbl35 = document.getElementById('imp-lbl-35');
+  const val = document.querySelector('input[name="imp-ganancia"]:checked')?.value;
+  if (!lbl30 || !lbl35) return;
+  if (val === '30') {
+    lbl30.style.cssText = lbl30.style.cssText.replace(/border:[^;]+/, 'border:2px solid #1a6fad') + '; background:#e8f0fb; color:#1a6fad;';
+    lbl35.style.cssText = lbl35.style.cssText.replace(/border:[^;]+/, 'border:2px solid #d1d5db') + '; background:#fff; color:#6b7280;';
+  } else {
+    lbl30.style.cssText = lbl30.style.cssText.replace(/border:[^;]+/, 'border:2px solid #d1d5db') + '; background:#fff; color:#6b7280;';
+    lbl35.style.cssText = lbl35.style.cssText.replace(/border:[^;]+/, 'border:2px solid #1a8a4a') + '; background:#e8f5ee; color:#1a8a4a;';
+  }
 }
 
 // Cerrar al hacer click en el overlay
@@ -336,8 +354,14 @@ function _parseTSV(text) {
         colUnd  = 1;
         colCant = -1;
       }
+    } else if (firstRow.length >= 4 && _isIntCol(0) && _isIntCol(1)) {
+      // Formato de 4+ columnas: [nº item, cantidad, unidad, descripción]
+      // Col 0 son números de ítem (1,2,3...) — los descartamos como colDesc
+      colDesc = firstRow.length - 1; // descripción en la última columna
+      colCant = 1;
+      colUnd  = 2;
     } else if (firstRow.length >= 3) {
-      // Tres o más columnas: desc, und, cant (orden clásico)
+      // Tres columnas: desc, und, cant (orden clásico)
       // Pero si col1 parece entero, puede ser cant y col2 und
       colUnd  = _isIntCol(1) ? -1 : 1;
       colCant = _isIntCol(1) ? 1 : (_isIntCol(2) ? 2 : -1);
@@ -380,6 +404,9 @@ async function procesarTexto() {
     return;
   }
 
+  // Guardar items parseados para poder re-procesar desde el paso 2
+  _ultimoItemsParsed = items;
+
   const btn = document.getElementById('btn-importar-procesar');
   btn.disabled = true;
   btn.textContent = 'Procesando…';
@@ -409,6 +436,8 @@ async function procesarTexto() {
 
   _importarItems = data.items;
   renderPreview(_importarItems);
+  // Sincronizar radios del paso 2 con la config actual
+  _sincronizarP2Opciones();
   document.getElementById('importar-paso1').style.display = 'none';
   document.getElementById('importar-paso2').style.display = '';
 }
@@ -429,16 +458,22 @@ function renderPreview(items) {
 
   const tbody = document.getElementById('importar-preview-tbody');
   tbody.innerHTML = items.map(item => {
-    const icon   = item.reconocido ? '✅' : '🔴';
+    const esCatalogo = !!item.es_catalogo;
+    const icon   = item.reconocido ? (esCatalogo ? '📦' : '✅') : '🔴';
     const precio = item.reconocido
       ? `S/ ${Number(item.precio_unitario).toFixed(2)}`
       : '<span style="color:#c0392b; font-size:0.78rem;">sin precio</span>';
     const descCorta = item.descripcion.length > 70
       ? item.descripcion.slice(0, 70) + '…'
       : item.descripcion;
-    const itemCalc = item.descripcion_calculada
-      ? `<span title="${item.descripcion_calculada.replace(/"/g, '&quot;')}" style="font-size:0.78rem; color:#2563eb;">${item.descripcion_calculada.length > 60 ? item.descripcion_calculada.slice(0, 60) + '…' : item.descripcion_calculada}</span>`
-      : '<span style="color:#aaa; font-size:0.78rem;">—</span>';
+    let itemCalc;
+    if (esCatalogo) {
+      itemCalc = `<span style="font-size:0.78rem; color:#1a8a4a; font-weight:600;">📦 Catálogo</span>`;
+    } else if (item.descripcion_calculada) {
+      itemCalc = `<span title="${item.descripcion_calculada.replace(/"/g, '&quot;')}" style="font-size:0.78rem; color:#2563eb;">${item.descripcion_calculada.length > 60 ? item.descripcion_calculada.slice(0, 60) + '…' : item.descripcion_calculada}</span>`;
+    } else {
+      itemCalc = '<span style="color:#aaa; font-size:0.78rem;">—</span>';
+    }
     return `<tr class="importar-item ${item.reconocido ? 'ok' : 'error'}">
       <td style="padding:4px 6px;">${icon}</td>
       <td style="padding:4px 6px;" title="${item.descripcion.replace(/"/g, '&quot;')}">${descCorta}</td>
@@ -513,4 +548,92 @@ async function confirmarImportar() {
     sessionStorage.setItem('_reloadProgramatico', '1');
     window.location.reload();
   }, 800);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Sincronización en vivo paso 2
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Sincroniza los radios del paso 2 con los valores actuales de _importarConfig.
+ * Se llama justo antes de mostrar el paso 2.
+ */
+function _sincronizarP2Opciones() {
+  const gan = document.querySelector(`input[name="p2-ganancia"][value="${_importarConfig.ganancia_global || '30'}"]`);
+  if (gan) gan.checked = true;
+  const galv = document.querySelector(`input[name="p2-galv"][value="${_importarConfig.galvanizado_global || 'GO'}"]`);
+  if (galv) galv.checked = true;
+  const espCVal = (_importarConfig.espesor_cuerpo_global || 1.5).toFixed(1);
+  const espC = document.querySelector(`input[name="p2-esp-c"][value="${espCVal}"]`);
+  if (espC) espC.checked = true;
+  const espTVal = (_importarConfig.espesor_tapa_global || 1.5).toFixed(1);
+  const espT = document.querySelector(`input[name="p2-esp-t"][value="${espTVal}"]`);
+  if (espT) espT.checked = true;
+  const sup = document.querySelector(`input[name="p2-sup"][value="${_importarConfig.superficie_global || 'RANURADA'}"]`);
+  if (sup) sup.checked = true;
+}
+
+/**
+ * Lee las opciones de la barra del paso 2, actualiza _importarConfig
+ * y sincroniza los radios del paso 1.
+ */
+function _leerConfigP2() {
+  const gan  = document.querySelector('input[name="p2-ganancia"]:checked');
+  const galv = document.querySelector('input[name="p2-galv"]:checked');
+  const espC = document.querySelector('input[name="p2-esp-c"]:checked');
+  const espT = document.querySelector('input[name="p2-esp-t"]:checked');
+  const sup  = document.querySelector('input[name="p2-sup"]:checked');
+
+  _importarConfig.ganancia_global       = gan  ? gan.value  : '30';
+  _importarConfig.galvanizado_global    = galv ? galv.value : 'GO';
+  _importarConfig.espesor_cuerpo_global = espC ? parseFloat(espC.value) : 1.5;
+  _importarConfig.espesor_tapa_global   = espT ? parseFloat(espT.value) : 1.5;
+  _importarConfig.superficie_global     = sup  ? sup.value  : 'RANURADA';
+
+  // Sincronizar también los radios del paso 1 para que sean consistentes al volver
+  const p1gan = document.querySelector(`input[name="imp-ganancia"][value="${_importarConfig.ganancia_global}"]`);
+  if (p1gan) { p1gan.checked = true; _actualizarBotonesComision(); }
+  const p1galv = document.querySelector(`input[name="imp-galv"][value="${_importarConfig.galvanizado_global}"]`);
+  if (p1galv) p1galv.checked = true;
+  const p1espC = document.querySelector(`input[name="imp-esp-cuerpo"][value="${_importarConfig.espesor_cuerpo_global.toFixed(1)}"]`);
+  if (p1espC) p1espC.checked = true;
+  const p1espT = document.querySelector(`input[name="imp-esp-tapa"][value="${_importarConfig.espesor_tapa_global.toFixed(1)}"]`);
+  if (p1espT) p1espT.checked = true;
+  const p1sup = document.querySelector(`input[name="imp-superficie"][value="${_importarConfig.superficie_global}"]`);
+  if (p1sup) p1sup.checked = true;
+}
+
+/**
+ * Llamado al cambiar cualquier opción en la barra del paso 2.
+ * Re-llama al backend con los mismos ítems parseados y actualiza el preview.
+ */
+async function p2ActualizarPreview() {
+  _leerConfigP2();
+  if (!_ultimoItemsParsed.length) return;
+
+  const btnConf = document.getElementById('btn-importar-confirmar');
+  if (btnConf) { btnConf.disabled = true; btnConf.textContent = 'Actualizando…'; }
+
+  let data;
+  try {
+    const resp = await fetch('/api/carrito/importar/procesar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: _ultimoItemsParsed, ..._importarConfig }),
+    });
+    data = await resp.json();
+  } catch {
+    toast('Error de red al actualizar precios', 'error');
+    if (btnConf) { btnConf.disabled = false; btnConf.textContent = `Agregar ${_importarItems.length} ítem(s) al carrito`; }
+    return;
+  }
+
+  if (!data.ok) {
+    toast(data.error || 'Error al actualizar', 'error');
+    if (btnConf) { btnConf.disabled = false; btnConf.textContent = `Agregar ${_importarItems.length} ítem(s) al carrito`; }
+    return;
+  }
+
+  _importarItems = data.items;
+  renderPreview(_importarItems);
 }

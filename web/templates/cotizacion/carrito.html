@@ -385,10 +385,10 @@
           <span style="font-size:0.82rem; font-weight:600;">Espesor tapa:</span>
           <div style="display:flex; gap:1rem; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="1.2" checked> 1.2 mm
+              <input type="radio" name="imp-esp-tapa" value="1.2"> 1.2 mm
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="1.5"> 1.5 mm
+              <input type="radio" name="imp-esp-tapa" value="1.5" checked> 1.5 mm
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
               <input type="radio" name="imp-esp-tapa" value="2.0"> 2.0 mm
@@ -398,10 +398,10 @@
           <span style="font-size:0.82rem; font-weight:600;">Superficie:</span>
           <div style="display:flex; gap:1rem; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="LISA" checked> LISA
+              <input type="radio" name="imp-superficie" value="LISA"> LISA
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="RANURADA"> RANURADA
+              <input type="radio" name="imp-superficie" value="RANURADA" checked> RANURADA
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
               <input type="radio" name="imp-superficie" value="ESCALERILLA"> ESCALERILLA
@@ -419,8 +419,63 @@
 
     <!-- PASO 2: preview (oculto hasta procesar) -->
     <div id="importar-paso2" style="display:none;">
-      <p id="importar-resumen" style="margin:0 0 0.75rem; font-size:0.875rem; font-weight:600;"></p>
-      <div style="max-height:340px; overflow-y:auto; margin-bottom:1rem;">
+      <p id="importar-resumen" style="margin:0 0 0.6rem; font-size:0.875rem; font-weight:600;"></p>
+
+      <!-- Barra de opciones en vivo (paso 2) -->
+      <div style="background:var(--fondo-tabla,#f4f7fc); border-radius:6px; padding:0.45rem 0.65rem;
+                  margin-bottom:0.75rem; display:flex; gap:0.5rem 1rem; flex-wrap:wrap;
+                  align-items:center; font-size:0.78rem;">
+        <span style="font-weight:700; color:var(--texto); white-space:nowrap;">Precio:</span>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;">
+          <input type="radio" name="p2-ganancia" value="30" checked onchange="p2ActualizarPreview()"> Sin comisión
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;">
+          <input type="radio" name="p2-ganancia" value="35" onchange="p2ActualizarPreview()"> Con comisión
+        </label>
+        <span style="color:var(--borde,#d1d5db);">│</span>
+        <span style="font-weight:700; color:var(--texto);">Galv:</span>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-galv" value="GO" checked onchange="p2ActualizarPreview()"> GO
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-galv" value="GC" onchange="p2ActualizarPreview()"> GC
+        </label>
+        <span style="color:var(--borde,#d1d5db);">│</span>
+        <span style="font-weight:700; color:var(--texto); white-space:nowrap;">Cuerpo:</span>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-esp-c" value="1.2" onchange="p2ActualizarPreview()"> 1.2
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-esp-c" value="1.5" checked onchange="p2ActualizarPreview()"> 1.5
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-esp-c" value="2.0" onchange="p2ActualizarPreview()"> 2.0 mm
+        </label>
+        <span style="color:var(--borde,#d1d5db);">│</span>
+        <span style="font-weight:700; color:var(--texto);">Tapa:</span>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-esp-t" value="1.2" onchange="p2ActualizarPreview()"> 1.2
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-esp-t" value="1.5" checked onchange="p2ActualizarPreview()"> 1.5
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-esp-t" value="2.0" onchange="p2ActualizarPreview()"> 2.0 mm
+        </label>
+        <span style="color:var(--borde,#d1d5db);">│</span>
+        <span style="font-weight:700; color:var(--texto);">Sup:</span>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-sup" value="LISA" onchange="p2ActualizarPreview()"> Lisa
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="radio" name="p2-sup" value="RANURADA" checked onchange="p2ActualizarPreview()"> Ranurada
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;">
+          <input type="radio" name="p2-sup" value="ESCALERILLA" onchange="p2ActualizarPreview()"> Escalerilla
+        </label>
+      </div>
+
+      <div style="max-height:320px; overflow-y:auto; margin-bottom:1rem;">
         <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
           <thead>
             <tr style="background:var(--fondo-tabla, #f4f7fc);">
@@ -1254,5 +1309,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
-<script src="/static/importar.js?v=12"></script>
+<script src="/static/importar.js?v=13"></script>
 {% endblock %}
