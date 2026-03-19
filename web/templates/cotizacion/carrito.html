@@ -329,13 +329,34 @@
         </div>
       </div>
 
+      <!-- Selector de comisión — visible siempre -->
+      <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.65rem; flex-wrap:wrap;">
+        <span style="font-size:0.82rem; font-weight:600; color:var(--texto);">Precio catálogo:</span>
+        <label id="imp-lbl-30" style="display:flex; align-items:center; gap:6px; cursor:pointer;
+               padding:0.3rem 0.75rem; border-radius:6px; font-size:0.82rem; font-weight:600;
+               border:2px solid #1a6fad; background:#e8f0fb; color:#1a6fad; transition:all .15s;">
+          <input type="radio" name="imp-ganancia" value="30" checked
+                 onchange="_actualizarBotonesComision()"
+                 style="accent-color:#1a6fad;">
+          Sin comisión
+        </label>
+        <label id="imp-lbl-35" style="display:flex; align-items:center; gap:6px; cursor:pointer;
+               padding:0.3rem 0.75rem; border-radius:6px; font-size:0.82rem; font-weight:600;
+               border:2px solid #d1d5db; background:#fff; color:#6b7280; transition:all .15s;">
+          <input type="radio" name="imp-ganancia" value="35"
+                 onchange="_actualizarBotonesComision()"
+                 style="accent-color:#1a8a4a;">
+          Con comisión
+        </label>
+      </div>
+
       <textarea id="importar-paste" class="form-control"
                 style="width:100%; min-height:140px; font-family:monospace; font-size:0.82rem; resize:vertical;"
                 placeholder="Pega aquí la tabla (Tab entre columnas)…"></textarea>
 
       <!-- Opciones globales (colapsadas) -->
       <details style="margin-top:0.65rem; font-size:0.82rem;">
-        <summary style="cursor:pointer; color:var(--azul); user-select:none; font-size:0.82rem;">⚙️ Opciones globales</summary>
+        <summary style="cursor:pointer; color:var(--azul); user-select:none; font-size:0.82rem;">⚙️ Opciones globales (bandeja/accesorios)</summary>
         <div style="display:grid; grid-template-columns:130px 1fr; row-gap:0.5rem; align-items:center; margin-top:0.6rem;">
 
           <span style="font-size:0.82rem; font-weight:600;">Galvanizado:</span>
@@ -345,16 +366,6 @@
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
               <input type="radio" name="imp-galv" value="GC"> GC (caliente)
-            </label>
-          </div>
-
-          <span style="font-size:0.82rem; font-weight:600;">Ganancia:</span>
-          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-ganancia" value="30" checked> 30%
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-ganancia" value="35"> 35%
             </label>
           </div>
 
@@ -546,18 +557,24 @@ const MONEDAS    = [
 const _FORM_KEY = 'carrito_form_v1';
 function guardarFormulario() {
   sessionStorage.setItem(_FORM_KEY, JSON.stringify({
-    clienteInput:     document.getElementById('cliente-input')?.value || '',
-    cliente:          document.getElementById('cliente')?.value || '',
-    clienteNombre:    document.getElementById('cliente-nombre')?.value || '',
-    clienteRuc:       document.getElementById('cliente-ruc')?.value || '',
-    clienteUbicacion: document.getElementById('cliente-ubicacion')?.value || '',
-    atencionEmail:    document.getElementById('atencion-email')?.value || '',
-    atencion:         document.getElementById('atencion')?.value || '',
-    proyecto:         document.getElementById('proyecto')?.value || '',
-    moneda:           document.getElementById('moneda')?.value || 'SOLES',
-    encabezadoTabla:  document.getElementById('encabezado-tabla')?.value || '',
-    validez:          document.getElementById('validez')?.value || '30 días',
+    moneda:  document.getElementById('moneda')?.value || 'SOLES',
+    validez: document.getElementById('validez')?.value || '30 días',
   }));
+}
+
+function limpiarCamposProyecto() {
+  _clienteActual = { codigo: '', nombre: '' };
+  document.getElementById('cliente-input').value = '';
+  document.getElementById('cliente').value = '';
+  document.getElementById('cliente-nombre').value = '';
+  document.getElementById('cliente-ruc').value = '';
+  document.getElementById('cliente-ubicacion').value = '';
+  _atencionActual = { valor: '', nombre: '' };
+  document.getElementById('atencion-input').value = '';
+  document.getElementById('atencion').value = '';
+  document.getElementById('atencion-email').value = '';
+  document.getElementById('proyecto').value = '';
+  document.getElementById('encabezado-tabla').value = '';
 }
 
 // Datos del carrito indexados por id para actualización dinámica
@@ -954,6 +971,7 @@ async function exportar(formato, btnEl) {
     || `cotizacion.${formato}`;
   a.click();
   URL.revokeObjectURL(url);
+  limpiarCamposProyecto();
   const msgDescargado = formato === 'xlsx' ? 'XLSX descargado — redirigiendo al historial…' : 'PDF descargado — redirigiendo al historial…';
   toast(msgDescargado, 'success');
   await fetch('/api/carrito/limpiar', { method: 'POST' });
@@ -985,6 +1003,7 @@ async function guardarCotizacion() {
   });
   const data = await apiFetch('/api/historial/guardar', { method: 'POST', body: fd });
   if (data.ok) {
+    limpiarCamposProyecto();
     await fetch('/api/carrito/limpiar', { method: 'POST' });
     sessionStorage.removeItem('carrito_form_v1');
     sessionStorage.removeItem('editando_desde_cotizacion_id');
@@ -1016,23 +1035,6 @@ function restaurarFormulario() {
   try { f = JSON.parse(sessionStorage.getItem(_FORM_KEY) || 'null'); } catch { return; }
   if (!f) return;
 
-  if (f.cliente) {
-    _clienteActual = { codigo: f.cliente, nombre: f.clienteNombre };
-    document.getElementById('cliente-input').value = f.clienteInput;
-    document.getElementById('cliente').value = f.cliente;
-    document.getElementById('cliente-nombre').value = f.clienteNombre;
-    document.getElementById('cliente-ruc').value = f.clienteRuc;
-    document.getElementById('cliente-ubicacion').value = f.clienteUbicacion;
-    filtrarAtenciones(f.cliente);
-  }
-  if (f.atencion) {
-    _atencionActual = { valor: f.atencion, nombre: f.atencion };
-    document.getElementById('atencion-input').value = f.atencion;
-    document.getElementById('atencion').value = f.atencion;
-    document.getElementById('atencion-email').value = f.atencionEmail || '';
-  }
-  if (f.proyecto) document.getElementById('proyecto').value = f.proyecto;
-  if (f.encabezadoTabla) document.getElementById('encabezado-tabla').value = f.encabezadoTabla;
   if (f.moneda) {
     const m = MONEDAS.find(x => x.valor === f.moneda) || MONEDAS[0];
     _monedaActual = { valor: m.valor, nombre: m.nombre };
@@ -1252,5 +1254,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
-<script src="/static/importar.js?v=10"></script>
+<script src="/static/importar.js?v=12"></script>
 {% endblock %}
