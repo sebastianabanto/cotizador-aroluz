@@ -743,7 +743,7 @@ async def api_nuevo_cliente(
         return JSONResponse({"ok": False, "error": "El RUC debe tener exactamente 11 dígitos numéricos"}, status_code=422)
     # Si ya existe ese código, añadir sufijo numérico
     from web.database import obtener_catalogo as _cat
-    codigos_existentes = {c["codigo"] for c in _cat().clientes}
+    codigos_existentes = {c["codigo"] for c in _cat()["clientes"]}
     cod = codigo
     if cod in codigos_existentes:
         i = 2
