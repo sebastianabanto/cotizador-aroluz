@@ -81,12 +81,13 @@ function _actualizarBotonesComision() {
   const lbl35 = document.getElementById('imp-lbl-35');
   const val = document.querySelector('input[name="imp-ganancia"]:checked')?.value;
   if (!lbl30 || !lbl35) return;
+  const BASE = 'display:flex; align-items:center; gap:6px; cursor:pointer; padding:0.3rem 0.75rem; border-radius:6px; font-size:0.82rem; font-weight:600; transition:all .15s;';
   if (val === '30') {
-    lbl30.style.cssText = lbl30.style.cssText.replace(/border:[^;]+/, 'border:2px solid #1a6fad') + '; background:#e8f0fb; color:#1a6fad;';
-    lbl35.style.cssText = lbl35.style.cssText.replace(/border:[^;]+/, 'border:2px solid #d1d5db') + '; background:#fff; color:#6b7280;';
+    lbl30.style.cssText = BASE + 'border:2px solid #1a6fad; background:#e8f0fb; color:#1a6fad;';
+    lbl35.style.cssText = BASE + 'border:2px solid #d1d5db; background:#fff; color:#6b7280;';
   } else {
-    lbl30.style.cssText = lbl30.style.cssText.replace(/border:[^;]+/, 'border:2px solid #d1d5db') + '; background:#fff; color:#6b7280;';
-    lbl35.style.cssText = lbl35.style.cssText.replace(/border:[^;]+/, 'border:2px solid #1a8a4a') + '; background:#e8f5ee; color:#1a8a4a;';
+    lbl30.style.cssText = BASE + 'border:2px solid #d1d5db; background:#fff; color:#6b7280;';
+    lbl35.style.cssText = BASE + 'border:2px solid #1a8a4a; background:#e8f5ee; color:#1a8a4a;';
   }
 }
 
@@ -601,6 +602,44 @@ function _leerConfigP2() {
   if (p1espT) p1espT.checked = true;
   const p1sup = document.querySelector(`input[name="imp-superficie"][value="${_importarConfig.superficie_global}"]`);
   if (p1sup) p1sup.checked = true;
+}
+
+/**
+ * Llamado al cambiar cualquier opción en paso 1 (via onchange en los radios).
+ * Si ya hay ítems procesados (_ultimoItemsParsed), re-procesa automáticamente
+ * y muestra paso 2 con los precios actualizados. Si no, no hace nada.
+ */
+async function _autoReprocesar() {
+  if (!_ultimoItemsParsed.length) return;  // aún no se ha procesado ningún texto
+  _leerConfigImportar();
+  _sincronizarP2Opciones();
+
+  const btnConf = document.getElementById('btn-importar-confirmar');
+  if (btnConf) { btnConf.disabled = true; btnConf.textContent = 'Actualizando…'; }
+
+  let data;
+  try {
+    const resp = await fetch('/api/carrito/importar/procesar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: _ultimoItemsParsed, ..._importarConfig }),
+    });
+    data = await resp.json();
+  } catch {
+    if (btnConf) { btnConf.disabled = false; btnConf.textContent = `Agregar ${_importarItems.length} ítem(s) al carrito`; }
+    return;
+  }
+
+  if (!data.ok) {
+    if (btnConf) { btnConf.disabled = false; btnConf.textContent = `Agregar ${_importarItems.length} ítem(s) al carrito`; }
+    return;
+  }
+
+  _importarItems = data.items;
+  renderPreview(_importarItems);
+  // Pasar automáticamente al paso 2 para mostrar el preview actualizado
+  document.getElementById('importar-paso1').style.display = 'none';
+  document.getElementById('importar-paso2').style.display = '';
 }
 
 /**

@@ -336,7 +336,7 @@
                padding:0.3rem 0.75rem; border-radius:6px; font-size:0.82rem; font-weight:600;
                border:2px solid #1a6fad; background:#e8f0fb; color:#1a6fad; transition:all .15s;">
           <input type="radio" name="imp-ganancia" value="30" checked
-                 onchange="_actualizarBotonesComision()"
+                 onchange="_actualizarBotonesComision(); _autoReprocesar()"
                  style="accent-color:#1a6fad;">
           Sin comisión
         </label>
@@ -344,7 +344,7 @@
                padding:0.3rem 0.75rem; border-radius:6px; font-size:0.82rem; font-weight:600;
                border:2px solid #d1d5db; background:#fff; color:#6b7280; transition:all .15s;">
           <input type="radio" name="imp-ganancia" value="35"
-                 onchange="_actualizarBotonesComision()"
+                 onchange="_actualizarBotonesComision(); _autoReprocesar()"
                  style="accent-color:#1a8a4a;">
           Con comisión
         </label>
@@ -362,49 +362,49 @@
           <span style="font-size:0.82rem; font-weight:600;">Galvanizado:</span>
           <div style="display:flex; gap:1rem; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-galv" value="GO" checked> GO (origen)
+              <input type="radio" name="imp-galv" value="GO" checked onchange="_autoReprocesar()"> GO (origen)
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-galv" value="GC"> GC (caliente)
+              <input type="radio" name="imp-galv" value="GC" onchange="_autoReprocesar()"> GC (caliente)
             </label>
           </div>
 
           <span style="font-size:0.82rem; font-weight:600;">Espesor cuerpo:</span>
           <div style="display:flex; gap:1rem; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-cuerpo" value="1.2"> 1.2 mm
+              <input type="radio" name="imp-esp-cuerpo" value="1.2" onchange="_autoReprocesar()"> 1.2 mm
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-cuerpo" value="1.5" checked> 1.5 mm
+              <input type="radio" name="imp-esp-cuerpo" value="1.5" checked onchange="_autoReprocesar()"> 1.5 mm
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-cuerpo" value="2.0"> 2.0 mm
+              <input type="radio" name="imp-esp-cuerpo" value="2.0" onchange="_autoReprocesar()"> 2.0 mm
             </label>
           </div>
 
           <span style="font-size:0.82rem; font-weight:600;">Espesor tapa:</span>
           <div style="display:flex; gap:1rem; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="1.2"> 1.2 mm
+              <input type="radio" name="imp-esp-tapa" value="1.2" onchange="_autoReprocesar()"> 1.2 mm
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="1.5" checked> 1.5 mm
+              <input type="radio" name="imp-esp-tapa" value="1.5" checked onchange="_autoReprocesar()"> 1.5 mm
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="2.0"> 2.0 mm
+              <input type="radio" name="imp-esp-tapa" value="2.0" onchange="_autoReprocesar()"> 2.0 mm
             </label>
           </div>
 
           <span style="font-size:0.82rem; font-weight:600;">Superficie:</span>
           <div style="display:flex; gap:1rem; flex-wrap:wrap;">
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="LISA"> LISA
+              <input type="radio" name="imp-superficie" value="LISA" onchange="_autoReprocesar()"> LISA
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="RANURADA" checked> RANURADA
+              <input type="radio" name="imp-superficie" value="RANURADA" checked onchange="_autoReprocesar()"> RANURADA
             </label>
             <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="ESCALERILLA"> ESCALERILLA
+              <input type="radio" name="imp-superficie" value="ESCALERILLA" onchange="_autoReprocesar()"> ESCALERILLA
             </label>
           </div>
 
@@ -1309,5 +1309,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
-<script src="/static/importar.js?v=13"></script>
+<script src="/static/importar.js?v=14"></script>
 {% endblock %}
