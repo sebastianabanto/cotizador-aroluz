@@ -290,7 +290,7 @@
         Copia una tabla y pégala aquí (Ctrl+V). Se aceptan dos formatos:<br>
         <strong>A)</strong> Tabla de Excel / Google Sheets — columnas Descripción · UND · Cantidad (separadas por tabulador).<br>
         <strong>B)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em>.<br>
-        <span style="color:var(--azul); font-weight:500;">Puedes omitir espesor, galvanizado y superficie — se usarán los parámetros de Opciones globales.</span>
+        <span style="color:var(--azul); font-weight:500;">Puedes omitir espesor, galvanizado y superficie — se ajustan en el preview (paso 2).</span>
       </div>
 
       <!-- Instrucciones modo texto libre -->
@@ -354,62 +354,20 @@
                 style="width:100%; min-height:140px; font-family:monospace; font-size:0.82rem; resize:vertical;"
                 placeholder="Pega aquí la tabla (Tab entre columnas)…"></textarea>
 
-      <!-- Opciones globales (colapsadas) -->
-      <details style="margin-top:0.65rem; font-size:0.82rem;">
-        <summary style="cursor:pointer; color:var(--azul); user-select:none; font-size:0.82rem;">⚙️ Opciones globales (bandeja/accesorios)</summary>
-        <div style="display:grid; grid-template-columns:130px 1fr; row-gap:0.5rem; align-items:center; margin-top:0.6rem;">
-
-          <span style="font-size:0.82rem; font-weight:600;">Galvanizado:</span>
-          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-galv" value="GO" checked onchange="_autoReprocesar()"> GO (origen)
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-galv" value="GC" onchange="_autoReprocesar()"> GC (caliente)
-            </label>
-          </div>
-
-          <span style="font-size:0.82rem; font-weight:600;">Espesor cuerpo:</span>
-          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-cuerpo" value="1.2" onchange="_autoReprocesar()"> 1.2 mm
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-cuerpo" value="1.5" checked onchange="_autoReprocesar()"> 1.5 mm
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-cuerpo" value="2.0" onchange="_autoReprocesar()"> 2.0 mm
-            </label>
-          </div>
-
-          <span style="font-size:0.82rem; font-weight:600;">Espesor tapa:</span>
-          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="1.2" onchange="_autoReprocesar()"> 1.2 mm
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="1.5" checked onchange="_autoReprocesar()"> 1.5 mm
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-esp-tapa" value="2.0" onchange="_autoReprocesar()"> 2.0 mm
-            </label>
-          </div>
-
-          <span style="font-size:0.82rem; font-weight:600;">Superficie:</span>
-          <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="LISA" onchange="_autoReprocesar()"> LISA
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="RANURADA" checked onchange="_autoReprocesar()"> RANURADA
-            </label>
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;">
-              <input type="radio" name="imp-superficie" value="ESCALERILLA" onchange="_autoReprocesar()"> ESCALERILLA
-            </label>
-          </div>
-
-        </div>
-      </details>
+      <!-- Radios ocultos para Opciones globales — valores por defecto, editables en paso 2 -->
+      <div style="display:none;">
+        <input type="radio" name="imp-galv" value="GO" checked>
+        <input type="radio" name="imp-galv" value="GC">
+        <input type="radio" name="imp-esp-cuerpo" value="1.2">
+        <input type="radio" name="imp-esp-cuerpo" value="1.5" checked>
+        <input type="radio" name="imp-esp-cuerpo" value="2.0">
+        <input type="radio" name="imp-esp-tapa" value="1.2">
+        <input type="radio" name="imp-esp-tapa" value="1.5" checked>
+        <input type="radio" name="imp-esp-tapa" value="2.0">
+        <input type="radio" name="imp-superficie" value="LISA">
+        <input type="radio" name="imp-superficie" value="RANURADA" checked>
+        <input type="radio" name="imp-superficie" value="ESCALERILLA">
+      </div>
 
       <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
         <button class="btn btn-secondary" onclick="cerrarModalImportar()">Cancelar</button>
@@ -1309,5 +1267,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
-<script src="/static/importar.js?v=14"></script>
+<script src="/static/importar.js?v=15"></script>
 {% endblock %}
