@@ -334,7 +334,8 @@ async def api_resumen_carrito(usuario: dict = Depends(require_login)):
 _PRODUCT_KEYWORDS_ORDERED = [
     ("CP",  ["CAJA DE PASE", "CAJA DE PASO", "CAJAS DE PASE", "CAJAS DE PASO",
              "CAJA PASE", "CAJA FE GALV", "CAJA FE", "CAJA METALICA",
-             "CAJAS METALICA", "CAJA FG", "CAJA F.G.", "CAJA F°G°", "CAJA F@G@"]),
+             "CAJAS METALICA", "CAJA FG", "CAJA F.G.", "CAJA F°G°", "CAJA F@G@",
+             "CAJA"]),  # catch-all: "caja 300x300x100mm 3/4"
     ("CVE", ["CURVA VERTICAL EXTERNA", "ACCESORIO CURVA VERTICAL EXTERNA",
              "CVE", "ACCESORIO CVE"]),
     ("CVI", ["CURVA VERTICAL INTERNA", "ACCESORIO CURVA VERTICAL INTERNA",
@@ -419,14 +420,21 @@ def parsear_descripcion(desc_raw: str) -> dict:
             espesor = _FRAC_ESPESOR.get(frac_m.group(0).upper(), 1.5)
             espesor_explicito = True
 
-    galvanizado = "GC" if re.search(r'\bGC\b', desc) else "GO"
+    galvanizado_explicito = bool(re.search(r'\bGC\b', desc))
+    galvanizado = "GC" if galvanizado_explicito else "GO"
 
+    superficie_explicita = False
     if "ESCALERILLA" in desc:
         superficie = "ESCALERILLA"
+        superficie_explicita = True
     elif "RANURADA" in desc:
         superficie = "RANURADA"
-    else:
+        superficie_explicita = True
+    elif "LISA" in desc:
         superficie = "LISA"
+        superficie_explicita = True
+    else:
+        superficie = "RANURADA"  # default para texto libre; tabla usa global override
 
     # Tipo de apertura para Caja de Pase
     knockout = "CIEGA"
@@ -436,6 +444,11 @@ def parsear_descripcion(desc_raw: str) -> dict:
             # Intentar extraer la medida específica del tubo: 1/2, 3/4, 1, MIXTO
             _size_m = re.search(r'\bC[/\\]S\s+(MIXTO|1/2|3/4|1(?![/\d]))', desc)
             knockout = _size_m.group(1) if _size_m else "CON SALIDA"
+            knockout_explicito = True
+        elif re.search(r'\b(3/4|1/2)\b', desc):
+            # Fracción sola (ej: "300x300x100mm 3/4") → C/S con esa medida
+            frac_ko = re.search(r'\b(3/4|1/2)\b', desc)
+            knockout = frac_ko.group(1) if frac_ko else "CON SALIDA"
             knockout_explicito = True
         elif "CIEGA" in desc:
             knockout = "CIEGA"
@@ -460,42 +473,86 @@ def parsear_descripcion(desc_raw: str) -> dict:
         "espesor": espesor,
         "espesor_explicito": espesor_explicito,
         "galvanizado": galvanizado,
+        "galvanizado_explicito": galvanizado_explicito,
         "superficie": superficie,
+        "superficie_explicita": superficie_explicita,
         "knockout": knockout,
         "knockout_explicito": knockout_explicito,
     }
 
 
-def calcular_precio_importado(parsed: dict, config: dict):
+def calcular_precio_importado(
+    parsed: dict,
+    config: dict,
+    overrides: Optional[dict] = None,
+    con_tapa: bool = False,
+    es_metro_lineal: bool = False,
+    espesor_tapa_item: Optional[float] = None,
+):
     """
     Calcula precio y peso usando motor.py dado un parsed de parsear_descripcion().
-    Retorna (precio_unitario, peso_unitario) o None si no es calculable.
+    overrides: galvanizado_global, espesor_cuerpo_global, espesor_tapa_global, ganancia_global,
+               superficie_global — se aplican solo cuando el ítem no tiene valor explícito.
+    con_tapa: si True, retorna también datos de la tapa como ítem separado.
+    es_metro_lineal: divide precio/peso de bandeja por 2.4 y agrega "– POR ML".
+    espesor_tapa_item: espesor específico de la tapa (por ítem); None = usar global o body.
+    Retorna {"cuerpo": (precio, peso, desc), "tapa": (precio, peso, desc) | None} o None.
     """
     tipo = parsed.get("tipo")
     dims = parsed.get("dims", [])
-    espesor = parsed.get("espesor", 1.5)
-    galvanizado = parsed.get("galvanizado", "GO")
-    superficie = parsed.get("superficie", "LISA")
     knockout = parsed.get("knockout", "CIEGA")
 
     if not tipo:
         return None
 
+    ov = overrides or {}
+
+    # Galvanizado: explícito en descripción > global override > default GO
+    if parsed.get("galvanizado_explicito"):
+        galvanizado = parsed.get("galvanizado", "GO")
+    elif ov.get("galvanizado_global"):
+        galvanizado = ov["galvanizado_global"]
+    else:
+        galvanizado = parsed.get("galvanizado", "GO")
+
+    # Superficie: explícita en descripción > global override > default RANURADA
+    if parsed.get("superficie_explicita"):
+        superficie = parsed.get("superficie", "RANURADA")
+    elif ov.get("superficie_global"):
+        superficie = ov["superficie_global"]
+    else:
+        superficie = parsed.get("superficie", "RANURADA")
+
+    # Espesor cuerpo: explícito en descripción > global override > default 1.5
+    if parsed.get("espesor_explicito"):
+        espesor = parsed.get("espesor", 1.5)
+    elif ov.get("espesor_cuerpo_global"):
+        espesor = float(ov["espesor_cuerpo_global"])
+    else:
+        espesor = parsed.get("espesor", 1.5)
+
+    # Espesor tapa: por ítem > global override > igual que cuerpo
+    if espesor_tapa_item is not None:
+        espesor_tapa = float(espesor_tapa_item)
+    elif ov.get("espesor_tapa_global"):
+        espesor_tapa = float(ov["espesor_tapa_global"])
+    else:
+        espesor_tapa = espesor  # mismo que cuerpo por defecto
+
     valores = config.get("valores_defecto", {})
-    ganancia = valores.get("ganancia", "30")
+    ganancia = ov.get("ganancia_global") or valores.get("ganancia", "30")
     dolar = float(valores.get("dolar", 3.8))
     usd_kg_productos = float(valores.get("usd_kg_productos", 1.0))
     usd_kg_cajas = float(valores.get("usd_kg_cajas", 3.0))
 
     esp_str = f"{espesor:.1f}"
+    esp_tapa_str = f"{espesor_tapa:.1f}"
     precios_key = "precios_go" if galvanizado == "GO" else "precios_gc"
     precios = valores.get(precios_key, {})
 
-    # Precio de plancha para el espesor del producto
     fallback_pl = float(list(precios.values())[0]) if precios else 180.0
     precio_pl = float(precios.get(esp_str, fallback_pl))
-    # Tapa: siempre 1.2mm
-    precio_pl_tapa = float(precios.get("1.2", precio_pl))
+    precio_pl_tapa = float(precios.get(esp_tapa_str, fallback_pl))
 
     cfg = PricingConfig(
         tipo_galvanizado=galvanizado,
@@ -509,47 +566,61 @@ def calcular_precio_importado(parsed: dict, config: dict):
         if tipo == "B":
             if len(dims) < 2:
                 return None
-            r = cotizar_bandeja(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], superficie)
+            r = cotizar_bandeja(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                                dims[0], dims[1], superficie, es_metro_lineal)
 
         elif tipo == "CH":
             if len(dims) < 2:
                 return None
-            r = cotizar_curva_horizontal(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], superficie)
+            r = cotizar_curva_horizontal(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                                         dims[0], dims[1], superficie)
 
         elif tipo == "CVE":
             if len(dims) < 2:
                 return None
-            r = cotizar_curva_vertical(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], "EXTERNA", superficie)
+            r = cotizar_curva_vertical(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                                       dims[0], dims[1], "EXTERNA", superficie)
 
         elif tipo == "CVI":
             if len(dims) < 2:
                 return None
-            r = cotizar_curva_vertical(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], "INTERNA", superficie)
+            r = cotizar_curva_vertical(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                                       dims[0], dims[1], "INTERNA", superficie)
 
         elif tipo == "T":
             if len(dims) < 4:
                 return None
-            r = cotizar_tee(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], dims[2], dims[3], superficie)
+            r = cotizar_tee(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                            dims[0], dims[1], dims[2], dims[3], superficie)
 
         elif tipo == "C":
             if len(dims) < 2:
                 return None
-            r = cotizar_cruz(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], superficie)
+            r = cotizar_cruz(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                             dims[0], dims[1], superficie)
 
         elif tipo == "R":
             if len(dims) < 3:
                 return None
-            r = cotizar_reduccion(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], dims[2], superficie)
+            r = cotizar_reduccion(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                                  dims[0], dims[1], dims[2], superficie)
 
         elif tipo == "CP":
             if len(dims) < 3:
                 return None
-            r = cotizar_caja_pase(cfg, precio_pl, precio_pl_tapa, espesor, 1.2, dims[0], dims[1], dims[2], knockout)
+            r = cotizar_caja_pase(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
+                                  dims[0], dims[1], dims[2], knockout)
 
         else:
             return None
 
-        return r[0]["precio_unitario"], r[0]["peso_unitario"], r[0]["descripcion"]
+        cuerpo = (r[0]["precio_unitario"], r[0]["peso_unitario"], r[0]["descripcion"])
+        # Tapa: solo si con_tapa=True, tipo != CP, y el motor retornó un segundo ítem
+        tapa = None
+        if con_tapa and tipo != "CP" and len(r) > 1:
+            tapa = (r[1]["precio_unitario"], r[1]["peso_unitario"], r[1]["descripcion"])
+
+        return {"cuerpo": cuerpo, "tapa": tapa}
 
     except Exception:
         return None
@@ -559,46 +630,119 @@ class _ImportarItemIn(BaseModel):
     descripcion: str
     unidad: str = "UND"
     cantidad: int = 1
+    con_tapa: bool = False          # True → agregar tapa como ítem separado (texto libre)
+    espesor_tapa: Optional[float] = None  # None → usar global o mismo que cuerpo
+
+
+class _ImportarRequestIn(BaseModel):
+    items: list[_ImportarItemIn]
+    galvanizado_global: Optional[str] = None    # "GO" | "GC"
+    espesor_cuerpo_global: Optional[float] = None  # 1.2 | 1.5 | 2.0
+    espesor_tapa_global: Optional[float] = None    # 1.2 | 1.5 | 2.0
+    ganancia_global: Optional[str] = None       # "30" | "35"
+    superficie_global: Optional[str] = None     # "LISA" | "RANURADA" | "ESCALERILLA"
 
 
 @router.post("/importar/procesar")
 async def importar_procesar(
-    items: list[_ImportarItemIn],
+    body: _ImportarRequestIn,
     usuario: dict = Depends(require_login),
 ):
-    """Analiza una lista de ítems pegada desde portapapeles y devuelve precios calculados."""
+    """Analiza una lista de ítems y devuelve precios calculados aplicando parámetros globales."""
     config = cargar_config()
-    ganancia = config.get("valores_defecto", {}).get("ganancia", "30")
+    overrides = {
+        "galvanizado_global": body.galvanizado_global,
+        "espesor_cuerpo_global": body.espesor_cuerpo_global,
+        "espesor_tapa_global": body.espesor_tapa_global,
+        "ganancia_global": body.ganancia_global,
+        "superficie_global": body.superficie_global,
+    }
+    ganancia_efectiva = body.ganancia_global or config.get("valores_defecto", {}).get("ganancia", "30")
     results = []
-    for item in items:
+    for item in body.items:
         parsed = parsear_descripcion(item.descripcion)
-        precio_data = calcular_precio_importado(parsed, config)
+        es_ml = item.unidad == "ML" and parsed.get("tipo") == "B"
 
-        # Enriquecer descripción con espesor y/o knockout si no venían explícitos
-        desc_final = item.descripcion
-        if precio_data is not None and parsed["tipo"] is not None:
-            espesor_str = f"{parsed['espesor']:.1f}MM"
-            falta_espesor = not parsed["espesor_explicito"]
-            falta_knockout = parsed["tipo"] == "CP" and not parsed["knockout_explicito"]
+        precio_data = calcular_precio_importado(
+            parsed, config, overrides,
+            con_tapa=item.con_tapa,
+            es_metro_lineal=es_ml,
+            espesor_tapa_item=item.espesor_tapa,
+        )
 
-            if falta_knockout and falta_espesor:
-                desc_final = item.descripcion.rstrip() + f" {parsed['knockout']} {espesor_str}"
-            elif falta_knockout:
-                desc_final = item.descripcion.rstrip() + f" {parsed['knockout']}"
-            elif falta_espesor:
-                desc_final = item.descripcion.rstrip() + f" {espesor_str}"
+        # Galvanizado efectivo para mostrar en resultado
+        if parsed.get("galvanizado_explicito"):
+            galv_efectivo = parsed["galvanizado"]
+        else:
+            galv_efectivo = body.galvanizado_global or parsed["galvanizado"]
 
-        results.append({
-            "descripcion": desc_final,
-            "unidad": item.unidad,
-            "cantidad": item.cantidad,
-            "tipo": parsed["tipo"] or "MANUAL",
-            "precio_unitario":      round(precio_data[0], 4) if precio_data else None,
-            "peso_unitario":        round(precio_data[1], 6) if precio_data else None,
-            "descripcion_calculada": precio_data[2] if precio_data else None,
-            "tipo_galvanizado":  parsed["galvanizado"],
-            "porcentaje_ganancia": ganancia,
-            "reconocido": precio_data is not None,
-            "error": None if precio_data else "No se reconoció el tipo o las dimensiones",
-        })
+        if precio_data is not None:
+            cuerpo = precio_data["cuerpo"]
+
+            # Enriquecer descripción del cuerpo con espesor/knockout si no venían explícitos
+            desc_final = item.descripcion
+            if parsed["tipo"] is not None:
+                if parsed.get("espesor_explicito"):
+                    esp_efectivo = parsed["espesor"]
+                elif body.espesor_cuerpo_global:
+                    esp_efectivo = body.espesor_cuerpo_global
+                else:
+                    esp_efectivo = parsed["espesor"]
+                espesor_str = f"{esp_efectivo:.1f}MM"
+                falta_espesor = not parsed["espesor_explicito"]
+                falta_knockout = parsed["tipo"] == "CP" and not parsed["knockout_explicito"]
+
+                if falta_knockout and falta_espesor:
+                    desc_final = item.descripcion.rstrip() + f" {parsed['knockout']} {espesor_str}"
+                elif falta_knockout:
+                    desc_final = item.descripcion.rstrip() + f" {parsed['knockout']}"
+                elif falta_espesor:
+                    desc_final = item.descripcion.rstrip() + f" {espesor_str}"
+
+            # Ítem cuerpo
+            results.append({
+                "descripcion": desc_final,
+                "unidad": item.unidad,
+                "cantidad": item.cantidad,
+                "tipo": parsed["tipo"] or "MANUAL",
+                "precio_unitario":       round(cuerpo[0], 4),
+                "peso_unitario":         round(cuerpo[1], 6),
+                "descripcion_calculada": cuerpo[2],
+                "tipo_galvanizado":      galv_efectivo,
+                "porcentaje_ganancia":   ganancia_efectiva,
+                "reconocido": True,
+                "error": None,
+            })
+
+            # Ítem tapa (si aplica)
+            tapa = precio_data.get("tapa")
+            if tapa:
+                results.append({
+                    "descripcion": tapa[2],
+                    "unidad": item.unidad,
+                    "cantidad": item.cantidad,
+                    "tipo": parsed["tipo"],
+                    "precio_unitario":       round(tapa[0], 4),
+                    "peso_unitario":         round(tapa[1], 6),
+                    "descripcion_calculada": tapa[2],
+                    "tipo_galvanizado":      galv_efectivo,
+                    "porcentaje_ganancia":   ganancia_efectiva,
+                    "reconocido": True,
+                    "error": None,
+                })
+        else:
+            results.append({
+                "descripcion": item.descripcion,
+                "unidad": item.unidad,
+                "cantidad": item.cantidad,
+                "tipo": "MANUAL",
+                "precio_unitario":       None,
+                "peso_unitario":         None,
+                "descripcion_calculada": None,
+                "tipo_galvanizado":      galv_efectivo,
+                "porcentaje_ganancia":   ganancia_efectiva,
+                "reconocido": False,
+                "error": "No se reconoció el tipo o las dimensiones",
+            })
+
     return JSONResponse({"ok": True, "items": results})

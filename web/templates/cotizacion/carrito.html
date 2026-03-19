@@ -297,29 +297,34 @@
       <div id="imp-ayuda-libre" style="display:none; margin-bottom:0.75rem; font-size:0.82rem; color:var(--texto-suave);">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
           <div>
-            <strong style="font-size:0.78rem; color:var(--texto);">Tipos reconocidos:</strong>
-            <table style="width:100%; border-collapse:collapse; margin-top:0.3rem; font-size:0.78rem;">
-              <tr><td style="padding:1px 4px; color:var(--texto);">Bandeja</td><td style="padding:1px 4px; color:#6b7280;">bandeja, bdj</td></tr>
-              <tr><td style="padding:1px 4px; color:var(--texto);">Curva H</td><td style="padding:1px 4px; color:#6b7280;">curva horizontal, curva h, ch</td></tr>
-              <tr><td style="padding:1px 4px; color:var(--texto);">Curva V ext</td><td style="padding:1px 4px; color:#6b7280;">curva vertical externa, cve</td></tr>
-              <tr><td style="padding:1px 4px; color:var(--texto);">Curva V int</td><td style="padding:1px 4px; color:#6b7280;">curva vertical interna, cvi</td></tr>
-              <tr><td style="padding:1px 4px; color:var(--texto);">Tee</td><td style="padding:1px 4px; color:#6b7280;">tee</td></tr>
-              <tr><td style="padding:1px 4px; color:var(--texto);">Cruz</td><td style="padding:1px 4px; color:#6b7280;">cruz</td></tr>
-              <tr><td style="padding:1px 4px; color:var(--texto);">Reducción</td><td style="padding:1px 4px; color:#6b7280;">reduccion, reduc</td></tr>
-              <tr><td style="padding:1px 4px; color:var(--texto);">Caja de pase</td><td style="padding:1px 4px; color:#6b7280;">caja de pase, caja pase, caja metalica</td></tr>
+            <strong style="font-size:0.78rem; color:var(--texto);">Formato:</strong>
+            <code style="display:block; margin:0.25rem 0 0.5rem; font-size:0.76rem; background:var(--fondo-tabla,#f4f7fc); padding:0.25rem 0.4rem; border-radius:3px;">
+              N und|ml [tipo] [dims] [espesor] [ct [esp_tapa]|st] [go|gc]
+            </code>
+            <table style="width:100%; border-collapse:collapse; margin-top:0.1rem; font-size:0.78rem;">
+              <tr><td style="padding:1px 4px; color:var(--texto);">und / ml</td><td style="padding:1px 4px; color:#6b7280;">unidades o metros lineales (bandeja)</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">ct / st</td><td style="padding:1px 4px; color:#6b7280;">con tapa (defecto) / sin tapa</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">ct 1.2mm</td><td style="padding:1px 4px; color:#6b7280;">tapa en espesor específico</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">esc / escalerilla</td><td style="padding:1px 4px; color:#6b7280;">tipo escalerilla</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">ranurada / lisa</td><td style="padding:1px 4px; color:#6b7280;">tipos alternativos (defecto: ranurada)</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">gc / go</td><td style="padding:1px 4px; color:#6b7280;">galvanizado (defecto: GO)</td></tr>
+              <tr><td style="padding:1px 4px; color:var(--texto);">3/4 · 1/2</td><td style="padding:1px 4px; color:#6b7280;">caja de pase C/S (esa medida)</td></tr>
+              <tr><td style="padding:1px 4px; color:#2563eb;">SIN COMISIÓN – GO</td><td style="padding:1px 4px; color:#6b7280;">línea de config global</td></tr>
             </table>
           </div>
           <div>
             <strong style="font-size:0.78rem; color:var(--texto);">Ejemplos:</strong>
-            <pre style="margin:0.3rem 0 0; font-size:0.78rem; background:var(--fondo-tabla,#f4f7fc); padding:0.4rem 0.5rem; border-radius:4px; line-height:1.6;">5 bandeja 200x100
-3 curva horizontal 300x150
-2 tee 300x200x300x150
-1 caja de pase 50x30x20cm
-4 reduccion 400x300x200x150
+            <pre style="margin:0.3rem 0 0; font-size:0.76rem; background:var(--fondo-tabla,#f4f7fc); padding:0.4rem 0.5rem; border-radius:4px; line-height:1.65;">SIN COMISIÓN – GO
+5 und bandeja 500x100mm 1.5mm ct
+10 ml bandeja esc 400x100mm 1.5mm ct 1.2mm
+3 und bandeja lisa 300x100mm 1.5mm st
+8 und gc bandeja esc 300x100mm 1.5mm
+2 und curva vertical 400x100mm 1.2mm
+4 und tee 300x300x300x100mm
+8 und reduccion 600x400x100mm
+10 und caja de pase 50x30x10
+56 und caja 300x300x100mm 3/4
 # comentario (se ignora)</pre>
-            <div style="margin-top:0.35rem; font-size:0.78rem; color:#6b7280;">
-              Opcionales por línea: <code>GO</code>/<code>GC</code> · <code>escalerilla</code>/<code>ranurada</code> · <code>1.5mm</code>
-            </div>
           </div>
         </div>
       </div>
@@ -1247,5 +1252,5 @@ async function aplicarEspesor() {
   }
 }
 </script>
-<script src="/static/importar.js?v=8"></script>
+<script src="/static/importar.js?v=9"></script>
 {% endblock %}

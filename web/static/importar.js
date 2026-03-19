@@ -66,8 +66,10 @@ function _leerConfigImportar() {
   _importarConfig.galvanizado_global      = galv ? galv.value : 'GO';
   _importarConfig.ganancia_global         = gan  ? gan.value  : '30';
   _importarConfig.espesor_cuerpo_global   = espC ? parseFloat(espC.value) : 1.5;
-  _importarConfig.espesor_tapa_global     = espT ? parseFloat(espT.value) : 1.2;
-  _importarConfig.superficie_global       = sup  ? sup.value  : 'LISA';
+  // Libre: espesor tapa null → backend usa mismo espesor que cuerpo por defecto
+  _importarConfig.espesor_tapa_global     = _importarModo === 'libre' ? null : (espT ? parseFloat(espT.value) : 1.2);
+  // Libre: superficie null → backend usa RANURADA por defecto; per-ítem overrides desde desc
+  _importarConfig.superficie_global       = _importarModo === 'libre' ? null : (sup ? sup.value  : 'LISA');
 }
 
 // Cerrar al hacer click en el overlay
@@ -113,51 +115,97 @@ function setModoImportar(modo) {
     btnLibre.setAttribute('style', _base + _estiloActivo);
     ayudaTabla.style.display = 'none';
     ayudaLibre.style.display = 'block';
-    textarea.placeholder = 'Escribe un producto por línea:\n5 bandejas 200x100\n3 curva horizontal 300x150\n2 tee 300x200x300x150\n1 caja de pase 50x30x20cm ciega';
+    textarea.placeholder = 'Escribe un producto por línea:\n5 und bandeja 500x100mm 1.5mm ct\n10 ml bandeja esc 400x100mm 1.5mm ct 1.2mm\n3 und bandeja lisa 300x100mm st\n8 und gc curva horizontal 300x100mm 1.5mm\n2 und curva vertical 400x100mm 1.2mm\n4 und tee 300x300x300x100mm\n6 und reduccion 600x400x100mm\n10 und caja de pase 50x30x10\n56 und caja 300x300x100mm 3/4\n# SIN COMISIÓN – GO (línea de config, se ignora como ítem)';
     btnProcesar.textContent = 'Procesar texto';
   }
 }
 
 // ──────────────────────────────────────────────────────────────
 // Parser texto libre: una línea por producto
-// Formato: [cantidad] descripcion [dimensiones]
+// Formato: N und/ml [tipo] [dims] [espesor] [ct [esp_tapa]|st] [gc|go] [superficie]
 // ──────────────────────────────────────────────────────────────
 
 function _parseTextoLibre(text) {
-  // Acepta: "5 desc", "5x desc", "5. desc", "5- desc"
-  // NO acepta "5x200" como cantidad=5 (porque x no está seguido de espacio)
-  const _cantRe = /^(\d+)(?:\s+|[x×.,;-]\s+)(.+)$/i;
-
   const rows = [];
+
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
 
-    let cantidad = 1;
-    let desc = line;
+    // ── Líneas de configuración global (no empiezan con dígito) ──
+    if (!/^\d/.test(line)) {
+      if (/\bsin\s+comisi[oó]n\b/i.test(line)) _importarConfig.ganancia_global = '30';
+      if (/\bcon\s+comisi[oó]n\b/i.test(line)) _importarConfig.ganancia_global = '35';
+      // GO/GC al final o suelto (ej: "SIN COMISIÓN – GO", "GC")
+      const galvH = /\b(GO|GC)\s*$/i.exec(line);
+      if (galvH) _importarConfig.galvanizado_global = galvH[1].toUpperCase();
+      continue;
+    }
 
-    const m = _cantRe.exec(line);
-    if (m) {
-      const n = parseInt(m[1], 10);
+    // ── Parsear cantidad y unidad ──
+    let cantidad = 1, unidad = 'UND', desc;
+    // "N und/ml desc"
+    const mFmt = /^(\d+)\s+(und?s?|unidad(?:es)?|ml)\b\s*(.*)/i.exec(line);
+    if (mFmt) {
+      const n = parseInt(mFmt[1], 10);
       if (n > 0 && n <= 9999) {
         cantidad = n;
-        desc = m[2].trim();
+        unidad = /^ml$/i.test(mFmt[2]) ? 'ML' : 'UND';
+        desc = mFmt[3].trim();
+      } else {
+        desc = line;
+      }
+    } else {
+      // Fallback: "N desc" (sin und/ml)
+      const mSimple = /^(\d+)(?:\s+|[x×.,;-]\s+)(.+)$/i.exec(line);
+      if (mSimple) {
+        const n = parseInt(mSimple[1], 10);
+        if (n > 0 && n <= 9999) { cantidad = n; desc = mSimple[2].trim(); }
+        else desc = line;
+      } else {
+        desc = line;
       }
     }
 
-    // Convertir cm → mm (antes de m, para que "cm" no sea capturado por la regla de m)
-    desc = desc.replace(/(\d+(?:[.,]\d+)?)\s*cm\b/gi, (_, v) => {
-      return String(Math.round(parseFloat(v.replace(',', '.')) * 10));
-    });
+    // ── Parsear con/sin tapa ──
+    let con_tapa = true;
+    let espesor_tapa = null;
 
-    // Convertir m → mm (solo "m" suelto, no "mm" ni parte de palabra)
-    desc = desc.replace(/(\d+(?:[.,]\d+)?)\s*m\b(?!m)/gi, (_, v) => {
-      return String(Math.round(parseFloat(v.replace(',', '.')) * 1000));
-    });
+    // "sin tapa" o "st" → sin tapa
+    if (/\b(sin\s+tapa|st)\b/i.test(desc)) {
+      con_tapa = false;
+      desc = desc.replace(/\b(sin\s+tapa|st)\b/gi, ' ');
+    } else {
+      // "ct 1.5mm" → tapa con espesor específico
+      const ctEsp = /\bct\s+(\d+[.,]\d+)\s*mm\b/i.exec(desc);
+      if (ctEsp) {
+        espesor_tapa = parseFloat(ctEsp[1].replace(',', '.'));
+        desc = desc.replace(ctEsp[0], ' ');
+      } else {
+        // "ct" solo → tapa al mismo espesor que el cuerpo (espesor_tapa=null → backend usa body)
+        desc = desc.replace(/\bct\b/gi, ' ');
+      }
+    }
+
+    // ── Normalizar abreviatura "esc" → "ESCALERILLA" ──
+    desc = desc.replace(/\besc\b/gi, 'ESCALERILLA');
+
+    // ── Curva vertical sin externa/interna → agregar EXTERNA por defecto ──
+    if (/\bcurva\s+vertical\b/i.test(desc) && !/\b(extern[ao]|intern[ao]|cve|cvi)\b/i.test(desc)) {
+      desc = desc.replace(/\bcurva\s+vertical\b/i, 'CURVA VERTICAL EXTERNA');
+    }
+
+    // ── Conversiones de unidades ──
+    desc = desc.replace(/(\d+(?:[.,]\d+)?)\s*cm\b/gi, (_, v) =>
+      String(Math.round(parseFloat(v.replace(',', '.')) * 10)));
+    desc = desc.replace(/(\d+(?:[.,]\d+)?)\s*m\b(?!m)/gi, (_, v) =>
+      String(Math.round(parseFloat(v.replace(',', '.')) * 1000)));
 
     desc = _normalizarDimensiones(desc);
+    desc = desc.replace(/\s+/g, ' ').trim();
+
     if (desc) {
-      rows.push({ descripcion: desc, unidad: 'UND', cantidad });
+      rows.push({ descripcion: desc, unidad, cantidad, con_tapa, espesor_tapa });
     }
   }
   return rows;

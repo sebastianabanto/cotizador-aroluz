@@ -295,24 +295,6 @@ select.form-control { cursor: pointer; }
 .ac-wrapper {
   position: relative;
 }
-/* Input con botón ▾ visible */
-.ac-has-toggle { padding-right: 2rem; }
-.ac-toggle-btn {
-  position: absolute;
-  right: 0.4rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--texto-suave);
-  font-size: 0.85rem;
-  padding: 0.15rem 0.3rem;
-  line-height: 1;
-  border-radius: 3px;
-  transition: color 0.12s;
-}
-.ac-toggle-btn:hover { color: var(--azul); }
 .ac-lista {
   position: absolute;
   top: calc(100% + 3px);
@@ -1979,3 +1961,15 @@ details[open] summary { margin-bottom: 0.75rem; }
 }
 .importar-item.ok:hover   { background: #e4f7e4; }
 .importar-item.error:hover { background: #fde8e8; }
+/* Tabs de modo dentro del modal importar — estilos base (JS los sobreescribe al activar) */
+#btn-modo-tabla, #btn-modo-libre {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-bottom-color 0.15s;
+}

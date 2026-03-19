@@ -16,9 +16,9 @@
         style="font-size:0.95rem;">
     </div>
     <div class="cat-leyenda">
-      <span class="cat-badge-30">30% — Sin comisión</span>
+      <span class="cat-badge-30">Sin comisión</span>
       <span class="cat-badge-sep">·</span>
-      <span class="cat-badge-35">35% — Con comisión</span>
+      <span class="cat-badge-35">Con comisión</span>
     </div>
   </div>
 
@@ -64,13 +64,11 @@
                   <th>Descripción</th>
                   <th>Und.</th>
                   <th>Present.</th>
-                  <th class="th-precio th-30" title="Precio sin comisión — 30% ganancia">
+                  <th class="th-precio th-30" title="Precio sin comisión">
                     S/ Sin comisión
-                    <span class="th-badge th-badge-30">30%</span>
                   </th>
-                  <th class="th-precio th-35" title="Precio con comisión — 35% ganancia">
+                  <th class="th-precio th-35" title="Precio con comisión">
                     S/ Con comisión
-                    <span class="th-badge th-badge-35">35%</span>
                   </th>
                   <th style="width:58px; text-align:center;">Cant.</th>
                   <th style="width:160px;"></th>
@@ -102,17 +100,17 @@
                         data-descripcion="{{ prod.descripcion }}"
                         data-precio="{{ prod.precio }}"
                         data-unidad="{{ prod.unidad }}"
-                        title="Agregar al precio sin comisión (30%)"
+                        title="Agregar sin comisión"
                         onclick="agregarAlCarrito(this)">
-                        +&nbsp;30%
+                        + Sin com.
                       </button>
                       <button class="btn btn-sm btn-agregar btn-agregar-35"
                         data-descripcion="{{ prod.descripcion }}"
                         data-precio="{{ "%.2f"|format(prod.precio * 0.7 / 0.65) }}"
                         data-unidad="{{ prod.unidad }}"
-                        title="Agregar al precio con comisión (35%)"
+                        title="Agregar con comisión"
                         onclick="agregarAlCarrito(this)">
-                        +&nbsp;35%
+                        + Con com.
                       </button>
                     </div>
                   </td>
@@ -396,7 +394,7 @@
     border-radius: 8px;
   }
 
-  /* Labels "30% · S/" y "35% · S/" — escalan con el contenedor */
+  /* Labels móvil Sin/Con comisión · S/ — escalan con el contenedor */
   .tabla-catalogo tbody tr.prod-fila td:nth-child(4)::before,
   .tabla-catalogo tbody tr.prod-fila td:nth-child(5)::before {
     font-size: clamp(0.65rem, 2.8cqi, 0.78rem);
@@ -406,7 +404,7 @@
     line-height: 1;
   }
 
-  /* td:4 — Precio 30% (chip azul, col 1, fila 4) */
+  /* td:4 — Precio sin comisión (chip azul, col 1, fila 4) */
   .tabla-catalogo tbody tr.prod-fila td:nth-child(4) {
     grid-column: 1;
     grid-row: 4;
@@ -414,10 +412,10 @@
     color: #1a6fad;
   }
   .tabla-catalogo tbody tr.prod-fila td:nth-child(4)::before {
-    content: "30%  ·  S/";
+    content: "Sin com.  ·  S/";
   }
 
-  /* td:5 — Precio 35% (chip verde, col 2, fila 4) */
+  /* td:5 — Precio con comisión (chip verde, col 2, fila 4) */
   .tabla-catalogo tbody tr.prod-fila td:nth-child(5) {
     grid-column: 2;
     grid-row: 4;
@@ -425,7 +423,7 @@
     color: #1a8a4a;
   }
   .tabla-catalogo tbody tr.prod-fila td:nth-child(5)::before {
-    content: "35%  ·  S/";
+    content: "Con com.  ·  S/";
   }
 
   /* tr::after — label "Cantidades" (fila 5, ancho completo) */
@@ -652,7 +650,7 @@ async function agregarAlCarrito(btn) {
       _cartCount = d.cantidad_items;
       const label    = descripcion.length > 40 ? descripcion.substring(0, 40) + '…' : descripcion;
       const es35     = btn.classList.contains('btn-agregar-35');
-      const comision = es35 ? 'con comisión (35%)' : 'sin comisión (30%)';
+      const comision = es35 ? 'con comisión' : 'sin comisión';
       ['nav-badge-carrito', 'bn-badge-carrito'].forEach(id => {
         const badge = document.getElementById(id);
         if (badge) {
@@ -668,7 +666,7 @@ async function agregarAlCarrito(btn) {
     toast('Error de red', 'error');
   } finally {
     btn.disabled  = false;
-    btn.innerHTML = btn.classList.contains('btn-agregar-35') ? '+&nbsp;35%' : '+&nbsp;30%';
+    btn.innerHTML = btn.classList.contains('btn-agregar-35') ? '+ Con com.' : '+ Sin com.';
   }
 }
 </script>

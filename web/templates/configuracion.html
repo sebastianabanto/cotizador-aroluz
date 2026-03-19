@@ -36,15 +36,15 @@
         </div>
         <div class="cfg-card-body">
           <div class="cfg-field">
-            <label class="cfg-label">Factor de Ganancia</label>
+            <label class="cfg-label">Comisión por Defecto</label>
             <div class="radio-group">
               <label class="radio-label {% if config.valores_defecto.ganancia == '30' %}selected{% endif %}">
                 <input type="radio" name="ganancia" value="30"
-                  {% if config.valores_defecto.ganancia == '30' %}checked{% endif %}> 30%
+                  {% if config.valores_defecto.ganancia == '30' %}checked{% endif %}> Sin comisión
               </label>
               <label class="radio-label {% if config.valores_defecto.ganancia == '35' %}selected{% endif %}">
                 <input type="radio" name="ganancia" value="35"
-                  {% if config.valores_defecto.ganancia == '35' %}checked{% endif %}> 35%
+                  {% if config.valores_defecto.ganancia == '35' %}checked{% endif %}> Con comisión
               </label>
             </div>
           </div>
