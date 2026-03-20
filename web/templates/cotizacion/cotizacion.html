@@ -345,7 +345,7 @@
             <div class="resultado-acciones" id="acciones-tapa-individual" style="display:none">
               <div class="cant-ctrl-v2">
                 <button onclick="cambiarCant('tapa',-1)" aria-label="Restar cantidad tapa">−</button>
-                <input type="number" id="cant-tapa" value="1" min="1" max="999" aria-label="Cantidad tapa">
+                <input type="number" id="cant-tapa" value="1" min="0.01" max="999" step="any" aria-label="Cantidad tapa">
                 <button onclick="cambiarCant('tapa',1)" aria-label="Sumar cantidad tapa">+</button>
               </div>
               <button class="btn-agregar" id="btn-agregar-tapa" onclick="agregarItem('tapa')">+ Tapa</button>
