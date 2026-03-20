@@ -562,14 +562,10 @@ function renderPreview(items) {
   const ok    = items.filter(i => i.reconocido).length;
   const err   = total - ok;
 
-  const resumen = err > 0
-    ? `${total} ítem(s) — ${ok} con precio calculado, ${err} sin precio (se agregarán como manuales con precio 0)`
-    : `${total} ítem(s) — todos con precio calculado`;
-  document.getElementById('importar-resumen').textContent = resumen;
-
   const tbody = document.getElementById('importar-preview-tbody');
-  tbody.innerHTML = items.map(item => {
+  tbody.innerHTML = items.map((item, idx) => {
     const esCatalogo = !!item.es_catalogo;
+    const checkedByDefault = item.reconocido; // no reconocidos → desmarcados por defecto
     const icon   = item.reconocido ? (esCatalogo ? '📦' : '✅') : '🔴';
     const precio = item.reconocido
       ? `S/ ${Number(item.precio_unitario).toFixed(2)}`
@@ -585,9 +581,15 @@ function renderPreview(items) {
     } else {
       itemCalc = '<span style="color:#aaa; font-size:0.78rem;">—</span>';
     }
-    return `<tr class="importar-item ${item.reconocido ? 'ok' : 'error'}">
-      <td style="padding:4px 6px;">${icon}</td>
-      <td style="padding:4px 6px;" title="${item.descripcion.replace(/"/g, '&quot;')}">${descCorta}</td>
+    const rowStyle = checkedByDefault ? '' : 'opacity:0.45;';
+    return `<tr class="importar-item ${item.reconocido ? 'ok' : 'error'}" style="${rowStyle}" data-idx="${idx}">
+      <td style="padding:4px 6px; text-align:center;">
+        <input type="checkbox" class="imp-chk-item" data-idx="${idx}"
+               ${checkedByDefault ? 'checked' : ''}
+               onchange="_onImportarChkChange()"
+               style="cursor:pointer;">
+      </td>
+      <td style="padding:4px 6px;" title="${item.descripcion.replace(/"/g, '&quot;')}">${icon} ${descCorta}</td>
       <td style="padding:4px 6px; text-align:center;">${item.unidad}</td>
       <td style="padding:4px 6px; text-align:center;">${item.cantidad}</td>
       <td style="padding:4px 6px;">${itemCalc}</td>
@@ -595,9 +597,80 @@ function renderPreview(items) {
     </tr>`;
   }).join('');
 
+  // Mostrar botón "Excluir no reconocidos" solo si hay alguno sin reconocer
+  const btnExcluir = document.getElementById('btn-excluir-no-reconocidos');
+  if (btnExcluir) btnExcluir.style.display = err > 0 ? '' : 'none';
+
+  // Sincronizar header checkbox
+  const chkTodos = document.getElementById('imp-chk-todos');
+  if (chkTodos) chkTodos.checked = true; // todos reconocidos marcados, pero los 🔴 estarán desmarcados
+
+  _actualizarResumenSeleccion();
+}
+
+/** Actualiza el texto del resumen y el botón de confirmar según los checkboxes marcados. */
+function _actualizarResumenSeleccion() {
+  const total    = _importarItems.length;
+  const ok       = _importarItems.filter(i => i.reconocido).length;
+  const err      = total - ok;
+  const checks   = document.querySelectorAll('.imp-chk-item');
+  const seleccionados = Array.from(checks).filter(c => c.checked).length;
+
+  let resumenTxt;
+  if (err > 0) {
+    resumenTxt = `${total} ítem(s) en total — ${ok} reconocidos, ${err} no identificados`;
+    if (seleccionados < total) resumenTxt += ` — ${seleccionados} seleccionados para agregar`;
+  } else {
+    resumenTxt = `${total} ítem(s) — todos con precio calculado`;
+  }
+  document.getElementById('importar-resumen').textContent = resumenTxt;
+
   const btnConfirmar = document.getElementById('btn-importar-confirmar');
-  btnConfirmar.textContent = `Agregar ${total} ítem(s) al carrito`;
-  btnConfirmar.disabled = false;
+  btnConfirmar.textContent = `Agregar ${seleccionados} ítem(s) al carrito`;
+  btnConfirmar.disabled = seleccionados === 0;
+
+  // Header checkbox: indeterminate si hay mezcla
+  const chkTodos = document.getElementById('imp-chk-todos');
+  if (chkTodos) {
+    chkTodos.indeterminate = seleccionados > 0 && seleccionados < total;
+    chkTodos.checked = seleccionados === total;
+  }
+}
+
+function _onImportarChkChange() {
+  // Actualizar opacidad de la fila
+  document.querySelectorAll('.imp-chk-item').forEach(chk => {
+    const fila = chk.closest('tr');
+    if (fila) fila.style.opacity = chk.checked ? '' : '0.45';
+  });
+  _actualizarResumenSeleccion();
+}
+
+/** Selecciona o deselecciona todos los ítems. */
+function toggleTodosImportar(checked) {
+  document.querySelectorAll('.imp-chk-item').forEach(chk => {
+    chk.checked = checked;
+    const fila = chk.closest('tr');
+    if (fila) fila.style.opacity = checked ? '' : '0.45';
+  });
+  _actualizarResumenSeleccion();
+}
+
+/** Desmarca (excluye) todos los ítems no reconocidos. */
+function toggleNoReconocidos() {
+  const checks = document.querySelectorAll('.imp-chk-item');
+  // Determinar si hay alguno no reconocido marcado actualmente
+  const hayMarcados = Array.from(checks).some((chk, idx) => chk.checked && !_importarItems[idx]?.reconocido);
+  checks.forEach((chk, idx) => {
+    if (!_importarItems[idx]?.reconocido) {
+      chk.checked = !hayMarcados; // si había marcados → desmarcar; si no → marcar
+      const fila = chk.closest('tr');
+      if (fila) fila.style.opacity = chk.checked ? '' : '0.45';
+    }
+  });
+  const btn = document.getElementById('btn-excluir-no-reconocidos');
+  if (btn) btn.textContent = hayMarcados ? 'Incluir no reconocidos' : 'Excluir no reconocidos';
+  _actualizarResumenSeleccion();
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -607,13 +680,21 @@ function renderPreview(items) {
 async function confirmarImportar() {
   if (!_importarItems.length) return;
 
+  // Solo los ítems cuyo checkbox esté marcado
+  const checks = document.querySelectorAll('.imp-chk-item');
+  const itemsAgregar = _importarItems.filter((_, idx) => checks[idx]?.checked);
+  if (!itemsAgregar.length) {
+    toast('No hay ítems seleccionados para agregar', 'error');
+    return;
+  }
+
   const btn = document.getElementById('btn-importar-confirmar');
   btn.disabled = true;
   btn.textContent = 'Agregando…';
 
   let errores = 0;
 
-  for (const item of _importarItems) {
+  for (const item of itemsAgregar) {
     try {
       if (item.reconocido) {
         // Producto calculado → agregar con tipo y precio
@@ -647,7 +728,7 @@ async function confirmarImportar() {
 
   cerrarModalImportar();
 
-  const totalAgregados = _importarItems.length - errores;
+  const totalAgregados = itemsAgregar.length - errores;
   if (errores > 0) {
     toast(`${totalAgregados} ítem(s) agregados (${errores} con error de red)`, 'error');
   } else {
