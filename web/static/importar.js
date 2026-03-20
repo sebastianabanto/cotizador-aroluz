@@ -159,6 +159,17 @@ function _parseTextoLibre(text) {
       // GO/GC al final o suelto (ej: "SIN COMISIÓN – GO", "GC")
       const galvH = /\b(GO|GC)\s*$/i.exec(line);
       if (galvH) _importarConfig.galvanizado_global = galvH[1].toUpperCase();
+
+      // ── Excepción: línea con formato tabla "descripción  UND  cantidad" ──
+      // Ej: "TUBO CONDUIT EMT 3/4" X 3 M    UND    100"
+      //     "CURVA CONDUIT EMT DE 1"    UND    50"
+      const tablaM = /^(.+?)\s{2,}(UND|ML|M2|KG|JGO|GLB|PZA)\s+(\d+(?:[.,]\d+)?)\s*$/i.exec(line);
+      if (tablaM) {
+        const desc = _normalizarDimensiones(tablaM[1].trim());
+        const unidad   = tablaM[2].toUpperCase();
+        const cantidad = Math.round(parseFloat(tablaM[3].replace(',', '.'))) || 1;
+        if (desc) rows.push({ descripcion: desc, unidad, cantidad, con_tapa: false, espesor_tapa: null });
+      }
       continue;
     }
 
