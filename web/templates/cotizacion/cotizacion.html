@@ -321,7 +321,7 @@
             <div class="resultado-acciones" id="acciones-prod-individual" style="display:none">
               <div class="cant-ctrl-v2">
                 <button onclick="cambiarCant('prod',-1)" aria-label="Restar cantidad producto">−</button>
-                <input type="number" id="cant-prod" value="1" min="1" max="999" aria-label="Cantidad producto">
+                <input type="number" id="cant-prod" value="1" min="0.01" max="999" step="any" aria-label="Cantidad producto">
                 <button onclick="cambiarCant('prod',1)" aria-label="Sumar cantidad producto">+</button>
               </div>
               <button class="btn-agregar" id="btn-agregar-prod" onclick="agregarItem('prod')">+ Producto</button>
@@ -358,7 +358,7 @@
           <div id="acciones-ambos" style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
             <div class="cant-ctrl-v2">
               <button onclick="cambiarCant('main',-1)" aria-label="Restar cantidad">−</button>
-              <input type="number" id="cant-main" value="1" min="1" max="999" aria-label="Cantidad">
+              <input type="number" id="cant-main" value="1" min="0.01" max="999" step="any" aria-label="Cantidad">
               <button onclick="cambiarCant('main',1)" aria-label="Sumar cantidad">+</button>
             </div>
             <button class="btn-agregar" id="btn-agregar-ambos" onclick="agregarAmbos()">+ Carrito</button>
@@ -521,6 +521,14 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   if (e.target.matches('.form-input, .form-select-sm, #esp-prod, #esp-tapa, #b-ml')) scheduleCalc();
   if (e.target.classList.contains('check-contapa')) actualizarQtyMode();
+  if (e.target.matches('#b-ml') && !e.target.checked) {
+    // Al desactivar "Por metro lineal", redondear cantidades a entero
+    ['cant-main','cant-prod','cant-tapa'].forEach(id => {
+      const inp = document.getElementById(id);
+      if (inp) inp.value = Math.max(1, Math.round(parseFloat(inp.value) || 1));
+    });
+    actualizarSubtotales();
+  }
 });
 
 function scheduleCalc() {
@@ -807,7 +815,7 @@ function actualizarQtyMode() {
 function cambiarCant(cual, delta) {
   const ids = { prod: 'cant-prod', tapa: 'cant-tapa', main: 'cant-main' };
   const inp = document.getElementById(ids[cual]);
-  if (inp) inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+  if (inp) inp.value = Math.max(0.01, (parseFloat(inp.value) || 1) + delta);
   actualizarSubtotales();
 }
 
@@ -822,7 +830,7 @@ async function agregarItem(cual) {
     const g    = getGlobal();
     const conTapa = getConTapa();
     const cantId  = conTapa ? 'cant-main' : (cual === 'prod' ? 'cant-prod' : 'cant-tapa');
-    const cant    = parseInt(document.getElementById(cantId).value) || 1;
+    const cant    = parseFloat(document.getElementById(cantId).value) || 1;
 
     const data = await apiFetch('/api/carrito/agregar', {
       method: 'POST',
@@ -872,7 +880,7 @@ async function agregarAmbos() {
     const { prod, tapa } = _lastResult;
     if (!prod) return;
     const g    = getGlobal();
-    const cant = parseInt(document.getElementById('cant-main').value) || 1;
+    const cant = parseFloat(document.getElementById('cant-main').value) || 1;
 
     const r1 = await apiFetch('/api/carrito/agregar', {
       method: 'POST',
@@ -1031,7 +1039,7 @@ function actualizarSubtotales() {
   const stProd = document.getElementById('subtotal-prod');
   if (stProd) {
     if (!modoJuntos && _lastResult.prod) {
-      const cantProd = parseInt(document.getElementById('cant-prod').value) || 1;
+      const cantProd = parseFloat(document.getElementById('cant-prod').value) || 1;
       document.getElementById('cant-display-prod').textContent = cantProd;
       document.getElementById('precio-total-prod').textContent = `S/ ${(cantProd * _lastResult.prod.precio_unitario).toFixed(2)}`;
       stProd.style.display = cantProd > 1 ? '' : 'none';
@@ -1044,7 +1052,7 @@ function actualizarSubtotales() {
   const stTapa = document.getElementById('subtotal-tapa');
   if (stTapa) {
     if (!modoJuntos && _lastResult.tapa) {
-      const cantTapa = parseInt(document.getElementById('cant-tapa').value) || 1;
+      const cantTapa = parseFloat(document.getElementById('cant-tapa').value) || 1;
       document.getElementById('cant-display-tapa').textContent = cantTapa;
       document.getElementById('precio-total-tapa').textContent = `S/ ${(cantTapa * _lastResult.tapa.precio_unitario).toFixed(2)}`;
       stTapa.style.display = cantTapa > 1 ? '' : 'none';
@@ -1057,7 +1065,7 @@ function actualizarSubtotales() {
   const stMain = document.getElementById('subtotal-main');
   if (stMain) {
     if (modoJuntos && _lastResult.prod) {
-      const cantMain = parseInt(document.getElementById('cant-main').value) || 1;
+      const cantMain = parseFloat(document.getElementById('cant-main').value) || 1;
       document.getElementById('cant-display-main').textContent = cantMain;
       const precioTotal = cantMain * (_lastResult.prod.precio_unitario + (_lastResult.tapa?.precio_unitario || 0));
       document.getElementById('precio-total-main').textContent = `S/ ${precioTotal.toFixed(2)}`;

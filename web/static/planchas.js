@@ -23,6 +23,8 @@ let nextId = 1;
 let ultimoResumen = null;   // último resumen del /calcular (para agregar al carrito)
 let tabActiva = 0;
 let ultimasPlanchas = [];   // resultado de planchas para re-render de tabs
+let _binW = 2400;           // dimensiones de plancha actuales (para re-render al cambiar tab)
+let _binH = 1200;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getPieceColor(idx) {
@@ -209,28 +211,34 @@ function guillotinePack(binW, binH, items, spacing = 4) {
 // ─── Canvas rendering ─────────────────────────────────────────────────────────
 function renderCanvas(canvasEl, binW, binH, piezasColocadas, cortes) {
   const ctx = canvasEl.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
   const wrap = canvasEl.parentElement;
   const maxW = Math.max(200, (wrap.clientWidth || 600) - 4);
-  const maxH = 460;
+  const maxH = Math.max(280, maxW * (binH / binW));
   const scale = Math.min(maxW / binW, maxH / binH);
 
-  canvasEl.width  = Math.round(binW * scale);
-  canvasEl.height = Math.round(binH * scale);
+  const cssW = Math.round(binW * scale);
+  const cssH = Math.round(binH * scale);
+  canvasEl.width  = cssW * dpr;
+  canvasEl.height = cssH * dpr;
+  canvasEl.style.width  = cssW + 'px';
+  canvasEl.style.height = cssH + 'px';
   canvasEl.style.maxWidth = '100%';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // Fondo plancha
   ctx.fillStyle = '#dde6f5';
-  ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+  ctx.fillRect(0, 0, cssW, cssH);
 
   // Cuadrícula suave
   ctx.strokeStyle = 'rgba(180,200,230,0.4)';
   ctx.lineWidth = 0.5;
   const gridStep = 200 * scale;
-  for (let x = gridStep; x < canvasEl.width; x += gridStep) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvasEl.height); ctx.stroke();
+  for (let x = gridStep; x < cssW; x += gridStep) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cssH); ctx.stroke();
   }
-  for (let y = gridStep; y < canvasEl.height; y += gridStep) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasEl.width, y); ctx.stroke();
+  for (let y = gridStep; y < cssH; y += gridStep) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cssW, y); ctx.stroke();
   }
 
   // Piezas
@@ -247,44 +255,81 @@ function renderCanvas(canvasEl, binW, binH, piezasColocadas, cortes) {
     ctx.lineWidth = 1.5;
     ctx.strokeRect(px + 0.75, py + 0.75, pw - 1.5, ph - 1.5);
 
-    // Labels: dimensiones + nombre opcional
+    // Labels: dimensiones + nombre en múltiples renglones (con word-wrap)
     const minDim = Math.min(pw, ph);
-    if (minDim > 22) {
-      const fontSize = Math.max(9, Math.min(13, minDim * 0.18));
-      const dimLabel = `${p.ancho_original}×${p.alto_original}`;
-      const autoLabel = `${p.ancho_original}×${p.alto_original}`;
-      const hasName = p.nombre && p.nombre !== autoLabel;
+    if (minDim > 12) {
+      // Piezas donde alto > ancho × 1.4 se rotan −90° para que el texto corra por el lado largo
+      const isPortrait = ph > pw * 1.4;
 
-      ctx.fillStyle = 'rgba(20,30,60,0.85)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      // En espacio de texto: textW es el lado largo, textH es el lado corto
+      const textW = isPortrait ? ph : pw;
+      const textH = isPortrait ? pw : ph;
+
+      // Font sizes en px (proporcionales al lado corto/largo)
+      const sd = Math.min(pw, ph), ld = Math.max(pw, ph);
+      const fsDim = Math.max(6, Math.min(14, Math.min(sd * 0.22, ld * 0.085)));
+      const fsNom = Math.max(5, fsDim * 0.80);
+
       const cx = px + pw / 2, cy = py + ph / 2;
 
-      if (hasName) {
-        // 2 líneas: dimensiones arriba, nombre abajo
-        ctx.font = `600 ${fontSize}px Barlow, sans-serif`;
-        ctx.fillText(dimLabel, cx, cy - fontSize * 0.75);
-        ctx.font = `${Math.max(8, fontSize - 1)}px Barlow, sans-serif`;
-        // Truncar nombre si no cabe
-        let nombreMostrar = p.nombre;
-        const maxW = pw - 6;
-        while (ctx.measureText(nombreMostrar).width > maxW && nombreMostrar.length > 3) {
-          nombreMostrar = nombreMostrar.slice(0, -1);
-        }
-        if (nombreMostrar !== p.nombre) nombreMostrar += '…';
-        ctx.fillText(nombreMostrar, cx, cy + fontSize * 0.65);
-        if (p.rotada) {
-          ctx.font = `${fontSize - 2}px Barlow, sans-serif`;
-          ctx.fillText('↺', cx, cy + fontSize * 1.8);
-        }
-      } else {
-        ctx.font = `600 ${fontSize}px Barlow, sans-serif`;
-        ctx.fillText(dimLabel, cx, cy - (p.rotada ? fontSize * 0.7 : 0));
-        if (p.rotada) {
-          ctx.font = `${fontSize - 1}px Barlow, sans-serif`;
-          ctx.fillText('↺', cx, cy + fontSize * 0.8);
+      ctx.save();
+
+      // Clip a la región de la pieza para que el texto no se derrame
+      ctx.beginPath();
+      ctx.rect(px + 1, py + 1, pw - 2, ph - 2);
+      ctx.clip();
+
+      // Rotar contexto para piezas portrait
+      if (isPortrait) {
+        ctx.translate(cx, cy);
+        ctx.rotate(-Math.PI / 2);
+        ctx.translate(-cx, -cy);
+      }
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+
+      const dimLabel = `${p.ancho_original}×${p.alto_original}`;
+      const maxLineW = textW * 0.92;
+
+      // Word-wrap del nombre usando measureText (respeta bordes de palabras)
+      ctx.font = `${fsNom}px Barlow, sans-serif`;
+      const nomLines = [];
+      let curLine = '';
+      for (const word of (p.nombre || '').split(' ')) {
+        const test = curLine ? curLine + ' ' + word : word;
+        if (ctx.measureText(test).width <= maxLineW) {
+          curLine = test;
+        } else {
+          if (curLine) nomLines.push(curLine);
+          curLine = word;
         }
       }
+      if (curLine) nomLines.push(curLine);
+
+      // Cuántos renglones del nombre caben tras la línea de dimensiones
+      const lineH    = fsNom * 1.25;
+      const dimLineH = fsDim * 1.25;
+      const availH   = textH * 0.88;
+      const maxLines = Math.max(0, Math.floor((availH - dimLineH) / lineH));
+      const visLines = nomLines.slice(0, maxLines);
+
+      // Bloque de texto centrado verticalmente
+      const blockH = dimLineH + visLines.length * lineH;
+      const yTop   = cy - blockH / 2;
+
+      // Línea de dimensiones
+      ctx.font = `700 ${fsDim}px Barlow, sans-serif`;
+      ctx.fillText(dimLabel, cx, yTop + fsDim * 0.5);
+
+      // Renglones del nombre
+      ctx.font = `${fsNom}px Barlow, sans-serif`;
+      visLines.forEach((line, i) => {
+        ctx.fillText(line, cx, yTop + dimLineH + lineH * (i + 0.45));
+      });
+
+      ctx.restore();
     }
   }
 
@@ -311,7 +356,7 @@ function renderCanvas(canvasEl, binW, binH, piezasColocadas, cortes) {
   // Borde exterior de la plancha
   ctx.strokeStyle = '#7b96c0';
   ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, canvasEl.width - 2, canvasEl.height - 2);
+  ctx.strokeRect(1, 1, cssW - 2, cssH - 2);
 
   // Dimensiones plancha
   ctx.fillStyle = '#4a6080';
@@ -321,8 +366,66 @@ function renderCanvas(canvasEl, binW, binH, piezasColocadas, cortes) {
   ctx.fillText(`${binW}mm`, 4, 3);
 }
 
+// ─── Descargar PDF vectorial ───────────────────────────────────────────────────
+async function descargarPdfPlanchas() {
+  if (!ultimoResumen || !ultimasPlanchas.length) {
+    toast('Calculá las planchas primero', 'error');
+    return;
+  }
+
+  const espesor = document.querySelector('[name="espesor"]:checked')?.value
+               || ultimoResumen.espesor || '1.5';
+  const galv    = document.querySelector('[name="galvanizado"]:checked')?.value
+               || ultimoResumen.tipo_galvanizado || 'GO';
+
+  const payload = {
+    grupos: [{
+      espesor,
+      tipo_galvanizado: galv,
+      planchas: ultimasPlanchas.map(pl => ({
+        piezas:  pl.placed || [],
+        cortes:  pl.cortes || [],
+      })),
+      resumen: ultimoResumen,
+      items:   piezas.map(p => ({ descripcion: p.nombre, cantidad: p.cantidad })),
+    }],
+    cliente:  '',
+    proyecto: '',
+    bin_w: _binW,
+    bin_h: _binH,
+  };
+
+  const btn = document.getElementById('btn-pdf-planchas');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ PDF…'; }
+
+  try {
+    const resp = await fetch('/api/planchas/exportar-pdf', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      toast(err.error || 'Error al generar PDF', 'error');
+      return;
+    }
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'planchas.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    toast('Error de conexión', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬇ PDF'; }
+  }
+}
+
 // ─── Tabs de planchas ─────────────────────────────────────────────────────────
 function renderTabs(planchas, binW, binH) {
+  _binW = binW; _binH = binH;  // guardar para re-render y downloadHD
   const canvasArea = document.getElementById('canvas-area');
   if (!canvasArea) return;
 
@@ -370,6 +473,10 @@ function setTab(idx) {
   document.querySelectorAll('.planchas-canvas').forEach((cv, i) =>
     cv.classList.toggle('hidden', i !== idx)
   );
+  // Re-renderizar con dimensiones reales (evita distorsión por display:none)
+  const cv = document.getElementById(`canvas-${idx}`);
+  const pl = ultimasPlanchas[idx];
+  if (cv && pl) renderCanvas(cv, _binW, _binH, pl.placed, pl.cortes);
 }
 
 // ─── Estadísticas ─────────────────────────────────────────────────────────────
@@ -395,6 +502,7 @@ function renderStats(resumen) {
       <span class="stat-val">${fmtNum(resumen.desperdicio_m2)} m²</span>
       <span class="stat-lbl">Desperdicio</span>
     </div>
+    <button class="btn-download-hd" id="btn-pdf-planchas" onclick="descargarPdfPlanchas()" type="button" title="Descargar PDF vectorial con todas las planchas">⬇ PDF</button>
   `;
 }
 

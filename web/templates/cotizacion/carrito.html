@@ -1383,29 +1383,40 @@ function _pl_renderCanvas(canvasEl, binW, binH, piezasColocadas, cortes) {
     ctx.strokeRect(px+0.75, py+0.75, pw-1.5, ph-1.5);
 
     const minDim = Math.min(pw, ph);
-    if (minDim > 18) {
-      const fs = Math.max(8, Math.min(13, minDim * 0.17));
-      const dimLbl = `${p.ancho_original}×${p.alto_original}`;
-      const hasName = p.nombre && p.nombre !== dimLbl;
-      ctx.fillStyle = 'rgba(20,30,60,0.88)';
+    if (minDim > 12) {
+      const isPortrait = ph > pw * 1.4;
+      const textW = isPortrait ? ph : pw;
+      const textH = isPortrait ? pw : ph;
+      const sd = Math.min(pw, ph), ld = Math.max(pw, ph);
+      const fsDim = Math.max(6, Math.min(14, Math.min(sd * 0.22, ld * 0.085)));
+      const fsNom = Math.max(5, fsDim * 0.80);
+      const cx = px + pw / 2, cy = py + ph / 2;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(px + 1, py + 1, pw - 2, ph - 2); ctx.clip();
+      if (isPortrait) { ctx.translate(cx, cy); ctx.rotate(-Math.PI / 2); ctx.translate(-cx, -cy); }
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const cx = px + pw/2, cy = py + ph/2;
-      if (hasName) {
-        ctx.font = `600 ${fs}px system-ui,sans-serif`;
-        ctx.fillText(dimLbl, cx, cy - fs * 0.75);
-        ctx.font = `${Math.max(7, fs - 1)}px system-ui,sans-serif`;
-        let nm = p.nombre; const mxW = pw - 6;
-        while (ctx.measureText(nm).width > mxW && nm.length > 3) nm = nm.slice(0, -1);
-        if (nm !== p.nombre) nm += '…';
-        ctx.fillText(nm, cx, cy + fs * 0.65);
-      } else {
-        ctx.font = `600 ${fs}px system-ui,sans-serif`;
-        ctx.fillText(dimLbl, cx, cy - (p.rotada ? fs * 0.7 : 0));
-        if (p.rotada) {
-          ctx.font = `${fs - 1}px system-ui,sans-serif`;
-          ctx.fillText('↺', cx, cy + fs * 0.8);
-        }
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      const dimLbl = `${p.ancho_original}×${p.alto_original}`;
+      ctx.font = `${fsNom}px system-ui,sans-serif`;
+      const maxLineW = textW * 0.92;
+      const nomLines = [];
+      let curLine = '';
+      for (const word of (p.nombre || '').split(' ')) {
+        const test = curLine ? curLine + ' ' + word : word;
+        if (ctx.measureText(test).width <= maxLineW) { curLine = test; }
+        else { if (curLine) nomLines.push(curLine); curLine = word; }
       }
+      if (curLine) nomLines.push(curLine);
+      const lineH = fsNom * 1.25, dimLineH = fsDim * 1.25;
+      const maxNomLines = Math.max(0, Math.floor((textH * 0.88 - dimLineH) / lineH));
+      const visLines = nomLines.slice(0, maxNomLines);
+      const blockH = dimLineH + visLines.length * lineH;
+      const yTop = cy - blockH / 2;
+      ctx.font = `700 ${fsDim}px system-ui,sans-serif`;
+      ctx.fillText(dimLbl, cx, yTop + fsDim * 0.5);
+      ctx.font = `${fsNom}px system-ui,sans-serif`;
+      visLines.forEach((line, i) => ctx.fillText(line, cx, yTop + dimLineH + lineH * (i + 0.45)));
+      ctx.restore();
     }
   }
 
@@ -1430,9 +1441,103 @@ function _pl_renderCanvas(canvasEl, binW, binH, piezasColocadas, cortes) {
   ctx.fillText(`${binW}×${binH}mm`, 5, 4);
 }
 
+const _plModalData = {}; // { grupoIdx: { planchas, binW, binH } }
+const _plModalTabs  = {};
+let   _plModalGrupos = null; // data.grupos completo para PDF
+
+function _plDownloadHD(gi) {
+  const gData = _plModalData[gi];
+  if (!gData) return;
+  const ti = _plModalTabs[gi] || 0;
+  const pl = gData.planchas[ti];
+  if (!pl) return;
+  const binW = gData.binW, binH = gData.binH;
+  const hdScale = 4;
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width  = binW * hdScale / 2;
+  tmpCanvas.height = binH * hdScale / 2;
+  const ctx = tmpCanvas.getContext('2d');
+  const w = tmpCanvas.width, h = tmpCanvas.height;
+  const scale = Math.min(w / binW, h / binH);
+  ctx.fillStyle = '#dde6f5';
+  ctx.fillRect(0, 0, w, h);
+  const gStep = 200 * scale;
+  ctx.strokeStyle = 'rgba(150,175,215,0.35)'; ctx.lineWidth = 1;
+  for (let x = gStep; x < w; x += gStep) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+  for (let y = gStep; y < h; y += gStep) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  for (const p of pl.piezas) {
+    const px=p.x*scale, py=p.y*scale, pw=p.ancho_colocado*scale, ph=p.alto_colocado*scale;
+    ctx.fillStyle = _pl_hexToRgba(p.color, 0.72);
+    ctx.fillRect(px,py,pw,ph);
+    ctx.strokeStyle = p.color; ctx.lineWidth = 3;
+    ctx.strokeRect(px+1.5,py+1.5,pw-3,ph-3);
+    const minDim = Math.min(pw,ph);
+    if (minDim > 24) {
+      const isPortrait = ph > pw * 1.4;
+      const textW = isPortrait ? ph : pw;
+      const textH = isPortrait ? pw : ph;
+      const sd = Math.min(pw, ph), ld = Math.max(pw, ph);
+      const fsDim = Math.max(12, Math.min(28, Math.min(sd * 0.22, ld * 0.085)));
+      const fsNom = Math.max(10, fsDim * 0.80);
+      const cx = px+pw/2, cy = py+ph/2;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(px+1, py+1, pw-2, ph-2); ctx.clip();
+      if (isPortrait) { ctx.translate(cx, cy); ctx.rotate(-Math.PI / 2); ctx.translate(-cx, -cy); }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      const dimLbl = `${p.ancho_original}×${p.alto_original}`;
+      ctx.font = `${fsNom}px system-ui,sans-serif`;
+      const maxLineW = textW * 0.92;
+      const nomLines = [];
+      let curLine = '';
+      for (const word of (p.nombre || '').split(' ')) {
+        const test = curLine ? curLine + ' ' + word : word;
+        if (ctx.measureText(test).width <= maxLineW) { curLine = test; }
+        else { if (curLine) nomLines.push(curLine); curLine = word; }
+      }
+      if (curLine) nomLines.push(curLine);
+      const lineH = fsNom * 1.25, dimLineH = fsDim * 1.25;
+      const maxNomLines = Math.max(0, Math.floor((textH * 0.88 - dimLineH) / lineH));
+      const visLines = nomLines.slice(0, maxNomLines);
+      const blockH = dimLineH + visLines.length * lineH;
+      const yTop = cy - blockH / 2;
+      ctx.font = `700 ${fsDim}px system-ui,sans-serif`;
+      ctx.fillText(dimLbl, cx, yTop + fsDim * 0.5);
+      ctx.font = `${fsNom}px system-ui,sans-serif`;
+      visLines.forEach((line, i) => ctx.fillText(line, cx, yTop + dimLineH + lineH * (i + 0.45)));
+      ctx.restore();
+    }
+  }
+  for (const c of pl.cortes) {
+    ctx.setLineDash([10,8]); ctx.lineWidth = 2.5;
+    if (c.tipo==='H') {
+      ctx.strokeStyle='rgba(22,160,133,0.75)';
+      ctx.beginPath(); ctx.moveTo(c.desde*scale,c.posicion*scale); ctx.lineTo(c.hasta*scale,c.posicion*scale); ctx.stroke();
+    } else {
+      ctx.strokeStyle='rgba(211,84,0,0.75)';
+      ctx.beginPath(); ctx.moveTo(c.posicion*scale,c.desde*scale); ctx.lineTo(c.posicion*scale,c.hasta*scale); ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+  ctx.strokeStyle='#7b96c0'; ctx.lineWidth=4;
+  ctx.strokeRect(2,2,w-4,h-4);
+  const link = document.createElement('a');
+  link.download = `plancha-g${gi+1}-${ti+1}-hd.png`;
+  link.href = tmpCanvas.toDataURL('image/png');
+  link.click();
+}
+
 function _plSetTab(gi, ti) {
+  _plModalTabs[gi] = ti;
   document.querySelectorAll(`[id^="plm-g${gi}-tab-"]`).forEach((b,i) => b.classList.toggle('active', i===ti));
   document.querySelectorAll(`[id^="plm-g${gi}-cv-"]`).forEach((d,i) => d.classList.toggle('hidden', i!==ti));
+  // Re-renderizar con dimensiones reales (evita distorsión por display:none)
+  const gData = _plModalData[gi];
+  if (gData) {
+    const cv = document.getElementById(`plm-g${gi}-canvas-${ti}`);
+    const pl  = gData.planchas[ti];
+    if (cv && pl) _pl_renderCanvas(cv, gData.binW, gData.binH, pl.piezas, pl.cortes);
+  }
 }
 
 async function verPlanchasNecesarias() {
@@ -1452,6 +1557,7 @@ async function verPlanchasNecesarias() {
 function _renderModalPlanchas(data) {
   document.getElementById('modal-planchas-overlay')?.remove();
   const { grupos, items_ignorados, leyenda } = data;
+  _plModalGrupos = grupos;
 
   let warnHtml = '';
   if (items_ignorados && items_ignorados.length > 0) {
@@ -1474,6 +1580,7 @@ function _renderModalPlanchas(data) {
         <div class="stat-box"><span class="stat-val">${res.total_colocadas}/${res.total_solicitadas}</span><span class="stat-lbl">Piezas</span></div>
         <div class="stat-box stat-util" data-util="${util}"><span class="stat-val">${util}%</span><span class="stat-lbl">Utilización</span></div>
         <div class="stat-box"><span class="stat-val">${res.desperdicio_m2.toFixed(3)} m²</span><span class="stat-lbl">Desperdicio</span></div>
+        <button class="btn-download-hd" onclick="_plDownloadHD(${gi})" type="button" title="Descargar plancha activa en alta resolución">⬇ HD</button>
       </div>`;
       let tabsHtml = '', canvasesHtml = '';
       if (g.planchas.length > 1) {
@@ -1501,6 +1608,7 @@ function _renderModalPlanchas(data) {
       <div class="modal-planchas-inner">
         <div class="modal-planchas-header">
           <h2 class="modal-planchas-titulo">Planchas Necesarias</h2>
+          <button class="btn-download-hd" id="btn-pdf-planchas-modal" onclick="descargarPdfPlanchasModal()" type="button" title="Descargar PDF con todas las planchas">⬇ PDF</button>
           <button class="modal-planchas-close" onclick="cerrarModalPlanchas()" aria-label="Cerrar">✕</button>
         </div>
         ${warnHtml}${gruposHtml}${leyendaHtml}
@@ -1509,11 +1617,56 @@ function _renderModalPlanchas(data) {
 
   if (grupos) {
     grupos.forEach((g, gi) => {
+      // Guardar datos para re-render al cambiar tab
+      _plModalData[gi] = { planchas: g.planchas, binW: 2400, binH: 1200 };
       g.planchas.forEach((pl, pi) => {
         const cv = document.getElementById(`plm-g${gi}-canvas-${pi}`);
         if (cv) _pl_renderCanvas(cv, 2400, 1200, pl.piezas, pl.cortes);
       });
     });
+  }
+}
+
+async function descargarPdfPlanchasModal() {
+  if (!_plModalGrupos || _plModalGrupos.length === 0) {
+    toast('No hay planchas calculadas', 'error');
+    return;
+  }
+  const btn = document.getElementById('btn-pdf-planchas-modal');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ PDF…'; }
+
+  const cliente  = document.getElementById('cliente-nombre')?.value
+                || document.getElementById('cliente')?.value || '';
+  const proyecto = document.getElementById('proyecto')?.value || '';
+
+  try {
+    const resp = await fetch('/api/planchas/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grupos:   _plModalGrupos,
+        cliente,
+        proyecto,
+        bin_w: 2400,
+        bin_h: 1200,
+      }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      toast(err.error || 'Error al generar PDF', 'error');
+      return;
+    }
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'planchas.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    toast('Error de conexión', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬇ PDF'; }
   }
 }
 

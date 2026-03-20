@@ -2112,6 +2112,19 @@ details[open] summary { margin-bottom: 0.75rem; }
   color: #fff;
   border-color: var(--azul-claro);
 }
+.btn-download-hd {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: auto;
+  font-family: var(--f-sans);
+  transition: background .15s;
+}
+.btn-download-hd:hover { background: #2563eb; }
 
 /* Lista de piezas */
 .piezas-lista-wrap {
@@ -2401,6 +2414,12 @@ details[open] summary { margin-bottom: 0.75rem; }
     min-width: 72px;
   }
   .stat-val { font-size: 1.1rem; }
+  .modal-planchas-inner {
+    padding: 0.75rem;
+  }
+  .modal-planchas-canvas-wrap {
+    padding: 0.25rem;
+  }
 }
 
 /* ── Modal: Ver planchas necesarias (desde carrito) ── */

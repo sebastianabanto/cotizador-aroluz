@@ -4,14 +4,16 @@ planchas.py — API para el módulo de Planchas (Guillotine Packer)
 POST /api/planchas/calcular         — Corre el packer y calcula precios
 POST /api/planchas/agregar-carrito  — Agrega las planchas al carrito
 POST /api/planchas/desde-carrito    — Analiza el carrito y calcula planchas necesarias
+POST /api/planchas/exportar-pdf     — Genera PDF vectorial con SVG de planchas
 """
 import math
+import os
 import re
 from dataclasses import asdict
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, validator
 
 from web.auth import require_login
@@ -84,6 +86,14 @@ class AgregarCarritoRequest(BaseModel):
     total_solicitadas: int
     utilizacion_promedio: float
     descripcion_piezas: str = ""
+
+
+class ExportarPdfRequest(BaseModel):
+    grupos: List[Dict[str, Any]]
+    cliente: str = ""
+    proyecto: str = ""
+    bin_w: float = 2400.0
+    bin_h: float = 1200.0
 
 
 # ─────────────────────────────────────────────
@@ -520,7 +530,8 @@ async def api_planchas_desde_carrito(usuario: dict = Depends(require_login)):
 
         items_ignorados: List[str] = []
         leyenda: List[dict] = []
-        grupos: dict = {}   # {(espesor_str, galv): [Pieza]}
+        grupos: dict = {}        # {(espesor_str, galv): [Pieza]}
+        items_por_grupo: dict = {}  # {(espesor_str, galv): [{descripcion, cantidad}]}
         color_idx = 0
 
         for item in carrito:
@@ -554,6 +565,10 @@ async def api_planchas_desde_carrito(usuario: dict = Depends(require_login)):
             piezas = _desarrollos_item(tipo, dims, es_tapa, cant, label, color)
             key = (espesor_str, galv)
             grupos.setdefault(key, []).extend(piezas)
+            items_por_grupo.setdefault(key, []).append({
+                "descripcion": item.get("descripcion", ""),
+                "cantidad": int(cant),
+            })
 
         grupos_json = []
         for (espesor_str, galv), piezas in grupos.items():
@@ -610,6 +625,7 @@ async def api_planchas_desde_carrito(usuario: dict = Depends(require_login)):
                     "utilizacion_promedio": round(util_prom, 4),
                     "desperdicio_m2": desperdicio,
                 },
+                "items": items_por_grupo.get((espesor_str, galv), []),
                 "no_colocadas": resultado.no_colocadas,
             })
 
@@ -622,3 +638,109 @@ async def api_planchas_desde_carrito(usuario: dict = Depends(require_login)):
 
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"Error: {e}"}, status_code=500)
+
+
+# ─────────────────────────────────────────────
+# Helpers PDF de planchas
+# ─────────────────────────────────────────────
+
+def _generar_pdf_planchas_weasyprint(html: str) -> bytes:
+    from weasyprint import HTML as WeasyprintHTML
+    return WeasyprintHTML(string=html).write_pdf()
+
+
+def _generar_pdf_planchas_playwright(html: str) -> bytes:
+    import concurrent.futures
+
+    def _run() -> bytes:
+        from playwright.sync_api import sync_playwright  # type: ignore
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.set_content(html, wait_until="networkidle")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                display_header_footer=False,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+            browser.close()
+        return pdf_bytes
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(_run).result(timeout=90)
+
+
+def _renderizar_html_planchas(grupos: list, cliente: str, proyecto: str,
+                               bin_w: float, bin_h: float) -> str:
+    import base64
+    from datetime import datetime
+    from jinja2 import Environment, FileSystemLoader
+
+    fecha = datetime.now().strftime("%d/%m/%Y")
+
+    logo_src = None
+    logo_path = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "static", "IMAGEN_LOGO_AROLUZEIRL_BARRITA.png")
+    )
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            logo_src = "data:image/png;base64," + base64.b64encode(f.read()).decode()
+
+    template_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "templates"))
+    env = Environment(loader=FileSystemLoader(template_dir))
+    tmpl = env.get_template("cotizacion/planchas_pdf.html")
+    return tmpl.render(
+        grupos=grupos,
+        cliente=cliente or "—",
+        proyecto=proyecto or "—",
+        fecha=fecha,
+        bin_w=bin_w,
+        bin_h=bin_h,
+        logo_src=logo_src,
+    )
+
+
+# ─────────────────────────────────────────────
+# Endpoint: exportar PDF de planchas
+# ─────────────────────────────────────────────
+
+@router.post("/exportar-pdf")
+async def api_exportar_pdf_planchas(
+    req: ExportarPdfRequest,
+    usuario: dict = Depends(require_login),
+):
+    """Genera un PDF vectorial (SVG inline) con las planchas calculadas."""
+    import platform
+    import io
+
+    try:
+        if not req.grupos:
+            return JSONResponse({"error": "Sin grupos para exportar"}, status_code=422)
+
+        html = _renderizar_html_planchas(
+            grupos=req.grupos,
+            cliente=req.cliente,
+            proyecto=req.proyecto,
+            bin_w=req.bin_w,
+            bin_h=req.bin_h,
+        )
+
+        if platform.system() == "Windows":
+            pdf_bytes = _generar_pdf_planchas_playwright(html)
+        else:
+            try:
+                pdf_bytes = _generar_pdf_planchas_weasyprint(html)
+            except Exception as e:
+                import sys
+                print(f"[planchas] WeasyPrint falló ({type(e).__name__}: {e}) — intentando Playwright", file=sys.stderr)
+                pdf_bytes = _generar_pdf_planchas_playwright(html)
+
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="planchas.pdf"'},
+        )
+
+    except Exception as e:
+        return JSONResponse({"error": f"Error al generar PDF: {e}"}, status_code=500)
