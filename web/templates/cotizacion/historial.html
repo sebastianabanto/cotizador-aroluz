@@ -7,11 +7,16 @@
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
     <h1 class="page-title" style="margin:0;">Historial de Cotizaciones</h1>
-    {% if es_admin %}
-    <button class="btn btn-secondary btn-sm" onclick="abrirModalImportar()" title="Importar cotizaciones desde PDFs históricos">
-      ⬆ Importar PDFs
-    </button>
-    {% endif %}
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <button class="btn btn-secondary btn-sm" onclick="abrirEstadisticas()" title="Ver estadísticas del historial">
+        📊 Estadísticas
+      </button>
+      {% if es_admin %}
+      <button class="btn btn-secondary btn-sm" onclick="abrirModalImportar()" title="Importar cotizaciones desde PDFs históricos">
+        ⬆ Importar PDFs
+      </button>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Barra de filtros (oculta hasta que haya datos) -->
@@ -29,7 +34,7 @@
              oninput="filtrarHistorial()">
     </div>
 
-    <!-- Fila tipo: checkboxes · descripción/tamaño -->
+    <!-- Fila tipo: checkboxes · galvanizado · descripción/tamaño -->
     <div class="fil-row fil-row-tipo">
       <div class="fil-tipo-wrap">
         <span class="fil-tipo-title">Tipo:</span>
@@ -42,6 +47,27 @@
           <label class="fil-tipo-label" title="Cruz"><input type="checkbox" class="fil-tipo" value="C"   onchange="triggerFetch()"> Cruz</label>
           <label class="fil-tipo-label" title="Reducción"><input type="checkbox" class="fil-tipo" value="R"   onchange="triggerFetch()"> Reducción</label>
           <label class="fil-tipo-label" title="Caja de Pase"><input type="checkbox" class="fil-tipo" value="CP"  onchange="triggerFetch()"> Caja Pase</label>
+        </div>
+      </div>
+      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.75rem; margin-left:0.25rem;">
+        <span class="fil-tipo-title">Galv.:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label" title="Galvanizado de Origen"><input type="checkbox" class="fil-galv" value="GO" onchange="triggerFetch()"> GO</label>
+          <label class="fil-tipo-label" title="Galvanizado en Caliente"><input type="checkbox" class="fil-galv" value="GC" onchange="triggerFetch()"> GC</label>
+        </div>
+      </div>
+      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.75rem; margin-left:0.25rem;">
+        <span class="fil-tipo-title">Ganancia:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label"><input type="checkbox" class="fil-gan" value="30" onchange="triggerFetch()"> 30%</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="fil-gan" value="35" onchange="triggerFetch()"> 35%</label>
+        </div>
+      </div>
+      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.75rem; margin-left:0.25rem;">
+        <span class="fil-tipo-title">Moneda:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label"><input type="checkbox" class="fil-moneda" value="SOLES" onchange="filtrarHistorial()"> S/</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="fil-moneda" value="DOLARES" onchange="filtrarHistorial()"> USD</label>
         </div>
       </div>
       <label class="sr-only" for="fil-desc">Buscar en descripción</label>
@@ -149,6 +175,41 @@
       #modal-tabla td:first-child { white-space: normal; word-break: break-word; }
     }
 
+    /* ── Estadísticas ─────────────────────────────── */
+    .stats-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-bottom:1.25rem; }
+    .stats-card  { background:var(--azul-claro,#4a90d9); color:white; border-radius:8px; padding:0.85rem 1rem; text-align:center; }
+    .stats-card-value { font-size:1.6rem; font-weight:700; line-height:1.1; }
+    .stats-card-label { font-size:0.72rem; opacity:0.85; margin-top:4px; }
+    @media (max-width:480px) { .stats-cards { grid-template-columns:1fr 1fr; } }
+
+    .stats-bar-row   { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem; font-size:0.8rem; }
+    .stats-bar-label { flex:0 0 120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--texto); }
+    .stats-bar-track { flex:1; background:var(--gris-fondo,#f5f7fa); border-radius:4px; height:14px; overflow:hidden; }
+    .stats-bar-fill  { height:100%; background:var(--azul-claro,#4a90d9); border-radius:4px; transition:width 0.4s; }
+    .stats-bar-val   { flex:0 0 55px; text-align:right; color:var(--texto-suave); font-size:0.75rem; }
+
+    .stats-grid2     { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:1rem; }
+    @media (max-width:600px) { .stats-grid2 { grid-template-columns:1fr; } }
+    .stats-section-title { font-size:0.8rem; font-weight:700; color:var(--navy,#0c2340); text-transform:uppercase;
+                           letter-spacing:0.06em; margin:0 0 0.6rem; }
+
+    /* ── Comparar ──────────────────────────────────── */
+    .cmp-grid  { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    @media (max-width:640px) { .cmp-grid { grid-template-columns:1fr; } }
+    .cmp-panel { border:1px solid var(--gris-borde); border-radius:8px; overflow:hidden; }
+    .cmp-header{ background:var(--azul,#1a3a5c); color:white; padding:0.6rem 0.85rem; font-size:0.85rem; font-weight:700; }
+    .cmp-meta  { font-size:0.78rem; padding:0.5rem 0.85rem; background:var(--gris-fondo,#f5f7fa); display:grid; grid-template-columns:1fr 1fr; gap:0.3rem; }
+    .cmp-meta span b { color:var(--texto); }
+    .cmp-item  { font-size:0.78rem; padding:3px 0.85rem; border-top:1px solid var(--gris-borde); display:flex; justify-content:space-between; gap:0.5rem; }
+    .cmp-item-solo { background:#fff9c4; }
+    .cmp-item-diff { background:#fff3e0; }
+    .cmp-total { font-size:0.85rem; font-weight:700; padding:0.5rem 0.85rem; border-top:2px solid var(--gris-borde); text-align:right; color:var(--azul); }
+
+    /* ── Sort headers ─────────────────────────────── */
+    .th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+    .th-sort:hover { background: var(--azul-claro, #4a90d9); color: white; }
+    .sort-ind { font-size: 0.65rem; opacity: 0.45; margin-left: 2px; }
+
     /* ── Tipo chip labels ─────────────────────────── */
     .fil-tipo-label {
       display: inline-flex; align-items: center; gap: 3px;
@@ -175,18 +236,44 @@
       <a href="/carrito" class="btn btn-primary">Ir al Carrito</a>
     </div>
     <div id="historial-tabla" class="table-historial" style="display:none;">
+      <!-- Barra de acciones en lote (se muestra al seleccionar filas) -->
+      <div id="batch-bar" style="display:none; align-items:center; gap:0.5rem; padding:0.5rem 0.85rem;
+           background:var(--azul); color:white; border-radius:6px; margin-bottom:0.5rem; font-size:0.875rem; flex-wrap:wrap;">
+        <span id="batch-count" style="font-weight:600; white-space:nowrap;"></span>
+        <button id="btn-batch-comparar" class="btn btn-sm"
+                style="display:none; background:white; color:var(--navy); border:none; font-weight:600;"
+                onclick="compararCotizaciones()">⇄ Comparar</button>
+        <button id="btn-batch-pdf" class="btn btn-sm"
+                style="background:white; color:var(--navy); border:none; font-weight:600;"
+                onclick="exportarMultiplePdf()">Descargar PDFs (ZIP)</button>
+        <button class="btn btn-sm"
+                style="background:transparent; color:white; border:1px solid rgba(255,255,255,0.45); margin-left:auto;"
+                onclick="seleccionarTodosTabla(false)">✕ Deseleccionar</button>
+      </div>
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th style="width:50px;">#</th>
-              <th style="width:140px;">Fecha</th>
-              <th>Cliente</th>
+              <th style="width:36px; text-align:center; padding:0 4px;">
+                <input type="checkbox" id="th-sel-todas" title="Seleccionar / deseleccionar todas"
+                       onchange="seleccionarTodosTabla(this.checked)">
+              </th>
+              <th class="th-sort" style="width:50px;" onclick="sortarPor('id')" title="Ordenar por #">
+                # <span id="sort-id" class="sort-ind">⇅</span>
+              </th>
+              <th class="th-sort" style="width:140px;" onclick="sortarPor('fecha')" title="Ordenar por fecha">
+                Fecha <span id="sort-fecha" class="sort-ind">▼</span>
+              </th>
+              <th class="th-sort" onclick="sortarPor('cliente')" title="Ordenar por cliente">
+                Cliente <span id="sort-cliente" class="sort-ind">⇅</span>
+              </th>
               <th>Proyecto</th>
               <th id="th-usuario" style="display:none; width:100px;">Usuario</th>
               <th style="width:60px; text-align:center;">Items</th>
-              <th style="width:130px;" class="td-num">Total</th>
-              <th style="width:160px; text-align:center;">Acciones</th>
+              <th class="th-sort td-num" style="width:130px;" onclick="sortarPor('total')" title="Ordenar por total">
+                Total <span id="sort-total" class="sort-ind">⇅</span>
+              </th>
+              <th style="width:190px; text-align:center;">Acciones</th>
             </tr>
           </thead>
           <tbody id="tbody-historial"></tbody>
@@ -215,6 +302,10 @@
       <table id="modal-tabla">
         <thead>
           <tr>
+            <th style="width:32px; text-align:center; padding:0 4px;">
+              <input type="checkbox" id="modal-sel-todos" title="Seleccionar / deseleccionar todos"
+                     onchange="seleccionarTodosModal(this.checked)">
+            </th>
             <th>Descripción</th>
             <th style="width:60px; text-align:center;">Cant.</th>
             <th style="width:55px; text-align:center;">Und</th>
@@ -225,12 +316,17 @@
         <tbody id="modal-tbody"></tbody>
         <tfoot>
           <tr>
-            <td colspan="3"></td>
+            <td colspan="4"></td>
             <td class="td-num" style="font-weight:600;">TOTAL</td>
             <td class="td-num" id="modal-total" style="font-weight:700; color:var(--azul);"></td>
           </tr>
         </tfoot>
       </table>
+    </div>
+    <div style="display:flex; justify-content:flex-end; margin-top:0.75rem;">
+      <button id="btn-agregar-carrito" class="btn btn-primary btn-sm" onclick="agregarItemsAlCarrito()">
+        + Agregar seleccionados al carrito
+      </button>
     </div>
   </div>
 </div>
@@ -330,6 +426,83 @@
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════
+     Modal: Estadísticas
+═══════════════════════════════════════════════════════ -->
+<div id="modal-stats" role="dialog" aria-modal="true" aria-labelledby="stats-titulo"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1300;
+            align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto;">
+  <div class="modal-inner" style="max-width:760px; width:100%; margin:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+      <h2 id="stats-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Estadísticas del Historial</h2>
+      <button onclick="cerrarStats()" aria-label="Cerrar estadísticas"
+              style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--texto-suave);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <div id="stats-loading" style="text-align:center; padding:2rem; color:var(--texto-suave);">Cargando…</div>
+    <div id="stats-content" style="display:none;">
+      <!-- Tarjetas resumen -->
+      <div class="stats-cards">
+        <div class="stats-card">
+          <div class="stats-card-value" id="stat-cots">—</div>
+          <div class="stats-card-label">Cotizaciones</div>
+        </div>
+        <div class="stats-card" style="background:var(--navy,#0c2340);">
+          <div class="stats-card-value" id="stat-total">—</div>
+          <div class="stats-card-label">Facturado total (S/)</div>
+        </div>
+        <div class="stats-card" style="background:#2e7d32;">
+          <div class="stats-card-value" id="stat-prom">—</div>
+          <div class="stats-card-label">Promedio por cotización (S/)</div>
+        </div>
+      </div>
+      <!-- Grilla: por mes + top clientes -->
+      <div class="stats-grid2">
+        <div>
+          <p class="stats-section-title">Por mes</p>
+          <div id="stats-por-mes"></div>
+        </div>
+        <div>
+          <p class="stats-section-title">Top clientes</p>
+          <div id="stats-top-clientes"></div>
+        </div>
+      </div>
+      <!-- Por tipo + por moneda -->
+      <div class="stats-grid2" style="margin-top:1rem;">
+        <div>
+          <p class="stats-section-title">Por tipo de producto</p>
+          <div id="stats-por-tipo"></div>
+        </div>
+        <div>
+          <p class="stats-section-title">Por moneda</p>
+          <div id="stats-por-moneda"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     Modal: Comparar cotizaciones
+═══════════════════════════════════════════════════════ -->
+<div id="modal-comparar" role="dialog" aria-modal="true" aria-labelledby="cmp-titulo"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1300;
+            align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto;">
+  <div class="modal-inner" style="max-width:900px; width:100%; margin:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 id="cmp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Comparar cotizaciones</h2>
+      <button onclick="cerrarComparar()" aria-label="Cerrar comparación"
+              style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--texto-suave);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <div style="font-size:0.78rem; color:var(--texto-suave); margin-bottom:0.85rem; display:flex; gap:1.25rem; flex-wrap:wrap;">
+      <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;background:#fff9c4;border:1px solid #ccc;border-radius:2px;display:inline-block;"></span> Solo en esta cotización</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;background:#fff3e0;border:1px solid #ccc;border-radius:2px;display:inline-block;"></span> Mismo ítem con precio/cantidad diferente</span>
+    </div>
+    <div id="cmp-loading" style="text-align:center; padding:2rem; color:var(--texto-suave);">Cargando…</div>
+    <div id="cmp-content" class="cmp-grid" style="display:none;"></div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -346,10 +519,14 @@ let fetchDebounce       = null;
 // ── Fetch desde servidor (aplica filtros tipo + q) ──
 async function fetchLista(isInitial) {
   const tipos = [...document.querySelectorAll('.fil-tipo:checked')].map(cb => cb.value);
+  const galvs = [...document.querySelectorAll('.fil-galv:checked')].map(cb => cb.value);
+  const gans  = [...document.querySelectorAll('.fil-gan:checked')].map(cb => cb.value);
   const q     = document.getElementById('fil-desc').value.trim();
 
   const params = new URLSearchParams();
   tipos.forEach(t => params.append('tipo', t));
+  galvs.forEach(g => params.append('galvanizado', g));
+  gans.forEach(g => params.append('ganancia', g));
   if (q) params.append('q', q);
 
   const url  = '/api/historial/lista' + (params.toString() ? '?' + params.toString() : '');
@@ -387,70 +564,34 @@ async function cargarHistorial() {
 function renderHistorial() {
   const tbody  = document.getElementById('tbody-historial');
   tbody.innerHTML = '';
-  const cols = ES_ADMIN ? 8 : 7;
 
   if (!cotizacionesFiltradas.length) {
+    const cols = ES_ADMIN ? 9 : 8;
     tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; padding:2rem; color:var(--texto-suave);">No hay cotizaciones que coincidan con los filtros.</td></tr>`;
     renderPaginacion();
     return;
   }
 
-  const listaVisible = getListaVisible();
-  const inicio = (paginaActual - 1) * POR_PAGINA;
-  const pagina = listaVisible.slice(inicio, inicio + POR_PAGINA);
-
-  // Índice global de la primera pasada (pdf_import) en la lista filtrada
-  const idxPrimeraPasada = cotizacionesFiltradas.findIndex(c => c.origen === 'pdf_import');
-  const hayNormales      = cotizacionesFiltradas.some(c => c.origen !== 'pdf_import');
-  const hayPasadas       = idxPrimeraPasada !== -1;
-
-  // El separador ya se mostró si la primera pasada cae antes de la página actual (solo cuando expandido)
-  let separadorMostrado = _pasadasColapsadas || !hayNormales || !hayPasadas || idxPrimeraPasada < inicio;
+  const inicio  = (paginaActual - 1) * POR_PAGINA;
+  const pagina  = cotizacionesFiltradas.slice(inicio, inicio + POR_PAGINA);
 
   for (const c of pagina) {
-    const esPasada = c.origen === 'pdf_import';
-
-    // Insertar fila separadora justo antes de la primera pasada (solo cuando expandido)
-    if (esPasada && !separadorMostrado) {
-      const trSep = document.createElement('tr');
-      trSep.id = 'sep-pasadas';
-      trSep.style.cursor = 'pointer';
-      trSep.onclick = () => togglePasadas();
-      trSep.innerHTML = `
-        <td colspan="${cols}" style="
-          background:var(--gris-fondo,#f5f7fa);
-          padding:0.45rem 0.9rem;
-          font-size:0.72rem; font-weight:700;
-          color:var(--texto-suave);
-          letter-spacing:0.06em; text-transform:uppercase;
-          border-top:2px solid var(--gris-borde);
-          border-bottom:1px solid var(--gris-borde);
-          user-select:none;
-        "><span id="sep-flecha">▼</span> 📂 Cotizaciones pasadas</td>`;
-      tbody.appendChild(trSep);
-      separadorMostrado = true;
-    }
-
     const fecha = formatearFecha(c.fecha);
-    const dolar_rate   = c.dolar_rate || 3.8;
-    const esUSD        = c.moneda === 'DOLARES';
-    const sym          = esUSD ? '$' : 'S/';
+    const dolar_rate  = c.dolar_rate || 3.8;
+    const esUSD       = c.moneda === 'DOLARES';
+    const sym         = esUSD ? '$' : 'S/';
     const totalDisplay = esUSD
       ? (c.total_precio / dolar_rate).toFixed(2)
       : parseFloat(c.total_precio).toFixed(2);
 
-    const badgePdf = esPasada
-      ? `<span style="display:inline-block;margin-left:4px;font-size:0.6rem;background:#e8f0fe;color:#1a56db;border:1px solid #b8d0f9;border-radius:3px;padding:0px 4px;vertical-align:middle;font-weight:700;">PDF</span>`
-      : '';
-
     const tr = document.createElement('tr');
     tr.id = `row-${c.id}`;
-    if (esPasada) {
-      tr.style.background = 'var(--gris-fondo, #f9fafc)';
-    }
     tr.innerHTML = `
+      <td style="text-align:center; padding:0 4px;">
+        <input type="checkbox" class="row-check" data-id="${c.id}" onchange="actualizarSeleccion()">
+      </td>
       <td data-label="#" style="color:var(--texto-suave);font-size:0.8rem;">${c.id}</td>
-      <td data-label="Fecha" style="font-size:0.8rem;">${fecha}${badgePdf}</td>
+      <td data-label="Fecha" style="font-size:0.8rem;">${fecha}</td>
       <td data-label="Cliente">${c.cliente || '<span style="color:var(--texto-suave);">—</span>'}</td>
       <td data-label="Proyecto" style="font-size:0.875rem;">${c.proyecto || '<span style="color:var(--texto-suave);">—</span>'}</td>
       ${ES_ADMIN ? `<td data-label="Usuario" style="font-size:0.8rem;color:var(--texto-suave);">${c.username || '—'}</td>` : ''}
@@ -464,6 +605,7 @@ function renderHistorial() {
         <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" onclick="verDetalle(${c.id})">Ver</button>
           <button class="btn btn-primary btn-sm" onclick="descargarPdf(${c.id})">PDF</button>
+          <button class="btn btn-secondary btn-sm" onclick="duplicarCotizacion(${c.id})" title="Copiar ítems al carrito actual (sin reemplazar)">📋</button>
           <button class="btn btn-secondary btn-sm btn-edit" onclick="editarCotizacion(${c.id})" title="Editar — cargar al carrito">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${c.id})">✕</button>
         </div>
@@ -472,51 +614,13 @@ function renderHistorial() {
     tbody.appendChild(tr);
   }
 
-  // Cuando colapsado: mostrar separador al final de la última página de normales
-  if (_pasadasColapsadas && hayPasadas) {
-    const totalPagsVisible = Math.ceil(listaVisible.length / POR_PAGINA) || 1;
-    if (paginaActual >= totalPagsVisible) {
-      const cantPasadas = cotizacionesFiltradas.filter(c => c.origen === 'pdf_import').length;
-      const trSep = document.createElement('tr');
-      trSep.id = 'sep-pasadas';
-      trSep.style.cursor = 'pointer';
-      trSep.onclick = () => togglePasadas();
-      trSep.innerHTML = `
-        <td colspan="${cols}" style="
-          background:var(--gris-fondo,#f5f7fa);
-          padding:0.45rem 0.9rem;
-          font-size:0.72rem; font-weight:700;
-          color:var(--texto-suave);
-          letter-spacing:0.06em; text-transform:uppercase;
-          border-top:2px solid var(--gris-borde);
-          border-bottom:1px solid var(--gris-borde);
-          user-select:none;
-        "><span id="sep-flecha">▶</span> 📂 Cotizaciones pasadas (${cantPasadas})</td>`;
-      tbody.appendChild(trSep);
-    }
-  }
-
   renderPaginacion();
-}
-
-// ── Toggle cotizaciones pasadas ──
-let _pasadasColapsadas = false;
-
-function getListaVisible() {
-  return _pasadasColapsadas
-    ? cotizacionesFiltradas.filter(c => c.origen !== 'pdf_import')
-    : cotizacionesFiltradas;
-}
-
-function togglePasadas() {
-  _pasadasColapsadas = !_pasadasColapsadas;
-  paginaActual = 1;
-  renderHistorial();
+  actualizarSeleccion();  // sincronizar batch-bar y checkbox "select all" al repintar
 }
 
 // ── Paginación ──
 function renderPaginacion() {
-  const totalPaginas = Math.ceil(getListaVisible().length / POR_PAGINA);
+  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
   const ctrl = document.getElementById('paginacion-ctrl');
   if (totalPaginas <= 1) { ctrl.style.display = 'none'; return; }
   ctrl.style.display = 'flex';
@@ -526,7 +630,7 @@ function renderPaginacion() {
 }
 
 function cambiarPagina(delta) {
-  const totalPaginas = Math.ceil(getListaVisible().length / POR_PAGINA);
+  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
   paginaActual = Math.max(1, Math.min(paginaActual + delta, totalPaginas));
   renderHistorial();
 }
@@ -542,24 +646,37 @@ function descargarPdf(id) {
 
 // ── Filtros ──
 function filtrarHistorial() {
-  const filCli  = document.getElementById('fil-cliente').value.trim().toLowerCase();
-  const filProy = document.getElementById('fil-proyecto').value.trim().toLowerCase();
+  const filCli    = document.getElementById('fil-cliente').value.trim().toLowerCase();
+  const filProy   = document.getElementById('fil-proyecto').value.trim().toLowerCase();
+  const filMonedas = [...document.querySelectorAll('.fil-moneda:checked')].map(cb => cb.value);
 
-  const filtradas = todasCotizaciones.filter(c => {
+  cotizacionesFiltradas = todasCotizaciones.filter(c => {
     const fechDate = (c.fecha || '').slice(0, 10);
-    return (!filCli        || (c.cliente  || '').toLowerCase().includes(filCli))
-        && (!filProy       || (c.proyecto || '').toLowerCase().includes(filProy))
+    const matchCli = !filCli
+      || (c.cliente        || '').toLowerCase().includes(filCli)
+      || (c.cliente_nombre || '').toLowerCase().includes(filCli)
+      || (c.cliente_ruc    || '').toLowerCase().includes(filCli);
+    return matchCli
+        && (!filProy        || (c.proyecto || '').toLowerCase().includes(filProy))
         && (!calFechaInicio || fechDate >= calFechaInicio)
-        && (!calFechaFin   || fechDate <= calFechaFin);
+        && (!calFechaFin    || fechDate <= calFechaFin)
+        && (!filMonedas.length || filMonedas.includes(c.moneda));
   });
 
-  // Normales (creadas en la app) primero → fecha desc
-  // Pasadas (importadas de PDF)   después → fecha desc
-  const normales = filtradas.filter(c => c.origen !== 'pdf_import')
-                            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  const pasadas  = filtradas.filter(c => c.origen === 'pdf_import')
-                            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  cotizacionesFiltradas = [...normales, ...pasadas];
+  // Ordenar
+  cotizacionesFiltradas.sort((a, b) => {
+    let va, vb;
+    if      (sortCol === 'id')     { va = a.id;      vb = b.id; }
+    else if (sortCol === 'fecha')  { va = a.fecha || '';  vb = b.fecha || ''; }
+    else if (sortCol === 'cliente'){ va = (a.cliente || '').toLowerCase(); vb = (b.cliente || '').toLowerCase(); }
+    else if (sortCol === 'total')  {
+      va = a.moneda === 'DOLARES' ? a.total_precio / (a.dolar_rate || 3.8) : a.total_precio;
+      vb = b.moneda === 'DOLARES' ? b.total_precio / (b.dolar_rate || 3.8) : b.total_precio;
+    }
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   paginaActual = 1;
   renderHistorial();
@@ -570,10 +687,126 @@ function limpiarFiltros() {
   document.getElementById('fil-proyecto').value = '';
   document.getElementById('fil-desc').value     = '';
   document.querySelectorAll('.fil-tipo').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.fil-galv').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.fil-gan').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.fil-moneda').forEach(cb => cb.checked = false);
   calFechaInicio = null;
   calFechaFin    = null;
   actualizarBotonFecha();
   fetchLista(false);
+}
+
+// ── Ordenamiento ──
+let sortCol = 'id';
+let sortDir = 'desc';
+
+function sortarPor(col) {
+  if (sortCol === col) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortCol = col;
+    sortDir = (col === 'cliente') ? 'asc' : 'desc';
+  }
+  actualizarSortHeaders();
+  paginaActual = 1;
+  renderHistorial();
+}
+
+function actualizarSortHeaders() {
+  ['id', 'fecha', 'cliente', 'total'].forEach(col => {
+    const el = document.getElementById(`sort-${col}`);
+    if (!el) return;
+    if (sortCol === col) {
+      el.textContent = sortDir === 'desc' ? '▼' : '▲';
+      el.style.opacity = '1';
+    } else {
+      el.textContent = '⇅';
+      el.style.opacity = '0.45';
+    }
+  });
+}
+
+// ── Multi-select (tabla principal) ──
+function seleccionarTodosTabla(checked) {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);
+  const sel = document.getElementById('th-sel-todas');
+  if (sel) { sel.checked = checked; sel.indeterminate = false; }
+  actualizarSeleccion();
+}
+
+function actualizarSeleccion() {
+  const checks = document.querySelectorAll('.row-check:checked');
+  const total  = document.querySelectorAll('.row-check').length;
+  const n      = checks.length;
+  const bar    = document.getElementById('batch-bar');
+  if (n > 0) {
+    bar.style.display = 'flex';
+    document.getElementById('batch-count').textContent = `${n} seleccionada${n !== 1 ? 's' : ''}`;
+  } else {
+    bar.style.display = 'none';
+  }
+  // Botón Comparar: solo visible con exactamente 2 seleccionadas
+  const btnCmp = document.getElementById('btn-batch-comparar');
+  if (btnCmp) btnCmp.style.display = n === 2 ? '' : 'none';
+
+  const sel = document.getElementById('th-sel-todas');
+  if (sel) {
+    sel.indeterminate = n > 0 && n < total;
+    sel.checked = n > 0 && n === total;
+  }
+}
+
+// ── Duplicar cotización (copiar ítems al carrito SIN reemplazarlo) ──
+async function duplicarCotizacion(id) {
+  const data = await apiFetch(`/api/historial/${id}`);
+  if (!data.ok) { toast('Error al obtener la cotización', 'error'); return; }
+  const items = data.cotizacion.items;
+  let ok = 0;
+  for (const item of items) {
+    const fd = new FormData();
+    fd.append('tipo',               item.tipo);
+    fd.append('descripcion',        item.descripcion);
+    fd.append('precio_unitario',    item.precio_unitario);
+    fd.append('peso_unitario',      item.peso_unitario);
+    fd.append('cantidad',           item.cantidad);
+    fd.append('unidad',             item.unidad);
+    fd.append('tipo_galvanizado',   item.tipo_galvanizado);
+    fd.append('porcentaje_ganancia',item.porcentaje_ganancia);
+    const res = await apiFetch('/api/carrito/agregar', {method: 'POST', body: fd});
+    if (res && res.ok !== false) ok++;
+  }
+  const n = items.length;
+  toast(`${ok} ítem${ok !== 1 ? 's' : ''} copiado${ok !== 1 ? 's' : ''} al carrito — <a href="/carrito" style="color:inherit;font-weight:600;">Ver carrito →</a>`,
+        ok === n ? 'success' : 'warning');
+}
+
+// ── Exportar múltiples como ZIP de PDFs ──
+async function exportarMultiplePdf() {
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.dataset.id);
+  if (!ids.length) return;
+  const btn = document.getElementById('btn-batch-pdf');
+  btn.disabled = true;
+  btn.textContent = 'Generando ZIP…';
+  try {
+    const fd = new FormData();
+    fd.append('ids', ids.join(','));
+    const resp = await fetch('/api/historial/exportar_multiple/pdf', {method: 'POST', body: fd});
+    if (!resp.ok) throw new Error('Error del servidor');
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `cotizaciones_${new Date().toISOString().slice(0, 10)}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`ZIP generado con ${ids.length} PDF${ids.length !== 1 ? 's' : ''}`, 'success');
+  } catch (e) {
+    toast('Error al generar el ZIP', 'error');
+  }
+  btn.disabled    = false;
+  btn.textContent = 'Descargar PDFs (ZIP)';
 }
 
 // ── Date range picker ──
@@ -722,6 +955,11 @@ async function verDetalle(id) {
   document.getElementById('modal-th-pu').textContent = `P.U. (${sym})`;
   document.getElementById('modal-th-pt').textContent = `P.T. (${sym})`;
 
+  // Resetear checkbox "seleccionar todos"
+  document.getElementById('modal-sel-todos').checked = false;
+  document.getElementById('btn-agregar-carrito').disabled = false;
+  document.getElementById('btn-agregar-carrito').textContent = '+ Agregar seleccionados al carrito';
+
   const tbody = document.getElementById('modal-tbody');
   tbody.innerHTML = '';
   let total_soles = 0;
@@ -729,7 +967,11 @@ async function verDetalle(id) {
     const pt_soles = item.precio_unitario * item.cantidad;
     total_soles += pt_soles;
     const tr = document.createElement('tr');
+    const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
     tr.innerHTML = `
+      <td style="text-align:center; padding:0 4px;">
+        <input type="checkbox" class="item-check" data-item="${itemJson}">
+      </td>
       <td style="font-size:0.8rem;">${item.descripcion}</td>
       <td style="text-align:center;">${item.cantidad}</td>
       <td style="text-align:center;">${item.unidad}</td>
@@ -744,6 +986,40 @@ async function verDetalle(id) {
 
 function cerrarModal() {
   document.getElementById('modal-overlay').style.display = 'none';
+}
+
+function seleccionarTodosModal(checked) {
+  document.querySelectorAll('#modal-tbody .item-check').forEach(cb => cb.checked = checked);
+}
+
+async function agregarItemsAlCarrito() {
+  const checks = [...document.querySelectorAll('#modal-tbody .item-check:checked')];
+  if (!checks.length) { toast('Seleccioná al menos un ítem', 'error'); return; }
+  const btn = document.getElementById('btn-agregar-carrito');
+  btn.disabled = true;
+  btn.textContent = 'Agregando…';
+  let ok = 0;
+  for (const cb of checks) {
+    const item = JSON.parse(cb.dataset.item);
+    const fd = new FormData();
+    fd.append('tipo', item.tipo);
+    fd.append('descripcion', item.descripcion);
+    fd.append('precio_unitario', item.precio_unitario);
+    fd.append('peso_unitario', item.peso_unitario);
+    fd.append('cantidad', item.cantidad);
+    fd.append('unidad', item.unidad);
+    fd.append('tipo_galvanizado', item.tipo_galvanizado);
+    fd.append('porcentaje_ganancia', item.porcentaje_ganancia);
+    const res = await apiFetch('/api/carrito/agregar', {method: 'POST', body: fd});
+    if (res && res.ok !== false) ok++;
+  }
+  btn.disabled = false;
+  btn.textContent = '+ Agregar seleccionados al carrito';
+  if (ok === checks.length) {
+    toast(`${ok} ítem${ok > 1 ? 's' : ''} agregado${ok > 1 ? 's' : ''} al carrito — <a href="/carrito" style="color:inherit;font-weight:600;">Ver carrito →</a>`, 'success');
+  } else {
+    toast(`${ok} de ${checks.length} ítems agregados`, 'warning');
+  }
 }
 document.getElementById('modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) cerrarModal();
@@ -820,6 +1096,149 @@ async function confirmarEditar() {
     btn.disabled = false;
     btn.textContent = 'Cargar al carrito';
   }
+}
+
+// ── Estadísticas ──
+function cerrarStats() {
+  document.getElementById('modal-stats').style.display = 'none';
+}
+document.getElementById('modal-stats').addEventListener('click', function(e) {
+  if (e.target === this) cerrarStats();
+});
+
+function _statsBar(items, labelKey, valKey, maxVal, suffix = '') {
+  if (!items.length) return '<p style="color:var(--texto-suave);font-size:0.8rem;">Sin datos</p>';
+  return items.map(it => {
+    const pct = maxVal > 0 ? Math.round((it[valKey] / maxVal) * 100) : 0;
+    return `<div class="stats-bar-row">
+      <span class="stats-bar-label" title="${it[labelKey]}">${it[labelKey]}</span>
+      <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
+      <span class="stats-bar-val">${it[valKey]}${suffix}</span>
+    </div>`;
+  }).join('');
+}
+
+function _fmt(n) {
+  return Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+async function abrirEstadisticas() {
+  document.getElementById('stats-loading').style.display = 'block';
+  document.getElementById('stats-content').style.display  = 'none';
+  document.getElementById('modal-stats').style.display    = 'flex';
+
+  const data = await apiFetch('/api/historial/estadisticas');
+  if (!data.ok) { toast('Error al cargar estadísticas', 'error'); cerrarStats(); return; }
+  const s = data.stats;
+
+  const totalCots = s.total_cotizaciones;
+  const totalSoles = s.total_facturado_soles;
+  const prom = totalCots > 0 ? totalSoles / totalCots : 0;
+
+  document.getElementById('stat-cots').textContent  = totalCots;
+  document.getElementById('stat-total').textContent = 'S/ ' + _fmt(totalSoles);
+  document.getElementById('stat-prom').textContent  = 'S/ ' + _fmt(prom);
+
+  // Por mes: etiqueta "Ene 26", valor = cantidad cots
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const porMesItems = s.por_mes.map(r => {
+    const [y, m] = r.mes.split('-');
+    return { label: `${meses[parseInt(m)-1]} ${y.slice(2)}`, cantidad: r.cantidad, total: r.total };
+  });
+  const maxMes = Math.max(...porMesItems.map(r => r.cantidad), 1);
+  document.getElementById('stats-por-mes').innerHTML =
+    _statsBar(porMesItems.map(r => ({label: r.label, val: r.cantidad})), 'label', 'val', maxMes, ' cots');
+
+  // Top clientes
+  const maxCli = Math.max(...s.top_clientes.map(r => r.cantidad), 1);
+  document.getElementById('stats-top-clientes').innerHTML =
+    _statsBar(s.top_clientes.map(r => ({label: r.nombre, val: r.cantidad})), 'label', 'val', maxCli, ' cots');
+
+  // Por tipo
+  const tipoNombre = {B:'Bandeja',CH:'Curva H',CVE:'Curva VE',CVI:'Curva VI',T:'Tee',C:'Cruz',R:'Reducción',CP:'Caja Pase',MANUAL:'Manual'};
+  const maxTipo = Math.max(...s.por_tipo.map(r => r.cantidad), 1);
+  document.getElementById('stats-por-tipo').innerHTML =
+    _statsBar(s.por_tipo.map(r => ({label: tipoNombre[r.tipo] || r.tipo, val: r.cantidad})), 'label', 'val', maxTipo, ' íts');
+
+  // Por moneda
+  const maxMon = Math.max(...s.por_moneda.map(r => r.cantidad), 1);
+  document.getElementById('stats-por-moneda').innerHTML =
+    _statsBar(s.por_moneda.map(r => ({label: r.moneda === 'DOLARES' ? 'USD ($)' : 'Soles (S/)', val: r.cantidad})), 'label', 'val', maxMon, ' cots');
+
+  document.getElementById('stats-loading').style.display = 'none';
+  document.getElementById('stats-content').style.display  = 'block';
+}
+
+// ── Comparar cotizaciones ──
+function cerrarComparar() {
+  document.getElementById('modal-comparar').style.display = 'none';
+}
+document.getElementById('modal-comparar').addEventListener('click', function(e) {
+  if (e.target === this) cerrarComparar();
+});
+
+async function compararCotizaciones() {
+  const ids = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.dataset.id);
+  if (ids.length !== 2) return;
+
+  document.getElementById('cmp-loading').style.display = 'block';
+  document.getElementById('cmp-content').style.display = 'none';
+  document.getElementById('modal-comparar').style.display = 'flex';
+
+  const [r1, r2] = await Promise.all([
+    apiFetch(`/api/historial/${ids[0]}`),
+    apiFetch(`/api/historial/${ids[1]}`),
+  ]);
+  if (!r1.ok || !r2.ok) { toast('Error al cargar cotizaciones', 'error'); cerrarComparar(); return; }
+
+  const c1 = r1.cotizacion;
+  const c2 = r2.cotizacion;
+
+  // Construir set de descripciones de cada lado para detectar solos/diffs
+  const map1 = new Map(c1.items.map(it => [it.descripcion, it]));
+  const map2 = new Map(c2.items.map(it => [it.descripcion, it]));
+
+  function renderPanel(c, otherMap) {
+    const esUSD = c.moneda === 'DOLARES';
+    const dr    = parseFloat(c.dolar_rate) || 3.8;
+    const sym   = esUSD ? '$' : 'S/';
+    const conv  = p => esUSD ? p / dr : p;
+
+    let total_soles = 0;
+    const itemsHtml = c.items.map(it => {
+      const pt = it.precio_unitario * it.cantidad;
+      total_soles += pt;
+      const other = otherMap.get(it.descripcion);
+      let cls = '';
+      if (!other) cls = 'cmp-item-solo';
+      else if (other.precio_unitario !== it.precio_unitario || other.cantidad !== it.cantidad) cls = 'cmp-item-diff';
+      return `<div class="cmp-item ${cls}">
+        <span style="flex:1;">${it.descripcion}</span>
+        <span style="white-space:nowrap; color:var(--texto-suave);">${it.cantidad} ${it.unidad}</span>
+        <span style="white-space:nowrap; font-weight:600;">${sym} ${conv(it.precio_unitario).toFixed(2)}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="cmp-panel">
+      <div class="cmp-header">Cotización #${c.id}</div>
+      <div class="cmp-meta">
+        <span><b>Cliente:</b> ${c.cliente || '—'}</span>
+        <span><b>Fecha:</b> ${formatearFecha(c.fecha)}</span>
+        <span><b>Proyecto:</b> ${c.proyecto || '—'}</span>
+        <span><b>Moneda:</b> ${c.moneda}</span>
+        <span><b>Validez:</b> ${c.validez || '30 días'}</span>
+        <span><b>Ítems:</b> ${c.items.length}</span>
+      </div>
+      ${itemsHtml}
+      <div class="cmp-total">${sym} ${conv(total_soles).toFixed(2)}</div>
+    </div>`;
+  }
+
+  const content = document.getElementById('cmp-content');
+  content.innerHTML = renderPanel(c1, map2) + renderPanel(c2, map1);
+
+  document.getElementById('cmp-loading').style.display = 'none';
+  content.style.display = 'grid';
 }
 
 // Cargar al entrar

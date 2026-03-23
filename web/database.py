@@ -1136,15 +1136,21 @@ def listar_cotizaciones_db(
     username: Optional[str] = None,
     tipos: Optional[List[str]] = None,
     q: str = "",
+    galvanizados: Optional[List[str]] = None,
+    ganancias: Optional[List[str]] = None,
 ) -> List[Dict]:
     """Lista cotizaciones guardadas con conteo de items.
 
     Params:
-        username — filtra por usuario (obligatorio en uso normal)
-        tipos    — lista de códigos de tipo (B, CH, …); si no está vacía, sólo
-                   devuelve cotizaciones que contengan al menos uno de esos tipos
-        q        — texto libre; filtra cotizaciones cuya descripción de ítem contenga
-                   este texto (case-insensitive)
+        username     — filtra por usuario (obligatorio en uso normal)
+        tipos        — lista de códigos de tipo (B, CH, …); si no está vacía, sólo
+                       devuelve cotizaciones que contengan al menos uno de esos tipos
+        q            — texto libre; filtra cotizaciones cuya descripción de ítem contenga
+                       este texto (case-insensitive)
+        galvanizados — lista de valores de galvanizado (GO, GC, N/A); si no está vacía,
+                       sólo devuelve cotizaciones que contengan al menos uno de esos tipos
+        ganancias    — lista de valores de porcentaje_ganancia (30, 35, N/A); si no está
+                       vacía, sólo devuelve cotizaciones que contengan al menos uno
     """
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
@@ -1171,6 +1177,22 @@ def listar_cotizaciones_db(
         )
         params.append(f"%{q.lower()}%")
 
+    if galvanizados:
+        placeholders = ",".join("?" * len(galvanizados))
+        conditions.append(
+            f"EXISTS (SELECT 1 FROM cotizacion_items ci4"
+            f" WHERE ci4.cotizacion_id = c.id AND ci4.tipo_galvanizado IN ({placeholders}))"
+        )
+        params.extend(galvanizados)
+
+    if ganancias:
+        placeholders = ",".join("?" * len(ganancias))
+        conditions.append(
+            f"EXISTS (SELECT 1 FROM cotizacion_items ci5"
+            f" WHERE ci5.cotizacion_id = c.id AND ci5.porcentaje_ganancia IN ({placeholders}))"
+        )
+        params.extend(ganancias)
+
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
 
     sql = f"""
@@ -1184,6 +1206,77 @@ def listar_cotizaciones_db(
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_estadisticas_db(username: Optional[str] = None) -> Dict:
+    """Devuelve métricas agregadas del historial de cotizaciones.
+
+    Si username es None (admin) devuelve datos globales; si se indica un
+    username devuelve únicamente los datos de ese usuario.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    wp = [username] if username else []
+    wc = "WHERE c.username=?" if username else ""
+
+    # Totales globales
+    row = conn.execute(
+        f"SELECT COUNT(*) AS n, COALESCE(SUM(total_precio),0) AS total "
+        f"FROM cotizaciones c {wc}", wp
+    ).fetchone()
+    total_cots     = row["n"]
+    total_facturado = round(float(row["total"]), 2)
+
+    # Por mes (últimos 12, orden cronológico)
+    por_mes = list(reversed(conn.execute(f"""
+        SELECT strftime('%Y-%m', fecha) AS mes,
+               COUNT(*) AS cantidad,
+               ROUND(COALESCE(SUM(total_precio),0), 2) AS total
+        FROM cotizaciones c {wc}
+        GROUP BY mes ORDER BY mes DESC LIMIT 12
+    """, wp).fetchall()))
+
+    # Top 5 clientes por cantidad de cotizaciones
+    top_clientes = conn.execute(f"""
+        SELECT COALESCE(NULLIF(TRIM(cliente_nombre),''), NULLIF(TRIM(cliente),''), 'Sin cliente') AS nombre,
+               COUNT(*) AS cantidad,
+               ROUND(COALESCE(SUM(total_precio),0), 2) AS total
+        FROM cotizaciones c {wc}
+        GROUP BY nombre ORDER BY cantidad DESC LIMIT 5
+    """, wp).fetchall()
+
+    # Por tipo de producto
+    if username:
+        por_tipo = conn.execute("""
+            SELECT ci.tipo, COUNT(*) AS cantidad
+            FROM cotizacion_items ci
+            JOIN cotizaciones c ON c.id = ci.cotizacion_id
+            WHERE c.username=?
+            GROUP BY ci.tipo ORDER BY cantidad DESC
+        """, [username]).fetchall()
+    else:
+        por_tipo = conn.execute("""
+            SELECT tipo, COUNT(*) AS cantidad
+            FROM cotizacion_items
+            GROUP BY tipo ORDER BY cantidad DESC
+        """).fetchall()
+
+    # Por moneda
+    por_moneda = conn.execute(f"""
+        SELECT moneda, COUNT(*) AS cantidad, ROUND(COALESCE(SUM(total_precio),0),2) AS total
+        FROM cotizaciones c {wc}
+        GROUP BY moneda
+    """, wp).fetchall()
+
+    conn.close()
+    return {
+        "total_cotizaciones": total_cots,
+        "total_facturado_soles": total_facturado,
+        "por_mes":       [dict(r) for r in por_mes],
+        "top_clientes":  [dict(r) for r in top_clientes],
+        "por_tipo":      [dict(r) for r in por_tipo],
+        "por_moneda":    [dict(r) for r in por_moneda],
+    }
 
 
 def get_cotizacion_db(cotizacion_id: int) -> Optional[Dict]:

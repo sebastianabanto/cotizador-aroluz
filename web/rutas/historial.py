@@ -2,14 +2,16 @@
 historial.py — Endpoints para guardar y consultar cotizaciones finalizadas
 
 Rutas:
-  POST /api/historial/guardar          — guarda carrito actual como cotización
-  GET  /api/historial/lista            — lista todas las cotizaciones del usuario
-  GET  /api/historial/{id}             — detalle de una cotización
-  DELETE /api/historial/{id}           — elimina una cotización propia
-  GET  /api/historial/{id}/exportar/pdf  — descarga PDF de cotización guardada
-  GET  /api/historial/{id}/exportar/xlsx — descarga XLSX de cotización guardada
+  POST /api/historial/guardar                  — guarda carrito actual como cotización
+  GET  /api/historial/lista                    — lista todas las cotizaciones del usuario
+  POST /api/historial/exportar_multiple/pdf    — ZIP con PDFs de varias cotizaciones
+  GET  /api/historial/{id}                     — detalle de una cotización
+  DELETE /api/historial/{id}                   — elimina una cotización propia
+  GET  /api/historial/{id}/exportar/pdf        — descarga PDF de cotización guardada
+  GET  /api/historial/{id}/exportar/xlsx       — descarga XLSX de cotización guardada
 """
 import io
+import zipfile
 from datetime import datetime
 from typing import List
 
@@ -22,6 +24,7 @@ from web.database import (
     guardar_cotizacion_db,
     listar_cotizaciones_db,
     get_cotizacion_db,
+    get_estadisticas_db,
     eliminar_cotizacion_db,
     cargar_cotizacion_al_carrito_db,
 )
@@ -65,19 +68,90 @@ async def api_guardar_cotizacion(
     return JSONResponse({"ok": True, "id": cotizacion_id})
 
 
+@router.get("/estadisticas")
+async def api_estadisticas(
+    usuario: dict = Depends(require_login),
+):
+    es_admin = usuario.get("r") == "ADMIN"
+    stats = get_estadisticas_db(username=None if es_admin else usuario["u"])
+    return JSONResponse({"ok": True, "stats": stats})
+
+
 @router.get("/lista")
 async def api_listar_cotizaciones(
     usuario: dict = Depends(require_login),
     tipo: List[str] = Query(default=[]),
     q: str = Query(default=""),
+    galvanizado: List[str] = Query(default=[]),
+    ganancia: List[str] = Query(default=[]),
 ):
     es_admin = usuario.get("r") == "ADMIN"
     cotizaciones = listar_cotizaciones_db(
         username=None if es_admin else usuario["u"],
         tipos=tipo if tipo else None,
         q=q.strip(),
+        galvanizados=galvanizado if galvanizado else None,
+        ganancias=ganancia if ganancia else None,
     )
     return JSONResponse({"ok": True, "cotizaciones": cotizaciones})
+
+
+@router.post("/exportar_multiple/pdf")
+async def api_exportar_multiple_pdf(
+    usuario: dict = Depends(require_login),
+    ids: str = Form(...),
+):
+    """Genera un ZIP con un PDF por cada cotización seleccionada."""
+    es_admin = usuario.get("r") == "ADMIN"
+    id_list = [int(x.strip()) for x in ids.split(",") if x.strip().isdigit()]
+    if not id_list:
+        return JSONResponse({"ok": False, "error": "Sin IDs válidos"}, status_code=400)
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for cid in id_list:
+            cotizacion = get_cotizacion_db(cid)
+            if not cotizacion:
+                continue
+            if not es_admin and cotizacion["username"] != usuario["u"]:
+                continue
+            fecha = _formatear_fecha(cotizacion["fecha"])
+            pdf_bytes = _generar_pdf(
+                carrito=cotizacion["items"],
+                cliente=cotizacion["cliente"],
+                atencion=cotizacion["atencion"],
+                moneda=cotizacion["moneda"],
+                proyecto=cotizacion["proyecto"],
+                fecha=fecha,
+                cliente_nombre=cotizacion.get("cliente_nombre", ""),
+                cliente_ruc=cotizacion.get("cliente_ruc", ""),
+                cliente_ubicacion=cotizacion.get("cliente_ubicacion", ""),
+                atencion_email=cotizacion.get("atencion_email", ""),
+                dolar=float(cotizacion.get("dolar_rate", 3.8)),
+                validez=cotizacion.get("validez", "30 días"),
+                encabezado_tabla=cotizacion.get("encabezado_tabla", ""),
+                cotizacion_id=cotizacion["id"],
+            )
+            try:
+                _año = datetime.strptime(fecha, "%d/%m/%Y").year
+            except Exception:
+                _año = datetime.now().year
+            _cliente_str = cotizacion.get("cliente_nombre") or cotizacion.get("cliente", "")
+            _campos = [p.strip() for p in [
+                _cliente_str, cotizacion.get("proyecto", ""),
+            ] if p and p.strip()]
+            _base = f"COT-{_año}-{cid:05d}" + (" " + " ".join(_campos) if _campos else "")
+            for _c in r'\/:*?"<>|':
+                _base = _base.replace(_c, "")
+            zf.writestr(_base + ".pdf", pdf_bytes)
+
+    zip_buffer.seek(0)
+    filename = f"cotizaciones_{datetime.now().strftime('%Y%m%d')}.zip"
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{cotizacion_id}")
