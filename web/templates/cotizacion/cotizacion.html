@@ -162,6 +162,9 @@
           <label class="check-label-v2">
             <input type="checkbox" class="check-contapa" checked> Incluir tapa
           </label>
+          <label class="check-label-v2 lbl-tapaapart">
+            <input type="checkbox" class="check-tapaapart"> Tapa aparte
+          </label>
         </div>
       </div>
 
@@ -177,9 +180,14 @@
             <input type="number" class="form-input" id="ch-alto" placeholder="ej: 60" min="1" step="1">
           </div>
         </div>
-        <label class="check-label-v2" style="margin-top:0.4rem;">
-          <input type="checkbox" class="check-contapa" checked> Incluir tapa
-        </label>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+          <label class="check-label-v2">
+            <input type="checkbox" class="check-contapa" checked> Incluir tapa
+          </label>
+          <label class="check-label-v2 lbl-tapaapart">
+            <input type="checkbox" class="check-tapaapart"> Tapa aparte
+          </label>
+        </div>
       </div>
 
       <!-- ── CURVA VERTICAL ── -->
@@ -205,9 +213,14 @@
             <input type="number" class="form-input" id="cv-alto" placeholder="ej: 60" min="1" step="1">
           </div>
         </div>
-        <label class="check-label-v2" style="margin-top:0.4rem;">
-          <input type="checkbox" class="check-contapa" checked> Incluir tapa
-        </label>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+          <label class="check-label-v2">
+            <input type="checkbox" class="check-contapa" checked> Incluir tapa
+          </label>
+          <label class="check-label-v2 lbl-tapaapart">
+            <input type="checkbox" class="check-tapaapart"> Tapa aparte
+          </label>
+        </div>
       </div>
 
       <!-- ── TEE ── -->
@@ -230,9 +243,14 @@
             <input type="number" class="form-input" id="t-alto" placeholder="ej: 60" min="1" step="1">
           </div>
         </div>
-        <label class="check-label-v2" style="margin-top:0.4rem;">
-          <input type="checkbox" class="check-contapa" checked> Incluir tapa
-        </label>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+          <label class="check-label-v2">
+            <input type="checkbox" class="check-contapa" checked> Incluir tapa
+          </label>
+          <label class="check-label-v2 lbl-tapaapart">
+            <input type="checkbox" class="check-tapaapart"> Tapa aparte
+          </label>
+        </div>
       </div>
 
       <!-- ── CRUZ ── -->
@@ -247,9 +265,14 @@
             <input type="number" class="form-input" id="c-alto" placeholder="ej: 60" min="1" step="1">
           </div>
         </div>
-        <label class="check-label-v2" style="margin-top:0.4rem;">
-          <input type="checkbox" class="check-contapa" checked> Incluir tapa
-        </label>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+          <label class="check-label-v2">
+            <input type="checkbox" class="check-contapa" checked> Incluir tapa
+          </label>
+          <label class="check-label-v2 lbl-tapaapart">
+            <input type="checkbox" class="check-tapaapart"> Tapa aparte
+          </label>
+        </div>
       </div>
 
       <!-- ── REDUCCIÓN ── -->
@@ -268,9 +291,14 @@
             <input type="number" class="form-input" id="r-alto" placeholder="ej: 60" min="1" step="1">
           </div>
         </div>
-        <label class="check-label-v2" style="margin-top:0.4rem;">
-          <input type="checkbox" class="check-contapa" checked> Incluir tapa
-        </label>
+        <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+          <label class="check-label-v2">
+            <input type="checkbox" class="check-contapa" checked> Incluir tapa
+          </label>
+          <label class="check-label-v2 lbl-tapaapart">
+            <input type="checkbox" class="check-tapaapart"> Tapa aparte
+          </label>
+        </div>
       </div>
 
       <!-- ── CAJA DE PASE ── -->
@@ -352,6 +380,9 @@
             </div>
           </div>
         </div>
+
+        <!-- Fila total (modo combinado c/tapa) -->
+        <div id="resultado-total" style="display:none; font-size:0.9rem; font-weight:600; color:var(--azul-claro); padding:0.3rem 0.1rem; border-top:1px solid var(--borde-suave); margin-top:0.2rem;"></div>
 
         <!-- Footer: cantidad compartida + agregar ambos + hint Enter -->
         <div class="resultado-footer-row">
@@ -462,6 +493,7 @@ document.querySelectorAll('.tipo-btn').forEach(btn => {
     document.getElementById(`form-${tipo}`).style.display = '';
     document.getElementById('form-titulo').textContent = TITULOS[tipo] || tipo;
     ocultarResultado();
+    actualizarEstadoTapaAparte();
 
     // Propagar dimensiones al nuevo tipo
     if (medidasRecordadas) {
@@ -520,7 +552,8 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.matches('.form-input, .form-select-sm, #esp-prod, #esp-tapa, #b-ml')) scheduleCalc();
-  if (e.target.classList.contains('check-contapa')) actualizarQtyMode();
+  if (e.target.classList.contains('check-contapa')) { actualizarEstadoTapaAparte(); actualizarQtyMode(); }
+  if (e.target.classList.contains('check-tapaapart')) actualizarQtyMode();
   if (e.target.matches('#b-ml') && !e.target.checked) {
     // Al desactivar "Por metro lineal", redondear cantidades a entero
     ['cant-main','cant-prod','cant-tapa'].forEach(id => {
@@ -791,6 +824,24 @@ function getConTapa() {
   return cb ? cb.checked : true;
 }
 
+function getTapaAparte() {
+  if (tipoActual === 'caja_pase') return false;
+  if (!getConTapa()) return false;
+  const cb = document.querySelector(`#form-${tipoActual} .check-tapaapart`);
+  return cb ? cb.checked : false;
+}
+
+function actualizarEstadoTapaAparte() {
+  if (tipoActual === 'caja_pase') return;
+  const cbContapa = document.querySelector(`#form-${tipoActual} .check-contapa`);
+  const lblAparte = document.querySelector(`#form-${tipoActual} .lbl-tapaapart`);
+  const cbAparte  = document.querySelector(`#form-${tipoActual} .check-tapaapart`);
+  if (!lblAparte || !cbAparte) return;
+  const on = cbContapa ? cbContapa.checked : true;
+  lblAparte.classList.toggle('disabled', !on);
+  if (!on) cbAparte.checked = false;
+}
+
 function actualizarQtyMode() {
   const con = getConTapa();
   const hayTapa = !!_lastResult.tapa;
@@ -808,6 +859,27 @@ function actualizarQtyMode() {
     if (hayTapa) document.getElementById('cant-tapa').value = document.getElementById('cant-main').value;
   }
   _prevConTapa = con;
+
+  // Actualizar descripción del cuerpo según modo tapa
+  if (_lastResult.prod) {
+    const desc = con
+      ? _lastResult.prod.descripcion
+      : _lastResult.prod.descripcion.replace('(C/UNION)', '(C/UNIÓN SIN TAPA)');
+    document.getElementById('resultado-desc').textContent = desc;
+  }
+
+  // Mostrar/ocultar fila total (precio cuerpo + tapa combinados)
+  const totalEl = document.getElementById('resultado-total');
+  if (totalEl) {
+    if (con && _lastResult.tapa && _lastResult.prod) {
+      const total = _lastResult.prod.precio_unitario + _lastResult.tapa.precio_unitario;
+      totalEl.textContent = `TOTAL: S/ ${total.toFixed(2)}`;
+      totalEl.style.display = '';
+    } else {
+      totalEl.style.display = 'none';
+    }
+  }
+
   actualizarSubtotales();
 }
 
@@ -832,11 +904,16 @@ async function agregarItem(cual) {
     const cantId  = conTapa ? 'cant-main' : (cual === 'prod' ? 'cant-prod' : 'cant-tapa');
     const cant    = parseFloat(document.getElementById(cantId).value) || 1;
 
+    // Si se agrega solo el cuerpo sin tapa, usar descripción "(C/UNIÓN SIN TAPA)"
+    const descFinal = (cual === 'prod' && !getConTapa())
+      ? r.descripcion.replace('(C/UNION)', '(C/UNIÓN SIN TAPA)')
+      : r.descripcion;
+
     const data = await apiFetch('/api/carrito/agregar', {
       method: 'POST',
       body: formData({
         tipo: r.tipo,
-        descripcion: r.descripcion,
+        descripcion: descFinal,
         precio_unitario: r.precio_unitario,
         peso_unitario: r.peso_unitario,
         cantidad: cant,
@@ -852,9 +929,9 @@ async function agregarItem(cual) {
       toast('Agregado al carrito');
       const ctxKey = getContextKey();
       const grupo = cual === 'prod'
-        ? { prod: { desc: r.descripcion, cant, precio: r.precio_unitario }, tapa: null }
-        : { prod: null, tapa: { desc: r.descripcion, cant, precio: r.precio_unitario } };
-      carritoSesion.push({ id: Date.now(), label: r.descripcion.split(' - ').slice(0,2).join(' - '), ctxKey, ...grupo, abierto: false });
+        ? { prod: { desc: descFinal, cant, precio: r.precio_unitario }, tapa: null }
+        : { prod: null, tapa: { desc: descFinal, cant, precio: r.precio_unitario } };
+      carritoSesion.push({ id: Date.now(), label: descFinal.split(' - ').slice(0,2).join(' - '), ctxKey, ...grupo, abierto: false });
       document.getElementById(cantId).value = 1;
       renderCarritoLive();
       actualizarBadgeCarrito();
@@ -881,7 +958,44 @@ async function agregarAmbos() {
     if (!prod) return;
     const g    = getGlobal();
     const cant = parseFloat(document.getElementById('cant-main').value) || 1;
+    const tapaAparte = getTapaAparte();
 
+    // ── Modo combinado: tapa aparte OFF → 1 solo ítem con precio sumado ──
+    if (!tapaAparte && tapa) {
+      const descCombinada = prod.descripcion.replace('(C/UNION)', '(C/UNIÓN Y TAPA)');
+      const r1c = await apiFetch('/api/carrito/agregar', {
+        method: 'POST',
+        body: formData({
+          tipo: prod.tipo,
+          descripcion: descCombinada,
+          precio_unitario: prod.precio_unitario + tapa.precio_unitario,
+          peso_unitario: prod.peso_unitario + tapa.peso_unitario,
+          cantidad: cant,
+          tipo_galvanizado: g.galv,
+          porcentaje_ganancia: g.ganancia,
+          unidad: prod.descripcion.includes('POR ML') ? 'ML' : 'UND',
+        }),
+      });
+      if (!r1c.ok) { toast('Error al agregar', 'error'); return; }
+      flashBtn('btn-agregar-ambos', '+ Carrito');
+      toast('Producto (c/tapa) agregado');
+      document.getElementById('cant-main').value = 1;
+      carritoSesion.push({
+        id: Date.now(),
+        label: descCombinada.split(' - ').slice(0,2).join(' - '),
+        ctxKey: getContextKey(), abierto: false,
+        prod: { desc: descCombinada, cant, precio: prod.precio_unitario + tapa.precio_unitario },
+        tapa: null, combinado: true,
+      });
+      renderCarritoLive();
+      actualizarBadgeCarrito();
+      animarBadge();
+      const primerInputC = document.querySelector(`#form-${tipoActual} .form-input:not([type=checkbox])`);
+      if (primerInputC) setTimeout(() => primerInputC.focus(), 80);
+      return;
+    }
+
+    // ── Modo separado: tapa aparte ON → 2 ítems independientes ──
     const r1 = await apiFetch('/api/carrito/agregar', {
       method: 'POST',
       body: formData({
@@ -988,7 +1102,9 @@ function renderCarritoLive() {
   carritoSesion.forEach((g) => {
     let tagHtml = '';
     let cantDisplay = g.prod ? g.prod.cant : (g.tapa ? g.tapa.cant : 1);
+    const esCombinado = g.combinado || (g.prod && !g.tapa && g.prod.desc?.includes('C/UNIÓN Y TAPA'));
     if (g.prod && g.tapa)       tagHtml = '<span class="cli-tag ct">C/T</span>';
+    else if (esCombinado)       tagHtml = '<span class="cli-tag ct">C/T</span>';
     else if (g.prod && !g.tapa) tagHtml = '<span class="cli-tag st">S/T</span>';
     else if (!g.prod && g.tapa) tagHtml = '<span class="cli-tag tapa">Solo Tapa</span>';
 

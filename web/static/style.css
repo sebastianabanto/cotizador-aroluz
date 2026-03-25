@@ -1031,6 +1031,7 @@ details[open] summary { margin-bottom: 0.75rem; }
   padding: 0.2rem 0;
 }
 .check-label-v2 input { accent-color: var(--azul-claro); }
+.check-label-v2.disabled { opacity: 0.4; pointer-events: none; }
 .alert-info-v2 {
   background: #eff6ff;
   border: 1px solid #bfdbfe;

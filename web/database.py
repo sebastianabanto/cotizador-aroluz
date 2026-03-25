@@ -1216,8 +1216,12 @@ def get_estadisticas_db(username: Optional[str] = None) -> Dict:
     """
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
-    wp = [username] if username else []
-    wc = "WHERE c.username=?" if username else ""
+    if username:
+        wp = [username]
+        wc = "WHERE c.username=? AND (c.origen = 'web' OR c.origen IS NULL)"
+    else:
+        wp = []
+        wc = "WHERE (c.origen = 'web' OR c.origen IS NULL)"
 
     # Totales globales
     row = conn.execute(
@@ -1236,13 +1240,13 @@ def get_estadisticas_db(username: Optional[str] = None) -> Dict:
         GROUP BY mes ORDER BY mes DESC LIMIT 12
     """, wp).fetchall()))
 
-    # Top 5 clientes por cantidad de cotizaciones
+    # Top 5 clientes por cantidad de cotizaciones (excluye sin cliente)
     top_clientes = conn.execute(f"""
         SELECT COALESCE(NULLIF(TRIM(cliente_nombre),''), NULLIF(TRIM(cliente),''), 'Sin cliente') AS nombre,
                COUNT(*) AS cantidad,
                ROUND(COALESCE(SUM(total_precio),0), 2) AS total
         FROM cotizaciones c {wc}
-        GROUP BY nombre ORDER BY cantidad DESC LIMIT 5
+        GROUP BY nombre HAVING nombre != 'Sin cliente' ORDER BY cantidad DESC LIMIT 5
     """, wp).fetchall()
 
     # Por tipo de producto
@@ -1251,14 +1255,16 @@ def get_estadisticas_db(username: Optional[str] = None) -> Dict:
             SELECT ci.tipo, COUNT(*) AS cantidad
             FROM cotizacion_items ci
             JOIN cotizaciones c ON c.id = ci.cotizacion_id
-            WHERE c.username=?
+            WHERE c.username=? AND (c.origen = 'web' OR c.origen IS NULL)
             GROUP BY ci.tipo ORDER BY cantidad DESC
         """, [username]).fetchall()
     else:
         por_tipo = conn.execute("""
-            SELECT tipo, COUNT(*) AS cantidad
-            FROM cotizacion_items
-            GROUP BY tipo ORDER BY cantidad DESC
+            SELECT ci.tipo, COUNT(*) AS cantidad
+            FROM cotizacion_items ci
+            JOIN cotizaciones c ON c.id = ci.cotizacion_id
+            WHERE (c.origen = 'web' OR c.origen IS NULL)
+            GROUP BY ci.tipo ORDER BY cantidad DESC
         """).fetchall()
 
     # Por moneda

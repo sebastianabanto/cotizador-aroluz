@@ -1058,6 +1058,18 @@ async function exportar(formato, btnEl) {
   a.click();
   URL.revokeObjectURL(url);
   limpiarCamposProyecto();
+  // Limpiar DOM del carrito visualmente
+  carritoMap.clear();
+  document.getElementById('tbody-carrito').innerHTML = '';
+  document.getElementById('total-display').textContent = '—';
+  const _pd = document.getElementById('peso-display');
+  if (_pd) _pd.textContent = '0.00 kg';
+  const _mv = document.getElementById('total-movil-val');
+  if (_mv) _mv.textContent = '—';
+  const _pm = document.getElementById('peso-movil-val');
+  if (_pm) _pm.textContent = '0.00 kg';
+  const _secExp = document.querySelector('.card:has(#validez)');
+  if (_secExp) _secExp.style.display = 'none';
   const msgDescargado = formato === 'xlsx' ? 'XLSX descargado — redirigiendo al historial…' : 'PDF descargado — redirigiendo al historial…';
   toast(msgDescargado, 'success');
   await fetch('/api/carrito/limpiar', { method: 'POST' });
@@ -1090,6 +1102,18 @@ async function guardarCotizacion() {
   const data = await apiFetch('/api/historial/guardar', { method: 'POST', body: fd });
   if (data.ok) {
     limpiarCamposProyecto();
+    // Limpiar DOM del carrito visualmente
+    carritoMap.clear();
+    document.getElementById('tbody-carrito').innerHTML = '';
+    document.getElementById('total-display').textContent = '—';
+    const _pd2 = document.getElementById('peso-display');
+    if (_pd2) _pd2.textContent = '0.00 kg';
+    const _mv2 = document.getElementById('total-movil-val');
+    if (_mv2) _mv2.textContent = '—';
+    const _pm2 = document.getElementById('peso-movil-val');
+    if (_pm2) _pm2.textContent = '0.00 kg';
+    const _secExp2 = document.querySelector('.card:has(#validez)');
+    if (_secExp2) _secExp2.style.display = 'none';
     await fetch('/api/carrito/limpiar', { method: 'POST' });
     sessionStorage.removeItem('carrito_form_v1');
     sessionStorage.removeItem('editando_desde_cotizacion_id');

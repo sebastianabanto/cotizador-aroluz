@@ -205,11 +205,6 @@
     .cmp-item-diff { background:#fff3e0; }
     .cmp-total { font-size:0.85rem; font-weight:700; padding:0.5rem 0.85rem; border-top:2px solid var(--gris-borde); text-align:right; color:var(--azul); }
 
-    /* ── Sort headers ─────────────────────────────── */
-    .th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
-    .th-sort:hover { background: var(--azul-claro, #4a90d9); color: white; }
-    .sort-ind { font-size: 0.65rem; opacity: 0.45; margin-left: 2px; }
-
     /* ── Tipo chip labels ─────────────────────────── */
     .fil-tipo-label {
       display: inline-flex; align-items: center; gap: 3px;
@@ -258,21 +253,13 @@
                 <input type="checkbox" id="th-sel-todas" title="Seleccionar / deseleccionar todas"
                        onchange="seleccionarTodosTabla(this.checked)">
               </th>
-              <th class="th-sort" style="width:50px;" onclick="sortarPor('id')" title="Ordenar por #">
-                # <span id="sort-id" class="sort-ind">⇅</span>
-              </th>
-              <th class="th-sort" style="width:140px;" onclick="sortarPor('fecha')" title="Ordenar por fecha">
-                Fecha <span id="sort-fecha" class="sort-ind">▼</span>
-              </th>
-              <th class="th-sort" onclick="sortarPor('cliente')" title="Ordenar por cliente">
-                Cliente <span id="sort-cliente" class="sort-ind">⇅</span>
-              </th>
+              <th style="width:50px;">#</th>
+              <th style="width:140px;">Fecha</th>
+              <th>Cliente</th>
               <th>Proyecto</th>
               <th id="th-usuario" style="display:none; width:100px;">Usuario</th>
               <th style="width:60px; text-align:center;">Items</th>
-              <th class="th-sort td-num" style="width:130px;" onclick="sortarPor('total')" title="Ordenar por total">
-                Total <span id="sort-total" class="sort-ind">⇅</span>
-              </th>
+              <th class="td-num" style="width:130px;">Total</th>
               <th style="width:190px; text-align:center;">Acciones</th>
             </tr>
           </thead>
@@ -460,22 +447,18 @@
       <div class="stats-grid2">
         <div>
           <p class="stats-section-title">Por mes</p>
+          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+            <label style="font-size:0.75rem; color:var(--texto-suave); white-space:nowrap;">Período:</label>
+            <select id="stats-mes-select" class="form-control" style="width:auto; font-size:0.8rem;"
+                    onchange="filtrarStatsMes()">
+              <option value="3">Últimos 3 meses</option>
+            </select>
+          </div>
           <div id="stats-por-mes"></div>
         </div>
         <div>
           <p class="stats-section-title">Top clientes</p>
           <div id="stats-top-clientes"></div>
-        </div>
-      </div>
-      <!-- Por tipo + por moneda -->
-      <div class="stats-grid2" style="margin-top:1rem;">
-        <div>
-          <p class="stats-section-title">Por tipo de producto</p>
-          <div id="stats-por-tipo"></div>
-        </div>
-        <div>
-          <p class="stats-section-title">Por moneda</p>
-          <div id="stats-por-moneda"></div>
         </div>
       </div>
     </div>
@@ -510,11 +493,15 @@
 const ES_ADMIN = {{ es_admin | tojson }};
 
 // ── Estado global ──
-let todasCotizaciones   = [];
+let todasCotizaciones     = [];
 let cotizacionesFiltradas = [];
-let paginaActual        = 1;
-const POR_PAGINA        = 8;
-let fetchDebounce       = null;
+let normalesFiltradas     = [];
+let importadasFiltradas   = [];
+let paginaActual          = 1;
+const POR_PAGINA          = 8;
+let fetchDebounce         = null;
+let _statsPorMes          = [];
+let _importadasAbiertas   = false;
 
 // ── Fetch desde servidor (aplica filtros tipo + q) ──
 async function fetchLista(isInitial) {
@@ -561,66 +548,100 @@ async function cargarHistorial() {
 }
 
 // ── Render de la página actual ──
-function renderHistorial() {
-  const tbody  = document.getElementById('tbody-historial');
-  tbody.innerHTML = '';
+function _buildFila(c) {
+  const fecha = formatearFecha(c.fecha);
+  const dolar_rate   = c.dolar_rate || 3.8;
+  const esUSD        = c.moneda === 'DOLARES';
+  const sym          = esUSD ? '$' : 'S/';
+  const totalDisplay = esUSD
+    ? (c.total_precio / dolar_rate).toFixed(2)
+    : parseFloat(c.total_precio).toFixed(2);
+  const badgePdf = c.origen === 'pdf_import'
+    ? ' <span style="background:#e8751a;color:white;border-radius:4px;font-size:0.65rem;padding:1px 5px;vertical-align:middle;">PDF</span>'
+    : '';
+  const tr = document.createElement('tr');
+  tr.id = `row-${c.id}`;
+  tr.innerHTML = `
+    <td style="text-align:center; padding:0 4px;">
+      <input type="checkbox" class="row-check" data-id="${c.id}" onchange="actualizarSeleccion()">
+    </td>
+    <td data-label="#" style="color:var(--texto-suave);font-size:0.8rem;">${c.id}${badgePdf}</td>
+    <td data-label="Fecha" style="font-size:0.8rem;">${fecha}</td>
+    <td data-label="Cliente">${c.cliente || '<span style="color:var(--texto-suave);">—</span>'}</td>
+    <td data-label="Proyecto" style="font-size:0.875rem;">${c.proyecto || '<span style="color:var(--texto-suave);">—</span>'}</td>
+    ${ES_ADMIN ? `<td data-label="Usuario" style="font-size:0.8rem;color:var(--texto-suave);">${c.username || '—'}</td>` : ''}
+    <td data-label="Items" style="text-align:center;font-size:0.875rem;">
+      <span style="background:var(--azul-claro);color:white;border-radius:12px;padding:2px 8px;font-size:0.75rem;font-weight:600;">
+        ${c.total_items || '?'}
+      </span>
+    </td>
+    <td data-label="Total" class="td-num" style="font-weight:600;">${sym} ${totalDisplay}</td>
+    <td data-label="Acciones" style="text-align:center;">
+      <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="verDetalle(${c.id})">Ver</button>
+        <button class="btn btn-primary btn-sm" onclick="descargarPdf(${c.id})">PDF</button>
+        <button class="btn btn-secondary btn-sm" onclick="duplicarCotizacion(${c.id})" title="Copiar ítems al carrito actual (sin reemplazar)">📋</button>
+        <button class="btn btn-secondary btn-sm btn-edit" onclick="editarCotizacion(${c.id})" title="Editar — cargar al carrito">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${c.id})">✕</button>
+      </div>
+    </td>
+  `;
+  return tr;
+}
 
-  if (!cotizacionesFiltradas.length) {
-    const cols = ES_ADMIN ? 9 : 8;
+function renderHistorial() {
+  const tbody = document.getElementById('tbody-historial');
+  tbody.innerHTML = '';
+  const cols = ES_ADMIN ? 9 : 8;
+
+  if (!normalesFiltradas.length && !importadasFiltradas.length) {
     tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; padding:2rem; color:var(--texto-suave);">No hay cotizaciones que coincidan con los filtros.</td></tr>`;
     renderPaginacion();
     return;
   }
 
-  const inicio  = (paginaActual - 1) * POR_PAGINA;
-  const pagina  = cotizacionesFiltradas.slice(inicio, inicio + POR_PAGINA);
-
+  // Normales — paginadas
+  const inicio = (paginaActual - 1) * POR_PAGINA;
+  const pagina = normalesFiltradas.slice(inicio, inicio + POR_PAGINA);
   for (const c of pagina) {
-    const fecha = formatearFecha(c.fecha);
-    const dolar_rate  = c.dolar_rate || 3.8;
-    const esUSD       = c.moneda === 'DOLARES';
-    const sym         = esUSD ? '$' : 'S/';
-    const totalDisplay = esUSD
-      ? (c.total_precio / dolar_rate).toFixed(2)
-      : parseFloat(c.total_precio).toFixed(2);
+    tbody.appendChild(_buildFila(c));
+  }
 
-    const tr = document.createElement('tr');
-    tr.id = `row-${c.id}`;
-    tr.innerHTML = `
-      <td style="text-align:center; padding:0 4px;">
-        <input type="checkbox" class="row-check" data-id="${c.id}" onchange="actualizarSeleccion()">
-      </td>
-      <td data-label="#" style="color:var(--texto-suave);font-size:0.8rem;">${c.id}</td>
-      <td data-label="Fecha" style="font-size:0.8rem;">${fecha}</td>
-      <td data-label="Cliente">${c.cliente || '<span style="color:var(--texto-suave);">—</span>'}</td>
-      <td data-label="Proyecto" style="font-size:0.875rem;">${c.proyecto || '<span style="color:var(--texto-suave);">—</span>'}</td>
-      ${ES_ADMIN ? `<td data-label="Usuario" style="font-size:0.8rem;color:var(--texto-suave);">${c.username || '—'}</td>` : ''}
-      <td data-label="Items" style="text-align:center;font-size:0.875rem;">
-        <span style="background:var(--azul-claro);color:white;border-radius:12px;padding:2px 8px;font-size:0.75rem;font-weight:600;">
-          ${c.total_items || '?'}
-        </span>
-      </td>
-      <td data-label="Total" class="td-num" style="font-weight:600;">${sym} ${totalDisplay}</td>
-      <td data-label="Acciones" style="text-align:center;">
-        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" onclick="verDetalle(${c.id})">Ver</button>
-          <button class="btn btn-primary btn-sm" onclick="descargarPdf(${c.id})">PDF</button>
-          <button class="btn btn-secondary btn-sm" onclick="duplicarCotizacion(${c.id})" title="Copiar ítems al carrito actual (sin reemplazar)">📋</button>
-          <button class="btn btn-secondary btn-sm btn-edit" onclick="editarCotizacion(${c.id})" title="Editar — cargar al carrito">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="eliminarCotizacion(${c.id})">✕</button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
+  // Importadas — colapsadas al final (fuera de paginación)
+  if (importadasFiltradas.length) {
+    _importadasAbiertas = false;
+    const headerTr = document.createElement('tr');
+    headerTr.id = 'row-importadas-header';
+    headerTr.style.cssText = 'cursor:pointer; background:var(--gris-fondo);';
+    headerTr.onclick = toggleImportadas;
+    headerTr.innerHTML = `<td colspan="${cols}" style="font-size:0.8rem; color:var(--texto-suave); padding:6px 8px; user-select:none;">
+      <span id="import-arrow">▶</span> 📁 Importadas desde PDF (${importadasFiltradas.length})
+    </td>`;
+    tbody.appendChild(headerTr);
+    for (const c of importadasFiltradas) {
+      const tr = _buildFila(c);
+      tr.classList.add('row-importada');
+      tr.style.display = 'none';
+      tbody.appendChild(tr);
+    }
   }
 
   renderPaginacion();
   actualizarSeleccion();  // sincronizar batch-bar y checkbox "select all" al repintar
 }
 
+function toggleImportadas() {
+  _importadasAbiertas = !_importadasAbiertas;
+  document.querySelectorAll('.row-importada').forEach(tr => {
+    tr.style.display = _importadasAbiertas ? '' : 'none';
+  });
+  const arrow = document.getElementById('import-arrow');
+  if (arrow) arrow.textContent = _importadasAbiertas ? '▼' : '▶';
+}
+
 // ── Paginación ──
 function renderPaginacion() {
-  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
+  const totalPaginas = Math.ceil(normalesFiltradas.length / POR_PAGINA);
   const ctrl = document.getElementById('paginacion-ctrl');
   if (totalPaginas <= 1) { ctrl.style.display = 'none'; return; }
   ctrl.style.display = 'flex';
@@ -630,7 +651,7 @@ function renderPaginacion() {
 }
 
 function cambiarPagina(delta) {
-  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / POR_PAGINA);
+  const totalPaginas = Math.ceil(normalesFiltradas.length / POR_PAGINA);
   paginaActual = Math.max(1, Math.min(paginaActual + delta, totalPaginas));
   renderHistorial();
 }
@@ -663,20 +684,12 @@ function filtrarHistorial() {
         && (!filMonedas.length || filMonedas.includes(c.moneda));
   });
 
-  // Ordenar
-  cotizacionesFiltradas.sort((a, b) => {
-    let va, vb;
-    if      (sortCol === 'id')     { va = a.id;      vb = b.id; }
-    else if (sortCol === 'fecha')  { va = a.fecha || '';  vb = b.fecha || ''; }
-    else if (sortCol === 'cliente'){ va = (a.cliente || '').toLowerCase(); vb = (b.cliente || '').toLowerCase(); }
-    else if (sortCol === 'total')  {
-      va = a.moneda === 'DOLARES' ? a.total_precio / (a.dolar_rate || 3.8) : a.total_precio;
-      vb = b.moneda === 'DOLARES' ? b.total_precio / (b.dolar_rate || 3.8) : b.total_precio;
-    }
-    if (va < vb) return sortDir === 'asc' ? -1 : 1;
-    if (va > vb) return sortDir === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // Ordenar por id descendente
+  cotizacionesFiltradas.sort((a, b) => b.id - a.id);
+
+  // Separar normales e importadas
+  normalesFiltradas   = cotizacionesFiltradas.filter(c => c.origen !== 'pdf_import');
+  importadasFiltradas = cotizacionesFiltradas.filter(c => c.origen === 'pdf_import');
 
   paginaActual = 1;
   renderHistorial();
@@ -696,39 +709,13 @@ function limpiarFiltros() {
   fetchLista(false);
 }
 
-// ── Ordenamiento ──
-let sortCol = 'id';
-let sortDir = 'desc';
-
-function sortarPor(col) {
-  if (sortCol === col) {
-    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-  } else {
-    sortCol = col;
-    sortDir = (col === 'cliente') ? 'asc' : 'desc';
-  }
-  actualizarSortHeaders();
-  paginaActual = 1;
-  renderHistorial();
-}
-
-function actualizarSortHeaders() {
-  ['id', 'fecha', 'cliente', 'total'].forEach(col => {
-    const el = document.getElementById(`sort-${col}`);
-    if (!el) return;
-    if (sortCol === col) {
-      el.textContent = sortDir === 'desc' ? '▼' : '▲';
-      el.style.opacity = '1';
-    } else {
-      el.textContent = '⇅';
-      el.style.opacity = '0.45';
-    }
-  });
-}
-
 // ── Multi-select (tabla principal) ──
 function seleccionarTodosTabla(checked) {
-  document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);
+  document.querySelectorAll('.row-check').forEach(cb => {
+    const tr = cb.closest('tr');
+    if (tr && tr.style.display === 'none') return;
+    cb.checked = checked;
+  });
   const sel = document.getElementById('th-sel-todas');
   if (sel) { sel.checked = checked; sel.indeterminate = false; }
   actualizarSeleccion();
@@ -1131,42 +1118,54 @@ async function abrirEstadisticas() {
   if (!data.ok) { toast('Error al cargar estadísticas', 'error'); cerrarStats(); return; }
   const s = data.stats;
 
-  const totalCots = s.total_cotizaciones;
+  const totalCots  = s.total_cotizaciones;
   const totalSoles = s.total_facturado_soles;
-  const prom = totalCots > 0 ? totalSoles / totalCots : 0;
+  const prom       = totalCots > 0 ? totalSoles / totalCots : 0;
 
   document.getElementById('stat-cots').textContent  = totalCots;
   document.getElementById('stat-total').textContent = 'S/ ' + _fmt(totalSoles);
   document.getElementById('stat-prom').textContent  = 'S/ ' + _fmt(prom);
 
-  // Por mes: etiqueta "Ene 26", valor = cantidad cots
+  // Por mes: construir items con mes ISO para filtrado
   const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const porMesItems = s.por_mes.map(r => {
+  _statsPorMes = (s.por_mes || []).map(r => {
     const [y, m] = r.mes.split('-');
-    return { label: `${meses[parseInt(m)-1]} ${y.slice(2)}`, cantidad: r.cantidad, total: r.total };
+    return { mes: r.mes, label: `${meses[parseInt(m)-1]} ${y.slice(2)}`, cantidad: r.cantidad, total: r.total };
   });
-  const maxMes = Math.max(...porMesItems.map(r => r.cantidad), 1);
-  document.getElementById('stats-por-mes').innerHTML =
-    _statsBar(porMesItems.map(r => ({label: r.label, val: r.cantidad})), 'label', 'val', maxMes, ' cots');
+
+  // Poblar dropdown con "Últimos 3 meses" + cada mes disponible (más reciente primero)
+  const sel = document.getElementById('stats-mes-select');
+  sel.innerHTML = '<option value="3">Últimos 3 meses</option>';
+  _statsPorMes.slice().reverse().forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.mes;
+    opt.textContent = r.label;
+    sel.appendChild(opt);
+  });
+  sel.value = '3';
+  filtrarStatsMes();
 
   // Top clientes
-  const maxCli = Math.max(...s.top_clientes.map(r => r.cantidad), 1);
+  const topCli = s.top_clientes || [];
+  const maxCli = Math.max(...topCli.map(r => r.cantidad), 1);
   document.getElementById('stats-top-clientes').innerHTML =
-    _statsBar(s.top_clientes.map(r => ({label: r.nombre, val: r.cantidad})), 'label', 'val', maxCli, ' cots');
-
-  // Por tipo
-  const tipoNombre = {B:'Bandeja',CH:'Curva H',CVE:'Curva VE',CVI:'Curva VI',T:'Tee',C:'Cruz',R:'Reducción',CP:'Caja Pase',MANUAL:'Manual'};
-  const maxTipo = Math.max(...s.por_tipo.map(r => r.cantidad), 1);
-  document.getElementById('stats-por-tipo').innerHTML =
-    _statsBar(s.por_tipo.map(r => ({label: tipoNombre[r.tipo] || r.tipo, val: r.cantidad})), 'label', 'val', maxTipo, ' íts');
-
-  // Por moneda
-  const maxMon = Math.max(...s.por_moneda.map(r => r.cantidad), 1);
-  document.getElementById('stats-por-moneda').innerHTML =
-    _statsBar(s.por_moneda.map(r => ({label: r.moneda === 'DOLARES' ? 'USD ($)' : 'Soles (S/)', val: r.cantidad})), 'label', 'val', maxMon, ' cots');
+    _statsBar(topCli.map(r => ({label: r.nombre, val: r.cantidad})), 'label', 'val', maxCli, ' cots');
 
   document.getElementById('stats-loading').style.display = 'none';
   document.getElementById('stats-content').style.display  = 'block';
+}
+
+function filtrarStatsMes() {
+  const val = document.getElementById('stats-mes-select').value;
+  let items;
+  if (val === '3') {
+    items = _statsPorMes.slice(-3);
+  } else {
+    items = _statsPorMes.filter(r => r.mes === val);
+  }
+  const maxMes = Math.max(...items.map(r => r.cantidad), 1);
+  document.getElementById('stats-por-mes').innerHTML =
+    _statsBar(items.map(r => ({ label: r.label, val: r.cantidad })), 'label', 'val', maxMes, ' cots');
 }
 
 // ── Comparar cotizaciones ──
