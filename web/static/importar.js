@@ -389,6 +389,36 @@ function _parseMetrado(lines) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 2d. Parser CANT → UND → DESC  (ej: "12.00  MTS  BANDEJA...")
+//     Formato típico de metrados externos: cantidad primero, unidad, descripción
+// ──────────────────────────────────────────────────────────────
+
+// Acepta separación por tab O por 1+ espacios entre los tres campos.
+// El campo de cantidad puede ser entero ("1") o decimal ("12.00").
+const _CUD_RE = /^(\d+(?:[.,]\d+)?)\s+(UND|ML|MTS|MT|M2|KG|JGO|GLB|PZA)\s+(.+)$/i;
+
+function _isCantUndDescFormat(lines) {
+  const dataLines = lines.filter(l => /^\d/.test(l));
+  if (dataLines.length < 1) return false;
+  const hits = dataLines.filter(l => _CUD_RE.test(l.trim()));
+  return hits.length / dataLines.length >= 0.7;
+}
+
+function _parseCantUndDesc(lines) {
+  const rows = [];
+  for (const line of lines) {
+    const m = _CUD_RE.exec(line.trim());
+    if (!m) continue;
+    const cantidad = Math.round(parseFloat(m[1].replace(',', '.'))) || 1;
+    let unidad = m[2].toUpperCase();
+    if (unidad === 'MTS' || unidad === 'MT') unidad = 'ML';
+    const desc = _normalizarDimensiones(m[3].trim());
+    if (desc) rows.push({ descripcion: desc, unidad, cantidad });
+  }
+  return rows;
+}
+
+// ──────────────────────────────────────────────────────────────
 // 2c. Parser TSV con auto-detección de encabezados
 // ──────────────────────────────────────────────────────────────
 
@@ -396,6 +426,11 @@ function _parseTSV(text) {
   const rawLines = text.trim().split('\n');
 
   const cleanLines = rawLines.map(l => l.trim()).filter(l => l.length > 0);
+
+  // ── Detectar formato CANT → UND → DESC antes que nada ──
+  if (_isCantUndDescFormat(cleanLines)) {
+    return _parseCantUndDesc(cleanLines);
+  }
 
   // ── Detectar formato metrado/presupuesto externo primero ──
   if (_isMetradoFormat(cleanLines)) {
