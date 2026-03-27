@@ -31,7 +31,7 @@ let _importarConfig = {
 // ── Encabezados reconocidos para auto-detección de columnas ──
 const _HEADER_RE = {
   descripcion: /DESCRIP|DETALLE|PRODUCTO|ITEM|C[ÓO]DIGO|NOMBRE/i,
-  unidad:      /\bUND\b|\bUNIDAD\b|\bUN\/ML\b|\bUN\b|\bU\.M\.\b|\bUM\b/i,
+  unidad:      /\bUND\b|\bUNIDAD\b|\bUN\/ML\b|\bUN\b|\bU\.M\.\b|\bUM\b|\bMTS\b|\bMT\b/i,
   cantidad:    /CANT|QTY|\bN[°º]\b|N[°]|CANTIDAD|METRADO/i,
   // TOTAL se excluye adrede: en tablas de cotización TOTAL = precio total, no cantidad
 };
@@ -309,7 +309,7 @@ function _normalizarDimensiones(desc) {
 
 // Formato: N° + descripción + UND/ML/... + cantidad [+ precio unitario] [+ total]
 // El grupo (.+) es greedy → backtracking fuerza a encontrar la ÚLTIMA keyword de unidad
-const _REGEX_TABLE_LINE = /^\s*\d+\s+(.+)\s+(UND|ML|M2|KG|JGO|GLB|PZA)\s+(\d+(?:[.,]\d+)?)(?:\s+[\d.,]+)*\s*$/i;
+const _REGEX_TABLE_LINE = /^\s*\d+\s+(.+)\s+(UND|ML|MTS|MT|M2|KG|JGO|GLB|PZA)\s+(\d+(?:[.,]\d+)?)(?:\s+[\d.,]+)*\s*$/i;
 
 function _isRegexTableFormat(cleanLines) {
   const dataLines = cleanLines.filter(l => /^\s*\d/.test(l));
@@ -483,10 +483,19 @@ function _parseTSV(text) {
       // Fallback: si no hay columna de unidad, la primera entera desde col2 = cantidad
       if (!foundUnit && _isIntCol(2)) colCant = 2;
     } else if (firstRow.length >= 3) {
-      // Tres columnas: desc, und, cant (orden clásico)
-      // Pero si col1 parece entero, puede ser cant y col2 und
-      colUnd  = _isIntCol(1) ? -1 : 1;
-      colCant = _isIntCol(1) ? 1 : (_isIntCol(2) ? 2 : -1);
+      // Detectar formato CANT → UND → DESC (ej: "12.00  MTS  BANDEJA RANURADA...")
+      // Condición: col0 es numérica en todas las filas Y col1 es una keyword de unidad
+      const _UNIT_KW = /^(UND|ML|MTS|MT|M2|KG|JGO|GLB|PZA)$/i;
+      const col1IsUnit = lines.slice(startRow).some(r => _UNIT_KW.test((r[1] || '').trim()));
+      if (_isIntCol(0) && col1IsUnit) {
+        colCant = 0;
+        colUnd  = 1;
+        colDesc = 2;
+      } else {
+        // Orden clásico: desc, und, cant
+        colUnd  = _isIntCol(1) ? -1 : 1;
+        colCant = _isIntCol(1) ? 1 : (_isIntCol(2) ? 2 : -1);
+      }
     }
   }
 
@@ -496,7 +505,9 @@ function _parseTSV(text) {
     const desc = _normalizarDimensiones(row[colDesc] || '');
     if (!desc) continue;
 
-    const unidad = (colUnd >= 0 && row[colUnd]) ? row[colUnd] : 'UND';
+    // Normalizar unidad: MTS/MT → ML (metros lineales)
+    let unidad = (colUnd >= 0 && row[colUnd]) ? row[colUnd].trim().toUpperCase() : 'UND';
+    if (unidad === 'MTS' || unidad === 'MT') unidad = 'ML';
     let cantidad = 1;
     if (colCant >= 0 && row[colCant]) {
       // Acepta "5", "5.00", "5,00" (Excel puede exportar con decimales)
