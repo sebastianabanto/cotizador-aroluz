@@ -26,6 +26,7 @@ let _importarConfig = {
   espesor_cuerpo_global: 1.5,
   espesor_tapa_global: 1.5,
   superficie_global: 'RANURADA',
+  tapa_modo: 'junto',
 };
 
 // ── Encabezados reconocidos para auto-detección de columnas ──
@@ -74,6 +75,8 @@ function _leerConfigImportar() {
   _importarConfig.espesor_tapa_global     = _importarModo === 'libre' ? null : (espT ? parseFloat(espT.value) : 1.2);
   // Libre: superficie null → backend usa RANURADA por defecto; per-ítem overrides desde desc
   _importarConfig.superficie_global       = _importarModo === 'libre' ? null : (sup ? sup.value  : 'LISA');
+  const tapaModo = document.querySelector('input[name="imp-tapa-modo"]:checked');
+  _importarConfig.tapa_modo              = tapaModo ? tapaModo.value : 'junto';
 }
 
 // Actualiza el estilo visual de los botones Sin/Con comisión
@@ -843,6 +846,8 @@ function _sincronizarP2Opciones() {
   if (espT) espT.checked = true;
   const sup = document.querySelector(`input[name="p2-sup"][value="${_importarConfig.superficie_global || 'RANURADA'}"]`);
   if (sup) sup.checked = true;
+  const tapaModo = document.querySelector(`input[name="p2-tapa-modo"][value="${_importarConfig.tapa_modo || 'junto'}"]`);
+  if (tapaModo) tapaModo.checked = true;
 }
 
 /**
@@ -861,6 +866,8 @@ function _leerConfigP2() {
   _importarConfig.espesor_cuerpo_global = espC ? parseFloat(espC.value) : 1.5;
   _importarConfig.espesor_tapa_global   = espT ? parseFloat(espT.value) : 1.5;
   _importarConfig.superficie_global     = sup  ? sup.value  : 'RANURADA';
+  const tapaModoP2 = document.querySelector('input[name="p2-tapa-modo"]:checked');
+  _importarConfig.tapa_modo             = tapaModoP2 ? tapaModoP2.value : 'junto';
 
   // Sincronizar también los radios del paso 1 para que sean consistentes al volver
   const p1gan = document.querySelector(`input[name="imp-ganancia"][value="${_importarConfig.ganancia_global}"]`);

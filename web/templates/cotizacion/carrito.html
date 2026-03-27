@@ -386,6 +386,8 @@
         <input type="radio" name="imp-superficie" value="LISA">
         <input type="radio" name="imp-superficie" value="RANURADA" checked>
         <input type="radio" name="imp-superficie" value="ESCALERILLA">
+        <input type="radio" name="imp-tapa-modo" value="junto" checked>
+        <input type="radio" name="imp-tapa-modo" value="separada">
       </div>
 
       <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
@@ -454,6 +456,14 @@
         </label>
         <label style="display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;">
           <input type="radio" name="p2-sup" value="ESCALERILLA" onchange="p2ActualizarPreview()"> Escalerilla
+        </label>
+        <span style="color:var(--borde,#d1d5db);">│</span>
+        <span style="font-weight:700; color:var(--texto); white-space:nowrap;">C/Tapa:</span>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;">
+          <input type="radio" name="p2-tapa-modo" value="junto" checked onchange="p2ActualizarPreview()"> Junto
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap;">
+          <input type="radio" name="p2-tapa-modo" value="separada" onchange="p2ActualizarPreview()"> Separada
         </label>
       </div>
 
@@ -1794,5 +1804,5 @@ async function guardarNuevoCliente() {
   }
 }
 </script>
-<script src="/static/importar.js?v=22"></script>
+<script src="/static/importar.js?v=23"></script>
 {% endblock %}

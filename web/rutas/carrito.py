@@ -762,6 +762,7 @@ class _ImportarRequestIn(BaseModel):
     espesor_tapa_global: Optional[float] = None    # 1.2 | 1.5 | 2.0
     ganancia_global: Optional[str] = None       # "30" | "35"
     superficie_global: Optional[str] = None     # "LISA" | "RANURADA" | "ESCALERILLA"
+    tapa_modo: str = "junto"                    # "junto" | "separada"
 
 
 @router.post("/importar/procesar")
@@ -822,37 +823,53 @@ async def importar_procesar(
                 elif falta_espesor:
                     desc_final = item.descripcion.rstrip() + f" {espesor_str}"
 
-            # Ítem cuerpo
-            results.append({
-                "descripcion": desc_final,
-                "unidad": item.unidad,
-                "cantidad": item.cantidad,
-                "tipo": parsed["tipo"] or "MANUAL",
-                "precio_unitario":       round(cuerpo[0], 4),
-                "peso_unitario":         round(cuerpo[1], 6),
-                "descripcion_calculada": cuerpo[2],
-                "tipo_galvanizado":      galv_efectivo,
-                "porcentaje_ganancia":   ganancia_efectiva,
-                "reconocido": True,
-                "error": None,
-            })
-
-            # Ítem tapa (si aplica)
             tapa = precio_data.get("tapa")
-            if tapa:
+
+            if tapa and body.tapa_modo == "junto":
+                # Combinar cuerpo + tapa en un único ítem (precio y peso sumados)
                 results.append({
-                    "descripcion": tapa[2],
+                    "descripcion": desc_final,
                     "unidad": item.unidad,
                     "cantidad": item.cantidad,
-                    "tipo": parsed["tipo"],
-                    "precio_unitario":       round(tapa[0], 4),
-                    "peso_unitario":         round(tapa[1], 6),
-                    "descripcion_calculada": tapa[2],
+                    "tipo": parsed["tipo"] or "MANUAL",
+                    "precio_unitario":       round(cuerpo[0] + tapa[0], 4),
+                    "peso_unitario":         round(cuerpo[1] + tapa[1], 6),
+                    "descripcion_calculada": f"{cuerpo[2]} + {tapa[2]}",
                     "tipo_galvanizado":      galv_efectivo,
                     "porcentaje_ganancia":   ganancia_efectiva,
                     "reconocido": True,
                     "error": None,
                 })
+            else:
+                # Ítem cuerpo
+                results.append({
+                    "descripcion": desc_final,
+                    "unidad": item.unidad,
+                    "cantidad": item.cantidad,
+                    "tipo": parsed["tipo"] or "MANUAL",
+                    "precio_unitario":       round(cuerpo[0], 4),
+                    "peso_unitario":         round(cuerpo[1], 6),
+                    "descripcion_calculada": cuerpo[2],
+                    "tipo_galvanizado":      galv_efectivo,
+                    "porcentaje_ganancia":   ganancia_efectiva,
+                    "reconocido": True,
+                    "error": None,
+                })
+                # Ítem tapa separado (si aplica)
+                if tapa:
+                    results.append({
+                        "descripcion": tapa[2],
+                        "unidad": item.unidad,
+                        "cantidad": item.cantidad,
+                        "tipo": parsed["tipo"],
+                        "precio_unitario":       round(tapa[0], 4),
+                        "peso_unitario":         round(tapa[1], 6),
+                        "descripcion_calculada": tapa[2],
+                        "tipo_galvanizado":      galv_efectivo,
+                        "porcentaje_ganancia":   ganancia_efectiva,
+                        "reconocido": True,
+                        "error": None,
+                    })
         else:
             # Intentar match contra catálogo de productos fijos
             cat_match = _buscar_en_catalogo(item.descripcion, ganancia_efectiva)
