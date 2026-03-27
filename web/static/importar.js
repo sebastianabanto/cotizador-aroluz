@@ -173,6 +173,19 @@ function _parseTextoLibre(text) {
       continue;
     }
 
+    // ── Formato CANT → UND → DESC (ej: "12.00  MTS  BANDEJA...") ──
+    // Cubre metrados externos donde la cantidad va primero con decimal
+    const cudM = _CUD_RE.exec(line);
+    if (cudM) {
+      const cant = Math.round(parseFloat(cudM[1].replace(',', '.'))) || 1;
+      let und = cudM[2].toUpperCase();
+      if (und === 'MTS' || und === 'MT') und = 'ML';
+      const hasCTapa = /\bC[/\\]?TAPA\b|\bCON\s+TAPA\b/i.test(cudM[3]);
+      const d = _normalizarDimensiones(cudM[3].trim());
+      if (d) rows.push({ descripcion: d, unidad: und, cantidad: cant, con_tapa: hasCTapa, espesor_tapa: null });
+      continue;
+    }
+
     // ── Parsear cantidad y unidad ──
     let cantidad = 1, unidad = 'UND', desc;
     // "N und/ml desc"
