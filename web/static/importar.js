@@ -653,6 +653,9 @@ function renderPreview(items) {
     const precio = item.reconocido
       ? `S/ ${Number(item.precio_unitario).toFixed(2)}`
       : '<span style="color:#c0392b; font-size:0.78rem;">sin precio</span>';
+    const subtotal = item.reconocido
+      ? `<strong>S/ ${(Number(item.precio_unitario) * item.cantidad).toFixed(2)}</strong>`
+      : '—';
     const descCorta = item.descripcion.length > 70
       ? item.descripcion.slice(0, 70) + '…'
       : item.descripcion;
@@ -677,6 +680,7 @@ function renderPreview(items) {
       <td style="padding:4px 6px; text-align:center;">${item.cantidad}</td>
       <td style="padding:4px 6px;">${itemCalc}</td>
       <td style="padding:4px 6px; text-align:right;">${precio}</td>
+      <td style="padding:4px 6px; text-align:right;">${subtotal}</td>
     </tr>`;
   }).join('');
 
