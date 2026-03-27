@@ -425,8 +425,10 @@ function _parseCantUndDesc(lines) {
     const cantidad = Math.round(parseFloat(m[1].replace(',', '.'))) || 1;
     let unidad = m[2].toUpperCase();
     if (unidad === 'MTS' || unidad === 'MT') unidad = 'ML';
-    const desc = _normalizarDimensiones(m[3].trim());
-    if (desc) rows.push({ descripcion: desc, unidad, cantidad });
+    const rawDesc = m[3].trim();
+    const hasCTapa = /\bC[/\\]?TAPA\b|\bCON\s+TAPA\b/i.test(rawDesc);
+    const desc = _normalizarDimensiones(rawDesc);
+    if (desc) rows.push({ descripcion: desc, unidad, cantidad, con_tapa: hasCTapa, espesor_tapa: null });
   }
   return rows;
 }
@@ -564,6 +566,14 @@ function _parseTSV(text) {
     }
     rows.push({ descripcion: desc, unidad: unidad || 'UND', cantidad });
   }
+
+  // ── Safety check: si las descripciones son todas numéricas, la asignación
+  //    de columnas fue incorrecta → intentar como CANT→UND→DESC ──
+  if (rows.length > 0 && rows.every(r => /^\d+([.,]\d+)?$/.test(r.descripcion.trim()))) {
+    const cudRows = _parseCantUndDesc(cleanLines);
+    if (cudRows.length > 0) return cudRows;
+  }
+
   return rows;
 }
 
