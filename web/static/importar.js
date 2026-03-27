@@ -693,6 +693,28 @@ function renderPreview(items) {
   if (chkTodos) chkTodos.checked = true; // todos reconocidos marcados, pero los 🔴 estarán desmarcados
 
   _actualizarResumenSeleccion();
+  _actualizarTotalesImportar();
+}
+
+function _actualizarTotalesImportar() {
+  const checks = document.querySelectorAll('.imp-chk-item');
+  let totalPrecio = 0, totalPeso = 0;
+  checks.forEach(chk => {
+    if (!chk.checked) return;
+    const idx = parseInt(chk.dataset.idx, 10);
+    const item = _importarItems[idx];
+    if (!item || !item.reconocido) return;
+    totalPrecio += Number(item.precio_unitario) * item.cantidad;
+    totalPeso   += Number(item.peso_unitario)   * item.cantidad;
+  });
+  const div = document.getElementById('importar-totales');
+  if (!div) return;
+  div.innerHTML = `
+    <span style="font-weight:700; color:var(--texto);">TOTAL</span>
+    <span style="font-weight:700; color:#1a6fad; font-size:1rem;">S/ ${totalPrecio.toFixed(2)}</span>
+    <span style="color:var(--borde,#d1d5db);">│</span>
+    <span style="color:var(--texto-secundario,#6b7280);">Peso total</span>
+    <span style="font-weight:600; color:var(--texto);">${totalPeso.toFixed(2)} kg</span>`;
 }
 
 /** Actualiza el texto del resumen y el botón de confirmar según los checkboxes marcados. */
@@ -731,6 +753,7 @@ function _onImportarChkChange() {
     if (fila) fila.style.opacity = chk.checked ? '' : '0.45';
   });
   _actualizarResumenSeleccion();
+  _actualizarTotalesImportar();
 }
 
 /** Selecciona o deselecciona todos los ítems. */
@@ -741,6 +764,7 @@ function toggleTodosImportar(checked) {
     if (fila) fila.style.opacity = checked ? '' : '0.45';
   });
   _actualizarResumenSeleccion();
+  _actualizarTotalesImportar();
 }
 
 /** Desmarca (excluye) todos los ítems no reconocidos. */
