@@ -339,9 +339,11 @@ _PRODUCT_KEYWORDS_ORDERED = [
              "CAJA PASE", "CAJA FE GALV", "CAJA FE", "CAJA METALICA",
              "CAJAS METALICA", "CAJA FG", "CAJA F.G.", "CAJA F°G°", "CAJA F@G@",
              "CAJA"]),  # catch-all: "caja 300x300x100mm 3/4"
-    ("CVE", ["CURVA VERTICAL EXTERNA", "ACCESORIO CURVA VERTICAL EXTERNA",
+    ("CVE", ["CURVA VERTICAL EXTERNA", "CURVA VERTICAL EXTERIOR",
+             "ACCESORIO CURVA VERTICAL EXTERNA", "ACCESORIO CURVA VERTICAL EXTERIOR",
              "CVE", "ACCESORIO CVE"]),
-    ("CVI", ["CURVA VERTICAL INTERNA", "ACCESORIO CURVA VERTICAL INTERNA",
+    ("CVI", ["CURVA VERTICAL INTERNA", "CURVA VERTICAL INTERIOR",
+             "ACCESORIO CURVA VERTICAL INTERNA", "ACCESORIO CURVA VERTICAL INTERIOR",
              "CVI", "ACCESORIO CVI"]),
     ("CH",  ["CURVA HORIZONTAL", "ACCESORIO CURVA HORIZONTAL",
              "CURVA H", "ACCESORIO CURVA H", "ACCESORIO CH"]),
@@ -491,8 +493,11 @@ def parsear_descripcion(desc_raw: str) -> dict:
         if tipo:
             break
 
-    # Normalizar separador "A" entre grupos de dimensiones (ej: "600X100 A 400X100")
-    desc_dims = re.sub(r'(?<=[0-9])\s+[Aa]\s+(?=[0-9])', 'X', desc)
+    # Normalizar separador "A" entre grupos de dimensiones
+    # Caso 1: "700MM A 500MM" (reducción externa sin alto explícito) → "700X500MM"
+    desc_dims = re.sub(r'(\d+)\s*(?:MM|CM)\s+[Aa]\s+(\d+)', r'\1X\2', desc)
+    # Caso 2: "600X100 A 400X100" (clásico, dígito directo antes del espacio-A) → "600X100X400X100"
+    desc_dims = re.sub(r'(?<=[0-9])\s+[Aa]\s+(?=[0-9])', 'X', desc_dims)
     # Reemplazar coma decimal por punto para el regex
     desc_dims = desc_dims.replace(",", ".")
 
@@ -526,6 +531,9 @@ def parsear_descripcion(desc_raw: str) -> dict:
 
     galvanizado_explicito = bool(re.search(r'\bGC\b', desc))
     galvanizado = "GC" if galvanizado_explicito else "GO"
+
+    # Detectar "C/TAPA" o "CON TAPA" en la descripción (frecuente en tablas externas)
+    con_tapa_desc = bool(re.search(r'\bC[/\\]?TAPA\b|\bCON\s+TAPA\b', desc))
 
     superficie_explicita = False
     if "ESCALERILLA" in desc:
@@ -582,6 +590,7 @@ def parsear_descripcion(desc_raw: str) -> dict:
         "superficie_explicita": superficie_explicita,
         "knockout": knockout,
         "knockout_explicito": knockout_explicito,
+        "con_tapa_desc": con_tapa_desc,
     }
 
 
@@ -692,6 +701,10 @@ def calcular_precio_importado(
                                        dims[0], dims[1], "INTERNA", superficie)
 
         elif tipo == "T":
+            # Inferencia para TEE con solo 2 dimensiones (ancho x alto):
+            # "TEE ... DE 700X100MM" → tee cuadrada: derecha=izquierda=abajo=700, alto=100
+            if len(dims) == 2:
+                dims = [dims[0], dims[0], dims[0], dims[1]]
             if len(dims) < 4:
                 return None
             r = cotizar_tee(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
@@ -704,6 +717,10 @@ def calcular_precio_importado(
                              dims[0], dims[1], superficie)
 
         elif tipo == "R":
+            # Inferencia para REDUCCION con solo 2 dimensiones (ancho_mayor x ancho_menor):
+            # "REDUCCION ... DE 700MM A 500MM" → alto=100mm por defecto
+            if len(dims) == 2:
+                dims = [dims[0], 100.0, dims[1]]
             if len(dims) < 3:
                 return None
             r = cotizar_reduccion(cfg, precio_pl, precio_pl_tapa, espesor, espesor_tapa,
@@ -766,10 +783,12 @@ async def importar_procesar(
     for item in body.items:
         parsed = parsear_descripcion(item.descripcion)
         es_ml = item.unidad == "ML" and parsed.get("tipo") == "B"
+        # "C/TAPA" detectado en la descripción tiene prioridad si el ítem no trae con_tapa explícito
+        con_tapa_efectivo = item.con_tapa or parsed.get("con_tapa_desc", False)
 
         precio_data = calcular_precio_importado(
             parsed, config, overrides,
-            con_tapa=item.con_tapa,
+            con_tapa=con_tapa_efectivo,
             es_metro_lineal=es_ml,
             espesor_tapa_item=item.espesor_tapa,
         )
