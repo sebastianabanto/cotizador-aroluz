@@ -136,7 +136,7 @@
                     data-asistidos="{{ emp.dias_asistidos }}"
                     data-asistidos-total="{{ emp.dias_asistidos }}"
                     data-emp-id="{{ emp.id }}"
-                    data-detalle="{{ emp.detalle | tojson }}">
+                    data-detalle="{{ emp.detalle | tojson | forceescape }}">
                     <td class="center td-estado">
                         {% if emp.dias_habiles_ausentes == 0 %}
                             <span class="badge badge-verde">✓</span>
@@ -492,6 +492,7 @@ function filtrarQuincena(q) {
             tdEst.textContent = "—";
         }
     });
+    filtrarDepartamento(deptoActivo);
 }
 
 function toggleDetalle(id) {
@@ -520,7 +521,7 @@ function filtrarDepartamento(depto) {
     document.querySelectorAll(".fila-empleado").forEach(function(fila) {
         const filaDepto = fila.getAttribute("data-depto");
         const id = fila.getAttribute("data-id");
-        const asistidos = parseInt(fila.getAttribute("data-asistidos-total") || "0", 10);
+        const asistidos = parseInt(fila.getAttribute("data-asistidos") || "0", 10);
         const detalleRow = document.getElementById("detalle-" + id);
         const deptoOk = (depto === "todos" || filaDepto === depto);
 
