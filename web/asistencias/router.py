@@ -278,7 +278,7 @@ async def toggle_excepcion(
 
 def _header_pdf_html(titulo: str, periodo: str, quincena_texto: str = "",
                      depto: str = "", n_empleados: int = None) -> str:
-    """Construye el HTML del encabezado para Playwright header_template."""
+    """Construye el HTML del encabezado para WeasyPrint running element."""
     meta_parts = [f"<b>Período:</b> {periodo}"]
     if quincena_texto:
         meta_parts.append(f"<b>Detalle:</b> {quincena_texto}")
@@ -288,13 +288,11 @@ def _header_pdf_html(titulo: str, periodo: str, quincena_texto: str = "",
         meta_parts.append(f"<b>Empleados:</b> {n_empleados}")
     meta = " &nbsp;|&nbsp; ".join(meta_parts)
     return (
-        '<div style="width:100%;font-family:Helvetica,Arial,sans-serif;'
-        'padding:0 20mm;box-sizing:border-box;">'
-        '<div style="border-bottom:2px solid #1a56a0;padding-bottom:5px;">'
+        '<div style="border-bottom:2px solid #1a56a0;padding-bottom:5px;'
+        'font-family:Helvetica,Arial,sans-serif;">'
         '<div style="font-size:13pt;font-weight:700;color:#1a56a0;line-height:1.3;">AROLUZ E.I.R.L.</div>'
         f'<div style="font-size:9pt;font-weight:600;color:#333;margin-top:2px;line-height:1.3;">{titulo}</div>'
         f'<div style="font-size:7.5pt;color:#555;margin-top:2px;line-height:1.3;">{meta}</div>'
-        '</div>'
         '</div>'
     )
 
@@ -315,27 +313,42 @@ def _footer_pdf_html(hoy: str) -> str:
 
 
 def _html_a_pdf(html_str: str, header_html: str = "", footer_html: str = "") -> bytes:
-    """Genera PDF desde un string HTML usando Playwright + Chromium."""
-    import concurrent.futures
-    from playwright.sync_api import sync_playwright
+    """Genera PDF desde HTML usando WeasyPrint (sin navegador — compatible con Linux/cloud)."""
+    from weasyprint import HTML as _WeasyprintHTML
+    from datetime import date as _date
 
-    def _run():
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page()
-            page.set_content(html_str, wait_until="networkidle")
-            pdf_bytes = page.pdf(
-                format="A4",
-                margin={"top": "32mm", "bottom": "14mm", "left": "20mm", "right": "20mm"},
-                display_header_footer=True,
-                header_template=header_html or "<span></span>",
-                footer_template=footer_html or "<span></span>",
-            )
-            browser.close()
-        return pdf_bytes
+    hoy_str = _date.today().strftime("%d/%m/%Y")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(_run).result(timeout=60)
+    # CSS: running element para el encabezado + número de página en pie
+    page_css = (
+        "\n<style>\n"
+        "._hdr { position: running(hdr); }\n"
+        "@page {\n"
+        "    @top-center { content: element(hdr); }\n"
+        "    @bottom-left {\n"
+        "        font-family: Helvetica, Arial, sans-serif;\n"
+        "        font-size: 7.5pt; color: #777;\n"
+        f"        content: 'AROLUZ E.I.R.L. \u2014 Control de Asistencias"
+        f"   Generado el {hoy_str}';\n"
+        "    }\n"
+        "    @bottom-right {\n"
+        "        font-family: Helvetica, Arial, sans-serif;\n"
+        "        font-size: 7.5pt; color: #777;\n"
+        "        content: 'P\u00e1g. ' counter(page) ' / ' counter(pages);\n"
+        "    }\n"
+        "}\n"
+        "</style>\n"
+    )
+    html_str = html_str.replace("</head>", page_css + "</head>", 1)
+
+    if header_html:
+        html_str = html_str.replace(
+            "<body>",
+            "<body><div class='_hdr'>" + header_html + "</div>",
+            1,
+        )
+
+    return _WeasyprintHTML(string=html_str).write_pdf()
 
 
 def _totales_periodo(detalle: list, quincena: int) -> dict:
