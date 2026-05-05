@@ -628,6 +628,24 @@ async def guardar_configuracion(
     dolar: float = Form(3.8),
     usd_kg_productos: float = Form(1.0),
     usd_kg_cajas: float = Form(3.0),
+    # Factores de ganancia por producto — Sin comisión (30%)
+    fg30_B: float = Form(0.70),
+    fg30_CH: float = Form(0.50),
+    fg30_CVE: float = Form(0.50),
+    fg30_CVI: float = Form(0.50),
+    fg30_T: float = Form(0.60),
+    fg30_C: float = Form(0.70),
+    fg30_R: float = Form(0.20),
+    fg30_CP: float = Form(0.50),
+    # Factores de ganancia por producto — Con comisión (35%)
+    fg35_B: float = Form(0.65),
+    fg35_CH: float = Form(0.45),
+    fg35_CVE: float = Form(0.45),
+    fg35_CVI: float = Form(0.45),
+    fg35_T: float = Form(0.55),
+    fg35_C: float = Form(0.65),
+    fg35_R: float = Form(0.15),
+    fg35_CP: float = Form(0.475),
 ):
     campos_precio = [go_12, go_15, go_20, gc_12, gc_15, gc_20, dolar, usd_kg_productos, usd_kg_cajas]
     if any(v < 0 for v in campos_precio):
@@ -635,6 +653,10 @@ async def guardar_configuracion(
     precios_plancha = [go_12, go_15, go_20, gc_12, gc_15, gc_20]
     if any(v == 0 for v in precios_plancha) or dolar == 0:
         return JSONResponse({"ok": False, "error": "Los precios de plancha y el tipo de cambio no pueden ser cero"}, status_code=422)
+    factores = [fg30_B, fg30_CH, fg30_CVE, fg30_CVI, fg30_T, fg30_C, fg30_R, fg30_CP,
+                fg35_B, fg35_CH, fg35_CVE, fg35_CVI, fg35_T, fg35_C, fg35_R, fg35_CP]
+    if any(v <= 0 for v in factores):
+        return JSONResponse({"ok": False, "error": "Los factores de ganancia deben ser mayores que cero"}, status_code=422)
 
     config = cargar_config()
     config["valores_defecto"].update({
@@ -648,6 +670,12 @@ async def guardar_configuracion(
         "usd_kg_productos": usd_kg_productos,
         "usd_kg_cajas": usd_kg_cajas,
     })
+    config["factores_ganancia"] = {
+        "30": {"B": fg30_B, "CH": fg30_CH, "CVE": fg30_CVE, "CVI": fg30_CVI,
+               "T": fg30_T, "C": fg30_C, "R": fg30_R, "CP": fg30_CP},
+        "35": {"B": fg35_B, "CH": fg35_CH, "CVE": fg35_CVE, "CVI": fg35_CVI,
+               "T": fg35_T, "C": fg35_C, "R": fg35_R, "CP": fg35_CP},
+    }
     ok = guardar_config(config)
     return JSONResponse({"ok": ok})
 

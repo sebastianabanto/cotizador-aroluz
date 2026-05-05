@@ -40,12 +40,14 @@ def _get_pricing_config(
     usd_kg_cajas = float(valores.get("usd_kg_cajas", 3.0))
     dolar = float(valores.get("dolar", 3.8))
 
+    factores = config.get("factores_ganancia", {}).get(ganancia, {})
     return PricingConfig(
         tipo_galvanizado=tipo_galvanizado,
         dolar=dolar,
         precio_galvanizado_kg=precio_galv_kg,
         porcentaje_ganancia=ganancia,
         usd_kg_cajas=usd_kg_cajas,
+        factores_ganancia=factores,
     )
 
 

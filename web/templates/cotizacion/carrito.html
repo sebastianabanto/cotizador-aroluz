@@ -7,9 +7,7 @@
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
     <h1 class="page-title" style="margin:0;">Carrito de Cotización</h1>
-    {% if carrito %}
-    <button class="btn btn-danger btn-sm" onclick="limpiarCarrito()">Vaciar carrito</button>
-    {% endif %}
+    <button class="btn btn-danger btn-sm" onclick="limpiarCarrito()">Limpiar carrito</button>
   </div>
 
   <!-- Datos del proyecto (colapsable) -->
@@ -123,7 +121,7 @@
               <div class="cantidad-ctrl">
                 <button onclick="cambiarCant({{ item.id }}, -1)" aria-label="Restar cantidad de {{ item.descripcion }}">−</button>
                 <input type="number" id="cant-{{ item.id }}" value="{{ item.cantidad }}"
-                  min="1" max="999" onchange="actualizarCant({{ item.id }})"
+                  min="0.01" max="999" step="any" onchange="actualizarCant({{ item.id }})"
                   aria-label="Cantidad de {{ item.descripcion }}">
                 <button onclick="cambiarCant({{ item.id }}, 1)" aria-label="Sumar cantidad de {{ item.descripcion }}">+</button>
               </div>
@@ -659,8 +657,17 @@ const MONEDAS    = [
 const _FORM_KEY = 'carrito_form_v1';
 function guardarFormulario() {
   sessionStorage.setItem(_FORM_KEY, JSON.stringify({
-    moneda:  document.getElementById('moneda')?.value || 'SOLES',
-    validez: document.getElementById('validez')?.value || '30 días',
+    moneda:           document.getElementById('moneda')?.value || 'SOLES',
+    validez:          document.getElementById('validez')?.value || '30 días',
+    cliente:          document.getElementById('cliente')?.value || '',
+    clienteInput:     document.getElementById('cliente-input')?.value || '',
+    clienteNombre:    document.getElementById('cliente-nombre')?.value || '',
+    clienteRuc:       document.getElementById('cliente-ruc')?.value || '',
+    clienteUbicacion: document.getElementById('cliente-ubicacion')?.value || '',
+    atencion:         document.getElementById('atencion')?.value || '',
+    atencionEmail:    document.getElementById('atencion-email')?.value || '',
+    proyecto:         document.getElementById('proyecto')?.value || '',
+    encabezadoTabla:  document.getElementById('encabezado-tabla')?.value || '',
   }));
 }
 
@@ -939,12 +946,12 @@ document.addEventListener('click', e => {
 // ── Carrito ──
 function cambiarCant(itemId, delta) {
   const inp = document.getElementById(`cant-${itemId}`);
-  inp.value = Math.max(1, parseInt(inp.value || 1) + delta);
+  inp.value = Math.max(0.01, parseFloat(inp.value || 1) + delta);
   actualizarCant(itemId);
 }
 
 async function actualizarCant(itemId) {
-  const cant = parseInt(document.getElementById(`cant-${itemId}`).value) || 1;
+  const cant = parseFloat(document.getElementById(`cant-${itemId}`).value) || 1;
   const fd = formData({ cantidad: cant });
   const data = await apiFetch(`/api/carrito/modificar/${itemId}`, { method: 'POST', body: fd });
   if (data.ok) {
@@ -969,10 +976,14 @@ async function eliminarItem(itemId) {
 }
 
 async function limpiarCarrito() {
-  if (!confirm('¿Vaciar todo el carrito?')) return;
+  if (!confirm('¿Limpiar el carrito y los datos del proyecto?')) return;
   const data = await apiFetch('/api/carrito/limpiar', { method: 'POST' });
   if (data.ok) {
-    sessionStorage.removeItem('carrito_form_v1');
+    // Limpiar DOM antes de recargar para que pagehide→guardarFormulario
+    // guarde valores vacíos y no restaure los anteriores al recargar
+    limpiarCamposProyecto();
+    seleccionarMoneda('SOLES');
+    guardarFormulario();
     sessionStorage.removeItem('editando_desde_cotizacion_id');
     sessionStorage.removeItem('carritoLive');
     _navegandoInternamente = true;
@@ -1013,16 +1024,79 @@ async function agregarManual() {
   });
 
   const data = await apiFetch('/api/carrito/agregar_manual', { method: 'POST', body: fd });
-  if (data.ok) {
-    toast('Producto manual agregado', 'success');
+  if (!data.ok) { toast('Error al agregar', 'error'); return; }
+
+  const tbody = document.getElementById('tbody-carrito');
+  if (!tbody) {
+    // Carrito estaba vacío → recargar para mostrar la tabla completa
     _navegandoInternamente = true;
-    setTimeout(() => {
-      sessionStorage.setItem('_reloadProgramatico', '1');
-      window.location.reload();
-    }, 600);
-  } else {
-    toast('Error al agregar', 'error');
+    sessionStorage.setItem('_reloadProgramatico', '1');
+    window.location.reload();
+    return;
   }
+
+  // Insertar fila directamente sin recargar
+  const item = data.item;
+  carritoMap.set(item.id, item);
+
+  const idx = tbody.rows.length + 1;
+  const s   = sym();
+  const pu  = conv(item.precio_unitario);
+  const pt  = conv(item.precio_unitario * item.cantidad);
+
+  const tr = document.createElement('tr');
+  tr.id = `fila-${item.id}`;
+  tr.innerHTML = `
+    <td data-label="#">${idx}</td>
+    <td data-label="">
+      <div style="font-size:0.875rem;">${_pl_escHtml(item.descripcion)}</div>
+      <div style="font-size:0.75rem; color:var(--texto-suave);">Manual · N/A · ${item.unidad}</div>
+    </td>
+    <td data-label="Cant.">
+      <div class="cantidad-ctrl">
+        <button onclick="cambiarCant(${item.id}, -1)" aria-label="Restar cantidad">−</button>
+        <input type="number" id="cant-${item.id}" value="${item.cantidad}" min="0.01" max="999" step="any"
+               onchange="actualizarCant(${item.id})" aria-label="Cantidad">
+        <button onclick="cambiarCant(${item.id}, 1)" aria-label="Sumar cantidad">+</button>
+      </div>
+    </td>
+    <td data-label="Und." style="text-align:center;">${item.unidad}</td>
+    <td data-label="P.U." class="td-num" id="pu-${item.id}" data-precio-soles="${item.precio_unitario}">
+      ${s} ${pu.toFixed(2)}
+    </td>
+    <td data-label="P.T." class="td-num" id="pt-${item.id}">
+      ${s} ${pt.toFixed(2)}
+    </td>
+    <td data-label="" style="white-space:nowrap;">
+      <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
+        onclick="abrirModalEditar(${item.id})" title="Editar ítem">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="eliminarItem(${item.id})"
+        aria-label="Eliminar ${_pl_escHtml(item.descripcion)}">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+
+  // Scroll suave al final del contenedor de la tabla
+  const tableContainer = tbody.closest('.table-container');
+  if (tableContainer) {
+    tableContainer.scrollTo({ top: tableContainer.scrollHeight, behavior: 'smooth' });
+  }
+
+  // Actualizar totales y contador del summary
+  actualizarTotales();
+  const summarySpan = document.querySelector('#det-lista summary span:first-child');
+  if (summarySpan) {
+    const n = carritoMap.size;
+    summarySpan.textContent = `Productos (${n} item${n !== 1 ? 's' : ''})`;
+  }
+
+  // Limpiar formulario manual
+  document.getElementById('m-desc').value    = '';
+  document.getElementById('m-precio').value  = '0';
+  document.getElementById('m-cantidad').value = '1';
+  document.getElementById('m-peso').value    = '0';
+  document.getElementById('m-unidad').value  = 'UND';
+
+  toast('Producto manual agregado');
 }
 
 async function exportar(formato, btnEl) {
@@ -1161,6 +1235,27 @@ function restaurarFormulario() {
   try { f = JSON.parse(sessionStorage.getItem(_FORM_KEY) || 'null'); } catch { return; }
   if (!f) return;
 
+  if (f.cliente) {
+    _clienteActual = { codigo: f.cliente, nombre: f.clienteNombre || '' };
+    document.getElementById('cliente-input').value = f.clienteInput || `${f.cliente} — ${f.clienteNombre || ''}`;
+    document.getElementById('cliente').value = f.cliente;
+    document.getElementById('cliente-nombre').value = f.clienteNombre || '';
+    document.getElementById('cliente-ruc').value = f.clienteRuc || '';
+    document.getElementById('cliente-ubicacion').value = f.clienteUbicacion || '';
+  }
+  if (f.atencion) {
+    _atencionActual = { valor: f.atencion, nombre: f.atencion };
+    document.getElementById('atencion-input').value = f.atencion;
+    document.getElementById('atencion').value = f.atencion;
+    document.getElementById('atencion-email').value = f.atencionEmail || '';
+  }
+  if (f.proyecto) {
+    document.getElementById('proyecto').value = f.proyecto;
+  }
+  if (f.encabezadoTabla) {
+    const et = document.getElementById('encabezado-tabla');
+    if (et) et.value = f.encabezadoTabla;
+  }
   if (f.moneda) {
     const m = MONEDAS.find(x => x.valor === f.moneda) || MONEDAS[0];
     _monedaActual = { valor: m.valor, nombre: m.nombre };
@@ -1188,8 +1283,15 @@ sessionStorage.removeItem('_reloadProgramatico');
 
 // ── Banner: editando copia desde historial ──
 const _editandoDesdeId = sessionStorage.getItem('editando_desde_cotizacion_id');
-restaurarFormulario();
-// Moneda: si restaurarFormulario no puso nada, mostrar valor por defecto
+// En F5 (reload del usuario) no restaurar los campos — deben quedar en blanco.
+// En recarga programática (_esProgramatico) sí restaurar (el formulario ya fue
+// limpiado antes de recargar, así que restaurar trae valores vacíos).
+if (_navType === 'reload' && !_esProgramatico) {
+  sessionStorage.removeItem(_FORM_KEY); // evitar que la 2ª recarga también restaure
+} else {
+  restaurarFormulario();
+}
+// Moneda: si restaurarFormulario no puso nada (o no se llamó), mostrar valor por defecto
 if (!document.getElementById('moneda-input').value) {
   document.getElementById('moneda-input').value = _monedaActual.nombre;
   document.getElementById('moneda').value = _monedaActual.valor;

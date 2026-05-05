@@ -107,17 +107,18 @@ async def api_agregar_manual(
         "tipo_galvanizado": "N/A",
         "porcentaje_ganancia": "N/A",
     }
-    add_item_carrito_db(usuario["u"], item)
-    return JSONResponse({"ok": True, "mensaje": "Producto manual agregado"})
+    item_id = add_item_carrito_db(usuario["u"], item)
+    item["id"] = item_id
+    return JSONResponse({"ok": True, "item": item})
 
 
 @router.post("/modificar/{item_id}")
 async def api_modificar_cantidad(
     item_id: int,
     usuario: dict = Depends(require_login),
-    cantidad: int = Form(...),
+    cantidad: float = Form(...),
 ):
-    if cantidad < 1:
+    if cantidad < 0.01:
         return JSONResponse({"ok": False, "error": "Cantidad inválida"}, status_code=400)
     updated = update_cantidad_carrito_db(item_id, usuario["u"], cantidad)
     if updated:

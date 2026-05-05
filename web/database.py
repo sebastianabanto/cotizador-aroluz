@@ -49,6 +49,10 @@ CONFIG_DEFECTO = {
         "ver_historial": True,
         "ver_catalogo": True,
     },
+    "factores_ganancia": {
+        "30": {"B": 0.70, "CH": 0.50, "CVE": 0.50, "CVI": 0.50, "T": 0.60, "C": 0.70, "R": 0.20, "CP": 0.50},
+        "35": {"B": 0.65, "CH": 0.45, "CVE": 0.45, "CVI": 0.45, "T": 0.55, "C": 0.65, "R": 0.15, "CP": 0.475},
+    },
 }
 
 
@@ -77,6 +81,41 @@ def _add_column_if_missing(conn, table: str, column: str, col_def: str):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
     except sqlite3.OperationalError:
         pass  # columna ya existe
+
+
+def _migrate_cantidad_to_real(conn):
+    """Migra carrito_items.cantidad de INTEGER a REAL si todavía es INTEGER."""
+    rows = conn.execute("PRAGMA table_info(carrito_items)").fetchall()
+    col = next((r for r in rows if r[1] == "cantidad"), None)
+    if col is None or col[2].upper() == "REAL":
+        return  # ya está bien
+    # Recrear tabla con REAL
+    conn.execute("ALTER TABLE carrito_items RENAME TO carrito_items_bak")
+    conn.execute("""
+        CREATE TABLE carrito_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            tipo TEXT NOT NULL,
+            descripcion TEXT NOT NULL,
+            precio_unitario REAL NOT NULL,
+            peso_unitario REAL NOT NULL,
+            cantidad REAL NOT NULL DEFAULT 1,
+            unidad TEXT NOT NULL DEFAULT 'UND',
+            tipo_galvanizado TEXT NOT NULL DEFAULT 'GO',
+            porcentaje_ganancia TEXT NOT NULL DEFAULT '30',
+            descripcion_calculada TEXT DEFAULT NULL
+        )
+    """)
+    conn.execute("""
+        INSERT INTO carrito_items
+            (id, username, tipo, descripcion, precio_unitario, peso_unitario,
+             cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, descripcion_calculada)
+        SELECT id, username, tipo, descripcion, precio_unitario, peso_unitario,
+               CAST(cantidad AS REAL), unidad, tipo_galvanizado, porcentaje_ganancia,
+               descripcion_calculada
+        FROM carrito_items_bak
+    """)
+    conn.execute("DROP TABLE carrito_items_bak")
 
 
 def init_db():
@@ -132,7 +171,7 @@ def init_db():
             descripcion TEXT NOT NULL,
             precio_unitario REAL NOT NULL,
             peso_unitario REAL NOT NULL,
-            cantidad INTEGER NOT NULL DEFAULT 1,
+            cantidad REAL NOT NULL DEFAULT 1,
             unidad TEXT NOT NULL DEFAULT 'UND',
             tipo_galvanizado TEXT NOT NULL DEFAULT 'GO',
             porcentaje_ganancia TEXT NOT NULL DEFAULT '30'
@@ -197,6 +236,7 @@ def init_db():
     _add_column_if_missing(conn, "usuarios", "rol", "TEXT NOT NULL DEFAULT 'USER'")
     _add_column_if_missing(conn, "usuarios", "ver_asistencias", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "carrito_items", "descripcion_calculada", "TEXT DEFAULT NULL")
+    _migrate_cantidad_to_real(conn)
     _add_column_if_missing(conn, "cotizaciones", "origen", "TEXT NOT NULL DEFAULT 'web'")
     # Promover al usuario admin a ADMIN si aún no lo es
     conn.execute("UPDATE usuarios SET rol='ADMIN' WHERE username='admin' AND rol='USER'")
@@ -860,7 +900,7 @@ def add_item_carrito_db(username: str, item: Dict) -> int:
     return item_id
 
 
-def update_cantidad_carrito_db(item_id: int, username: str, cantidad: int) -> bool:
+def update_cantidad_carrito_db(item_id: int, username: str, cantidad: float) -> bool:
     """Actualiza la cantidad de un item. Retorna True si se actualizó."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()

@@ -204,6 +204,65 @@
       </div>
     </div>
 
+    <!-- Factores de Ganancia por Producto -->
+    <div class="cfg-card" style="margin-top:1rem;">
+      <div class="cfg-card-header">
+        <span class="cfg-card-icon" style="background:#fdf2f8; color:#9d174d;">÷</span>
+        <span>Factores de Ganancia por Producto</span>
+      </div>
+      <div class="cfg-card-body">
+        {% set fg = config.get('factores_ganancia', {}) %}
+        {% set fg30 = fg.get('30', {}) %}
+        {% set fg35 = fg.get('35', {}) %}
+        <div class="precio-table-wrap">
+          <table class="precio-table">
+            <thead>
+              <tr>
+                <th class="pt-head-label">Producto</th>
+                <th>Sin comisión (30%)</th>
+                <th>Con comisión (35%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set productos = [
+                ('B',   'Bandeja',            0.70, 0.65),
+                ('CH',  'Curva Horizontal',    0.50, 0.45),
+                ('CVE', 'Curva V. Externa',    0.50, 0.45),
+                ('CVI', 'Curva V. Interna',    0.50, 0.45),
+                ('T',   'Tee',                 0.60, 0.55),
+                ('C',   'Cruz',                0.70, 0.65),
+                ('R',   'Reducción',           0.20, 0.15),
+                ('CP',  'Caja de Pase',        0.50, 0.475),
+              ] %}
+              {% for cod, nombre, def30, def35 in productos %}
+              <tr>
+                <td class="precio-table-label">
+                  <span class="pt-badge" style="background:#f0f4ff; color:#1a3a5c; font-size:0.7rem;">{{ cod }}</span>
+                  <span class="pt-label-text">{{ nombre }}</span>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <input type="number" id="fg30-{{ cod }}" step="0.001" min="0.001"
+                      value="{{ fg30.get(cod, def30) }}">
+                  </div>
+                </td>
+                <td>
+                  <div class="pt-input-wrap">
+                    <input type="number" id="fg35-{{ cod }}" step="0.001" min="0.001"
+                      value="{{ fg35.get(cod, def35) }}">
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p style="margin:0.5rem 0 0; font-size:0.78rem; color:#6b7280;">
+          El precio final se calcula como: <strong>precio_base ÷ factor</strong>. Valores típicos: 0.70 (sin comisión) · 0.65 (con comisión).
+        </p>
+      </div>
+    </div>
+
     <!-- Botones de acción -->
     <div class="cfg-save-row">
       <button class="btn btn-primary" onclick="pedirConfirmacion()" style="min-width:160px;">
@@ -1159,6 +1218,10 @@ const DEFAULTS_CONFIG = {
   go_12: 150, go_15: 180, go_20: 220,
   gc_12: 140, gc_15: 170, gc_20: 210,
   dolar: 3.8, usd_kg_productos: 1.0, usd_kg_cajas: 3.0,
+  fg30_B: 0.70, fg30_CH: 0.50, fg30_CVE: 0.50, fg30_CVI: 0.50,
+  fg30_T: 0.60, fg30_C: 0.70, fg30_R: 0.20, fg30_CP: 0.50,
+  fg35_B: 0.65, fg35_CH: 0.45, fg35_CVE: 0.45, fg35_CVI: 0.45,
+  fg35_T: 0.55, fg35_C: 0.65, fg35_R: 0.15, fg35_CP: 0.475,
 };
 
 // ── Modal de confirmación guardar config ──
@@ -1203,6 +1266,11 @@ function restaurarDefecto() {
   document.getElementById('dolar').value = d.dolar;
   document.getElementById('usd-productos').value = d.usd_kg_productos;
   document.getElementById('usd-cajas').value = d.usd_kg_cajas;
+  // Factores de ganancia
+  ['B','CH','CVE','CVI','T','C','R','CP'].forEach(cod => {
+    document.getElementById('fg30-' + cod).value = d['fg30_' + cod];
+    document.getElementById('fg35-' + cod).value = d['fg35_' + cod];
+  });
   toast('Valores restaurados — haz clic en Guardar para confirmar', 'info');
 }
 
@@ -1237,6 +1305,23 @@ async function guardarConfig() {
     dolar:            document.getElementById('dolar').value,
     usd_kg_productos: document.getElementById('usd-productos').value,
     usd_kg_cajas:     document.getElementById('usd-cajas').value,
+    // Factores de ganancia por producto
+    fg30_B:   document.getElementById('fg30-B').value,
+    fg30_CH:  document.getElementById('fg30-CH').value,
+    fg30_CVE: document.getElementById('fg30-CVE').value,
+    fg30_CVI: document.getElementById('fg30-CVI').value,
+    fg30_T:   document.getElementById('fg30-T').value,
+    fg30_C:   document.getElementById('fg30-C').value,
+    fg30_R:   document.getElementById('fg30-R').value,
+    fg30_CP:  document.getElementById('fg30-CP').value,
+    fg35_B:   document.getElementById('fg35-B').value,
+    fg35_CH:  document.getElementById('fg35-CH').value,
+    fg35_CVE: document.getElementById('fg35-CVE').value,
+    fg35_CVI: document.getElementById('fg35-CVI').value,
+    fg35_T:   document.getElementById('fg35-T').value,
+    fg35_C:   document.getElementById('fg35-C').value,
+    fg35_R:   document.getElementById('fg35-R').value,
+    fg35_CP:  document.getElementById('fg35-CP').value,
   });
   const data = await apiFetch('/configuracion/guardar', { method: 'POST', body: fd });
   toast(data.ok ? 'Configuración guardada' : (data.error || 'Error al guardar'), data.ok ? 'success' : 'error');

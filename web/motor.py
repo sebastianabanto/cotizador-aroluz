@@ -6,7 +6,7 @@ parámetro en lugar de variables globales. Esto lo hace thread-safe
 para uso en FastAPI con múltiples requests concurrentes.
 """
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 
 
@@ -22,10 +22,12 @@ class PricingConfig:
     precio_galvanizado_kg: float  # USD/kg para galvanizado en caliente (productos)
     porcentaje_ganancia: str    # "30" o "35"
     usd_kg_cajas: float = 3.0  # USD/kg para galvanizado de Cajas de Pase
+    factores_ganancia: dict = field(default_factory=dict)  # {producto: divisor} para el modo activo
 
     @property
     def factor_ganancia(self) -> float:
-        return 0.70 if self.porcentaje_ganancia == "30" else 0.65
+        default = 0.70 if self.porcentaje_ganancia == "30" else 0.65
+        return self.factores_ganancia.get("B", default)
 
 
 PL_MM2 = 2400 * 1200  # Área estándar de plancha en mm²
@@ -63,11 +65,7 @@ def aplicar_costo_galvanizado(cfg: PricingConfig, precio_base: float, peso: floa
 
 
 def get_factor_ganancia_producto(cfg: PricingConfig, producto: str) -> float:
-    factores = {
-        "30": {"CH": 0.5, "CVE": 0.5, "CVI": 0.5, "T": 0.6, "C": 0.7, "R": 0.2, "CP": 0.5},
-        "35": {"CH": 0.45, "CVE": 0.45, "CVI": 0.45, "T": 0.55, "C": 0.65, "R": 0.15, "CP": 0.475},
-    }
-    return factores.get(cfg.porcentaje_ganancia, {}).get(producto, cfg.factor_ganancia)
+    return cfg.factores_ganancia.get(producto, cfg.factor_ganancia)
 
 
 def aplicar_ganancia(cfg: PricingConfig, precio: float, producto: Optional[str] = None) -> float:
