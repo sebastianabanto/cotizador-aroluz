@@ -36,7 +36,7 @@ from web.database import (
     crear_usuario, cambiar_password, listar_usuarios,
     editar_usuario, toggle_activo_usuario, eliminar_usuario,
     get_kpis_proyectos, get_proyectos_con_stats, set_proyecto_estado,
-    update_proyecto_direccion, update_proyecto_numero_oc, update_proyecto_contacto, renombrar_proyecto,
+    update_proyecto_direccion, update_proyecto_numero_oc, update_proyecto_contacto, update_proyecto_notas, renombrar_proyecto,
     add_adjunto, list_adjuntos, get_adjunto_filepath, delete_adjunto,
     crear_proyecto, eliminar_proyecto,
     get_oc_items, add_oc_item, update_oc_item, delete_oc_item,
@@ -48,6 +48,7 @@ from web.rutas import exportar as rutas_exportar
 from web.rutas import historial as rutas_historial
 from web.rutas import planchas as rutas_planchas
 from web.rutas import importar_pdf as rutas_importar_pdf
+from web.rutas import email_imap as rutas_email_imap
 from web.rutas.carrito import get_carrito
 from web.asistencias.router import router as asistencias_router
 
@@ -112,6 +113,7 @@ app.include_router(rutas_exportar.router)
 app.include_router(rutas_historial.router)
 app.include_router(rutas_planchas.router)
 app.include_router(rutas_importar_pdf.router)
+app.include_router(rutas_email_imap.router, prefix="/api/email")
 app.include_router(asistencias_router, prefix="/asistencias")
 
 
@@ -254,6 +256,23 @@ async def api_update_contacto(
     except Exception:
         return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
     update_proyecto_contacto(nombre, contacto)
+    return JSONResponse({"ok": True})
+
+
+@app.patch("/api/proyecto/{nombre}/notas")
+async def api_update_notas(
+    nombre: str,
+    request: Request,
+    usuario: dict = Depends(require_login),
+):
+    try:
+        body = await request.json()
+        notas = body.get("notas", "")
+    except Exception:
+        return JSONResponse({"ok": False, "error": "JSON inválido"}, status_code=400)
+    if len(notas) > 10_000:
+        return JSONResponse({"ok": False, "error": "Notas demasiado largas."}, status_code=422)
+    update_proyecto_notas(nombre, notas)
     return JSONResponse({"ok": True})
 
 
@@ -423,7 +442,7 @@ async def api_crear_proyecto(
     return JSONResponse({"ok": True})
 
 
-@app.delete("/api/proyecto/{nombre}")
+@app.delete("/api/proyecto")
 async def api_eliminar_proyecto(
     nombre: str,
     usuario: dict = Depends(require_admin),
