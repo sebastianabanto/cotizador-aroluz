@@ -600,6 +600,7 @@
   display: flex;
   gap: 0.35rem;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0.2rem 0 0.3rem;
   scrollbar-width: thin;
   scrollbar-color: var(--gris-borde) transparent;
@@ -909,6 +910,17 @@
   max-width: 100%;
   margin-left: auto;
   margin-right: auto;
+  /* En mobile los chips scrollean horizontalmente sin saltar de línea */
+}
+@media (max-width: 600px) {
+  .kanban-cli-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 0.6rem;
+  }
+  .kanban-cli-chips::-webkit-scrollbar { display: none; }
 }
 .kanban-cli-chip {
   font-size: 0.78rem;
@@ -1044,6 +1056,10 @@ dialog.modal-simple {
   border-radius: 12px;
   padding: 0;
   width: min(420px, 94vw);
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-shadow: var(--sombra-md);
   background: var(--blanco);
 }
@@ -1331,7 +1347,7 @@ dialog.modal-oc::backdrop { background: rgba(12,35,64,0.6); }
 }
 .oc-saldo-total.positivo { color: var(--rojo); background: #fee2e2; }
 .oc-saldo-total.cero     { color: var(--verde); background: #dcfce7; }
-.oc-tabla-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+.oc-tabla-wrap { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
 
 /* Tabla ítems OC */
 .oc-items-table {
@@ -1563,5 +1579,87 @@ dialog.lightbox::backdrop { display: none; }
     flex: 1 1 auto;
     width: 100%;
     min-width: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Touch devices — mínimo 44×44px en Kanban
+───────────────────────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  /* Lápiz de edición en tarjeta kanban */
+  .btn-kc-edit {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.35rem 0.6rem;
+  }
+
+  /* Botón "+" de nueva obra en cabecera de columna */
+  .btn-nueva-obra {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.15rem;
+  }
+
+  /* Botón eliminar obra */
+  .btn-eliminar-obra {
+    min-height: 44px;
+    padding: 0.35rem 0.75rem;
+  }
+
+  /* Botón guardar en tarjeta */
+  .btn-kc-save {
+    min-height: 44px;
+    padding: 0.35rem 0.85rem;
+  }
+
+  /* Botón ver OC */
+  .btn-ver-oc {
+    min-height: 44px;
+    padding: 0.4rem 0.85rem;
+  }
+
+  /* Thumbnails de evidencia — más fáciles de tocar */
+  .kc-ev-thumb {
+    width: 80px;
+    height: 80px;
+  }
+  /* Botón borrar evidencia — siempre visible en touch */
+  .kc-ev-del {
+    display: block;
+    width: 24px;
+    height: 24px;
+    font-size: 0.85rem;
+    line-height: 24px;
+  }
+
+  /* Ítem de adjunto — más alto para touch */
+  .adj-item {
+    min-height: 40px;
+    padding: 0.3rem 0;
+  }
+  .adj-del {
+    min-height: 40px;
+    min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Selector de estado kanban */
+  .kanban-estado-select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  /* Chips de filtro */
+  .kanban-cli-chip {
+    min-height: 40px;
+    padding: 0.35rem 0.9rem;
+  }
+
+  /* Input de búsqueda filtro kanban */
+  .kanban-filtro {
+    min-height: 44px;
+    font-size: 16px;
   }
 }
