@@ -287,8 +287,13 @@ def init_db():
     # Índices para consultas frecuentes
     c.execute("CREATE INDEX IF NOT EXISTS idx_cotizaciones_username ON cotizaciones(username)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_cotizaciones_fecha ON cotizaciones(fecha DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_cotizaciones_proyecto ON cotizaciones(proyecto)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_cotizacion_items_cotizacion_id ON cotizacion_items(cotizacion_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_carrito_items_username ON carrito_items(username)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_reportes_asistencia_periodo ON reportes_asistencia(periodo DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_atenciones_codigo_empresa ON atenciones(codigo_empresa)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_email_importados_pdf_hash ON email_importados(pdf_hash)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_email_importados_proyecto ON email_importados(proyecto)")
     conn.commit()
 
     conn.close()
