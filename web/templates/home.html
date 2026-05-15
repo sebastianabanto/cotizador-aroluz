@@ -16,6 +16,7 @@
       <a href="/cotizar" class="btn btn-primary btn-sm">+ Nueva cotización</a>
       <a href="/carrito" class="btn btn-outline btn-sm">🛒 Carrito</a>
       <a href="/historial" class="btn btn-outline btn-sm">Historial</a>
+      <button class="btn btn-outline btn-sm" onclick="abrirModalEmail()" title="Leer órdenes de compra del correo">📧 Sincronizar correo</button>
     </div>
   </div>
 
@@ -48,6 +49,7 @@
         <div id="filtro-lista" class="ac-lista" style="display:none;"></div>
       </div>
     </div>
+    <div id="kanban-cli-chips" class="kanban-cli-chips" style="display:none"></div>
     <div class="kanban-board" id="kanban-board">
       {% for estado in ESTADOS_KANBAN %}{% if estado == 'APROBADO' %}
       {% set col_proyectos = proyectos | selectattr("estado", "equalto", estado) | list %}
@@ -69,7 +71,10 @@
                data-nombre="{{ p.nombre | e }}"
                data-cliente="{{ p.cliente | e }}"
                data-direccion="{{ p.direccion | e }}"
-               data-updated-at="{{ p.updated_at or '' }}">
+               data-lugar-entrega="{{ p.lugar_entrega | e }}"
+               data-updated-at="{{ p.updated_at or '' }}"
+               data-created-at="{{ p.created_at or '' }}"
+               data-notas="{{ p.notas | e }}">
 
             {# ── Cabecera: fila superior + fila inferior ── #}
             <div class="kc-header" onclick="toggleKanbanCard(this.closest('.kanban-card'))">
@@ -121,9 +126,13 @@
                   </label>
                 </div>
               </div>
-              {# Fila inferior: fecha (izq) + badges (centro) + toggle #}
+              {# Fila inferior: fechas (izq) + badges (centro) + toggle #}
               <div class="kc-bottom-row">
-                <span class="kc-fecha-creacion">{% if p.created_at %}{{ p.created_at[8:10] }}/{{ p.created_at[5:7] }}/{{ p.created_at[0:4] }}{% endif %}</span>
+                <div class="kc-fechas-col">
+                  <span class="kc-fecha-creacion">{% if p.fecha_oc %}📄 Fecha Orden: {{ p.fecha_oc }}{% elif p.created_at %}{{ p.created_at[8:10] }}/{{ p.created_at[5:7] }}/{{ p.created_at[0:4] }}{% endif %}</span>
+                  {% if p.fecha_entrega %}<span class="kc-fecha-entrega">🚚 Despachar: {{ p.fecha_entrega }}</span>{% endif %}
+                  {% if p.lugar_entrega %}<span class="kc-lugar-entrega" title="{{ p.lugar_entrega | e }}">📍 <a href="https://maps.google.com/?q={{ p.lugar_entrega | urlencode }}" target="_blank" rel="noopener" onclick="event.stopPropagation()">{{ p.lugar_entrega }}</a></span>{% endif %}
+                </div>
                 <div class="kc-badges">
                   {% if p.items_pendientes and p.items_pendientes > 0 %}
                   <span class="kc-pending-badge" title="{{ p.items_pendientes }} ítems con saldo pendiente">
@@ -178,6 +187,15 @@
                        placeholder="Teléfono o nombre…"
                        onblur="guardarContacto(this)"
                        onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
+              </div>
+
+              {# Notas libres #}
+              <div class="kc-section kc-section-notas">
+                <div class="kc-section-label">Notas</div>
+                <textarea
+                  placeholder="Observaciones, aclaraciones, contexto…"
+                  onblur="guardarNotas(this)"
+                  onkeydown="if(event.key==='Escape'){this.blur();event.preventDefault()}">{{ p.notas or '' }}</textarea>
               </div>
 
               {# Eliminar proyecto #}
@@ -347,6 +365,73 @@
   </div>
 </dialog>
 
+{# ── Modal: Sincronizar correo ── #}
+<dialog id="modal-email-sync" class="modal-simple modal-email">
+  <div class="modal-simple-header">
+    <div>
+      <h3>📧 Sincronizar correo</h3>
+      <div id="email-ultima-sync" style="font-size:0.74rem;color:var(--texto-suave);margin-top:0.12rem"></div>
+    </div>
+    <button class="modal-close" onclick="document.getElementById('modal-email-sync').close()">×</button>
+  </div>
+  <div id="email-sync-body" class="email-sync-body">
+    <div id="email-sync-inicial" style="text-align:center;color:var(--texto-suave);padding:2rem 1rem">
+      Presioná <strong>Sincronizar</strong> para buscar emails con OC adjunta.
+    </div>
+    <div id="email-sync-spinner" class="email-spinner" style="display:none">
+      <span class="email-spinner-icon">⏳</span> Buscando en el correo… <span id="email-sync-timer" style="font-variant-numeric:tabular-nums;min-width:2.5ch;display:inline-block">0s</span>
+    </div>
+    <div id="email-sync-lista"></div>
+    <div id="email-sync-vacio" style="display:none;text-align:center;color:var(--texto-suave);padding:2rem 1rem">
+      No hay emails nuevos con OC adjunta en los últimos días configurados.
+    </div>
+    <div id="email-sync-error" style="display:none;color:#b91c1c;padding:1rem;background:#fee2e2;border-radius:8px;font-size:0.875rem">
+      <span id="email-sync-error-txt"></span>
+      <a href="/configuracion" id="email-sync-cfg-link" style="display:none;margin-top:0.5rem;font-size:0.8rem;color:#b91c1c;text-decoration:underline;display:block">⚙ Configurar correo</a>
+    </div>
+  </div>
+  <div class="modal-simple-footer" style="justify-content:flex-end;gap:0.75rem">
+    <div style="margin-right:auto;display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;color:var(--texto-suave);flex-wrap:wrap">
+      <span>📅</span>
+      <input type="date" id="email-since" style="font-size:0.78rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--borde);color:var(--texto)">
+      <span>→</span>
+      <input type="date" id="email-until" style="font-size:0.78rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--borde);color:var(--texto)">
+    </div>
+    <button id="btn-email-sync" class="btn btn-outline btn-sm" onclick="ejecutarSincEmail()">🔄 Sincronizar</button>
+    <button id="btn-email-ver-tablero" class="btn btn-primary" onclick="verTableroEmail()" style="display:none">📋 Ver en tablero</button>
+    <button class="btn btn-outline" onclick="document.getElementById('modal-email-sync').close()">Cerrar</button>
+  </div>
+</dialog>
+
+<style>
+.modal-email[open] { width: min(500px, 94vw); max-height: 82vh; display: flex; flex-direction: column; }
+.modal-email .modal-simple-header { flex-shrink: 0; }
+.modal-email .modal-simple-footer { flex-shrink: 0; }
+.email-sync-body { overflow-y: auto; flex: 1; padding: 1rem 1.25rem; }
+.email-spinner { display: flex; align-items: center; gap: 0.75rem; color: var(--texto-suave); padding: 1.5rem 0; font-size: 0.9rem; }
+.email-spinner-icon { font-size: 1.5rem; }
+.email-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; margin-bottom: 0.85rem; background: #fafafa; }
+.email-card-meta { font-size: 0.8rem; color: var(--texto-suave); margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.email-card-meta-row1 { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.email-card-subject { font-weight: 600; font-size: 0.925rem; margin-bottom: 0.75rem; color: var(--texto); }
+.email-card-pdf { font-size: 0.8rem; color: #b45309; background: #fef3c7; padding: 0.2rem 0.6rem; border-radius: 4px; display: inline-block; margin-bottom: 0.75rem; }
+.email-form-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: end; }
+.email-form-row-3 { display: grid; grid-template-columns: 1fr 7rem 1fr; gap: 0.5rem; margin-bottom: 0.5rem; }
+.email-label { font-size: 0.75rem; color: var(--texto-suave); margin-bottom: 0.2rem; }
+.email-input { width: 100%; padding: 0.35rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; background: #fff; }
+.email-input:focus { outline: 2px solid var(--primario); border-color: transparent; }
+.email-card.email-importado { opacity: 0.55; pointer-events: none; }
+.email-importado-badge { font-size: 0.75rem; color: var(--verde, #16a34a); font-weight: 600; margin-top: 0.4rem; }
+@media (max-width: 500px) {
+  .email-form-row-3 { grid-template-columns: 1fr 1fr; }
+  .email-form-row-3 > *:last-child { grid-column: 1 / -1; }
+}
+.btn-pdf-preview { font-size: 0.75rem; padding: 0.15rem 0.45rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer; white-space: nowrap; }
+.btn-pdf-preview:disabled { opacity: 0.5; cursor: default; }
+.email-pdf-preview { margin-top: 0.5rem; max-height: 360px; overflow-y: auto; border: 1px solid var(--borde); border-radius: 8px; background: #f8fafc; }
+.email-pdf-preview canvas { display: block; width: 100%; height: auto; margin-bottom: 2px; }
+</style>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 (function () {
@@ -441,11 +526,11 @@
     const checks = [...document.querySelectorAll('.kc-ruta-check:checked')];
     const checkedNames = new Set(checks.map(cb => cb.closest('.kanban-card').dataset.nombre));
 
-    // Mapa nombre → dirección actual del DOM
+    // Mapa nombre → dirección actual del DOM (direccion manual tiene prioridad; si no, lugar_entrega del PDF)
     const dirMap = {};
     checks.forEach(cb => {
       const card = cb.closest('.kanban-card');
-      dirMap[card.dataset.nombre] = card.dataset.direccion;
+      dirMap[card.dataset.nombre] = card.dataset.direccion || card.dataset.lugarEntrega || '';
     });
 
     // Quitar los desmarcados y refrescar la dirección de los que siguen marcados
@@ -459,7 +544,7 @@
       const card = cb.closest('.kanban-card');
       const nombre = card.dataset.nombre;
       if (!existing.has(nombre))
-        rutaItems.push({ nombre, dir: card.dataset.direccion });
+        rutaItems.push({ nombre, dir: card.dataset.direccion || card.dataset.lugarEntrega || '' });
     });
 
     renderRutaList();
@@ -504,19 +589,19 @@
 
   window.ordenarRutaNS = async function () {
     if (!rutaItems.length) return;
-    const btn = document.getElementById('btn-ordenar-ns');
+    const btn   = document.getElementById('btn-ordenar-ns');
+    const total = rutaItems.filter(it => it.dir).length;
+    if (!total) { showToast('Ningún proyecto tiene dirección para geocodificar.', 'info'); return; }
     btn.disabled = true;
-    btn.textContent = 'Geocodificando…';
     const resultados = [];
+    let geocoded = 0;
     for (const it of rutaItems) {
       if (!it.dir) { resultados.push({ ...it, lat: null }); continue; }
+      btn.textContent = `Geocodificando ${++geocoded}/${total}…`;
       try {
-        await new Promise(r => setTimeout(r, 1100)); // respetar rate limit Nominatim
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(it.dir)}&format=json&limit=1&countrycodes=pe`;
-        const r   = await fetch(url);
-        const d   = await r.json();
-        resultados.push({ ...it, lat: d[0] ? parseFloat(d[0].lat) : null });
-      } catch {
+        const d = await apiFetch('/api/email/geocode?q=' + encodeURIComponent(it.dir));
+        resultados.push({ ...it, lat: (d && d.ok && d.lat !== null) ? d.lat : null });
+      } catch (e) {
         resultados.push({ ...it, lat: null });
       }
     }
@@ -531,6 +616,9 @@
     renderRutaList();
     btn.disabled = false;
     btn.textContent = '↕ Ordenar N→S';
+    const sinCoords = resultados.filter(it => it.dir && it.lat === null).length;
+    if (sinCoords)
+      showToast(`${sinCoords} dirección(es) no se pudieron geocodificar y quedaron al final.`, 'info');
   };
 
   /* ─── Adjuntos ─── */
@@ -714,14 +802,10 @@
 
   /* ─── Eliminar proyecto ─── */
   window.eliminarProyecto = async function (nombre) {
-    const confirmado = prompt('Para confirmar, escribí el nombre exacto de la obra:\n"' + nombre + '"');
-    if (confirmado === null) return;  // canceló
-    if (confirmado.trim() !== nombre) {
-      alert('El nombre no coincide. No se eliminó la obra.');
-      return;
-    }
+    if (!confirm('¿Eliminar la obra "' + nombre + '"?\nEsta acción no se puede deshacer.')) return;
+    if (!confirm('Segunda confirmación: ¿Seguro que querés eliminar "' + nombre + '" junto con todos sus archivos?')) return;
     try {
-      const r = await fetch('/api/proyecto/' + encodeURIComponent(nombre), { method: 'DELETE' });
+      const r = await fetch('/api/proyecto?nombre=' + encodeURIComponent(nombre), { method: 'DELETE' });
       const d = await r.json();
       if (d.ok) { window.location.reload(); }
       else { alert('Error: ' + (d.error || 'desconocido')); }
@@ -1175,6 +1259,7 @@
             cliEl.classList.toggle('kc-sin-dato', !nuevoCliente);
           }
           CLIENTES_APROBADO = _buildClientesAprobado();
+          _renderCliChips();
         } else {
           alert('No se pudo guardar: ' + (d.error || 'error'));
           if (nombreInput) nombreInput.value = oldNombre;
@@ -1405,6 +1490,18 @@
     } catch (e) { console.error(e); }
   };
 
+  window.guardarNotas = async function (textarea) {
+    const card   = textarea.closest('.kanban-card');
+    const nombre = card.dataset.nombre;
+    try {
+      await fetch('/api/proyecto/' + encodeURIComponent(nombre) + '/notas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notas: textarea.value }),
+      });
+    } catch (e) { console.error(e); }
+  };
+
   /* ─── Autocomplete cliente en tarjeta kanban ─── */
   const CLIENTES_CAT = {{ catalogo.clientes | tojson }};
 
@@ -1497,6 +1594,48 @@
 
   let CLIENTES_APROBADO = _buildClientesAprobado();
 
+  function _renderCliChips() {
+    var container = document.getElementById('kanban-cli-chips');
+    if (!container) return;
+
+    /* Leer nombres de cliente directamente de las tarjetas (valor real en proyectos) */
+    var cardClientes = Array.from(new Set(
+      Array.from(document.querySelectorAll('.kanban-card[data-cliente]'))
+        .map(function(c) { return c.dataset.cliente.trim(); })
+        .filter(Boolean)
+    )).sort(function(a, b) { return a.localeCompare(b); });
+
+    if (cardClientes.length < 2) { container.style.display = 'none'; return; }
+
+    /* Lookup normalizado: quita puntos y espacios finales para comparar */
+    function _norm(s) { return s.trim().toLowerCase().replace(/[\s.]+$/, ''); }
+    var codigoMap = {};
+    CLIENTES_CAT.forEach(function(c) { codigoMap[_norm(c.nombre)] = c.codigo; });
+
+    container.style.display = '';
+    var html = '<button class="kanban-cli-chip kanban-cli-chip--activo" data-cli="" onclick="seleccionarCliChip(this,\'\')">TODOS</button>';
+    cardClientes.forEach(function(nombre) {
+      var codigo   = codigoMap[_norm(nombre)] || '';
+      var label    = (codigo || nombre).toUpperCase();
+      var escLabel = label.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      var escCli   = nombre.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      var val      = nombre.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html += '<button class="kanban-cli-chip" data-cli="' + escCli + '" onclick="seleccionarCliChip(this,\'' + val + '\')">' + escLabel + '</button>';
+    });
+    container.innerHTML = html;
+  }
+
+  window.seleccionarCliChip = function(btn, cli) {
+    document.querySelectorAll('.kanban-cli-chip').forEach(function(b) { b.classList.remove('kanban-cli-chip--activo'); });
+    btn.classList.add('kanban-cli-chip--activo');
+    var input = document.getElementById('kanban-filtro');
+    if (input) input.value = cli ? cli.toUpperCase() : '';
+    filtrarKanban(cli);
+    document.getElementById('filtro-lista').style.display = 'none';
+  };
+
+  _renderCliChips();
+
   function _renderFiltroLista(filtrados) {
     const lista = document.getElementById('filtro-lista');
     if (!filtrados.length) {
@@ -1520,7 +1659,19 @@
   }
 
   window.onFiltroInput = function(val) {
-    filtrarKanban(val); // filtrar el tablero en tiempo real
+    filtrarKanban(val);
+    /* Desactivar chip si el texto no coincide exactamente con ningún cliente */
+    var chips = document.querySelectorAll('.kanban-cli-chip');
+    var matchChip = false;
+    chips.forEach(function(b) {
+      var isMatch = b.dataset.cli.toUpperCase() === val.trim();
+      b.classList.toggle('kanban-cli-chip--activo', isMatch);
+      if (isMatch) matchChip = true;
+    });
+    if (!matchChip && !val.trim()) {
+      var todosChip = document.querySelector('.kanban-cli-chip[data-cli=""]');
+      if (todosChip) todosChip.classList.add('kanban-cli-chip--activo');
+    }
     const q = val.trim().toLowerCase();
     const filtrados = q
       ? CLIENTES_APROBADO.filter(c =>
@@ -1568,19 +1719,501 @@
   /* ─── Tiempo relativo + badge de inactividad ─── */
   (function inicializarTiempos() {
     document.querySelectorAll('.kanban-card').forEach(card => {
-      const ua = card.dataset.updatedAt;
+      const ua = card.dataset.updatedAt || card.dataset.createdAt;
       if (!ua) return;
       const d = new Date(ua.replace(' ', 'T'));
       if (isNaN(d)) return;
       const dias = Math.floor((Date.now() - d) / 86400000);
       const tiempoEl = card.querySelector('.kc-tiempo');
       if (!tiempoEl) return;
-      tiempoEl.textContent = dias < 1 ? 'Hoy' : dias === 1 ? 'Hace 1 día' : `Hace ${dias} días`;
+      const origen = card.dataset.updatedAt ? 'en estado' : 'creado';
+      tiempoEl.textContent = dias < 1 ? 'Hoy' : dias === 1 ? `Hace 1 día (${origen})` : `Hace ${dias} días (${origen})`;
+      tiempoEl.title = `${dias === 0 ? 'Hoy' : `Hace ${dias} día(s)`} — ${origen === 'en estado' ? 'Último cambio de estado' : 'Fecha de creación'}`;
+      tiempoEl.classList.remove('kc-inactivo-alerta', 'kc-inactivo-warn');
       if (dias > 14) tiempoEl.classList.add('kc-inactivo-alerta');
       else if (dias > 7) tiempoEl.classList.add('kc-inactivo-warn');
     });
   }());
 
 })();
+
+/* ─── Modal de sincronización de correo ─── */
+(function () {
+  'use strict';
+
+  var _modal           = document.getElementById('modal-email-sync');
+  var _emailsDetectados = [];
+  var _hayCambios      = false;
+  var _sincronizando   = false;
+  var _importando      = new Set(); // índices en curso para evitar doble-click
+
+  // Mostrar timestamp de última sincronización guardado
+  try {
+    var _prevTs = localStorage.getItem('aroluz_email_sync_ts');
+    if (_prevTs) _mostrarUltimaSync(_prevTs);
+  } catch(e) {}
+
+  /* El evento close nativo del <dialog> maneja la navegación */
+  _modal.addEventListener('close', function () {
+    if (_hayCambios) window.location.href = '/home';
+  });
+
+  function _resetModal() {
+    _hayCambios      = false;
+    _sincronizando   = false;
+    _emailsDetectados = [];
+    document.getElementById('email-sync-inicial').style.display = 'block';
+    document.getElementById('email-sync-spinner').style.display = 'none';
+    document.getElementById('email-sync-lista').innerHTML       = '';
+    document.getElementById('email-sync-vacio').style.display   = 'none';
+    document.getElementById('email-sync-error').style.display   = 'none';
+    var btnSync = document.getElementById('btn-email-sync');
+    var btnTabl = document.getElementById('btn-email-ver-tablero');
+    if (btnSync) { btnSync.disabled = false; btnSync.textContent = '🔄 Sincronizar'; btnSync.style.display = ''; }
+    if (btnTabl) { btnTabl.style.display = 'none'; }
+  }
+
+  window.abrirModalEmail = function () {
+    _resetModal();
+    var hoy = new Date();
+    var hace15 = new Date(hoy); hace15.setDate(hace15.getDate() - 15);
+    var _fmt = function(d) { return d.toISOString().slice(0, 10); };
+    var sinceEl = document.getElementById('email-since');
+    var untilEl = document.getElementById('email-until');
+    if (sinceEl) sinceEl.value = _fmt(hace15);
+    if (untilEl) untilEl.value = _fmt(hoy);
+    _modal.showModal();
+  };
+
+  /* "Ver en tablero": marca cambios y cierra — el evento close navega */
+  window.verTableroEmail = function () {
+    _hayCambios = true;
+    _modal.close();
+  };
+
+  function _mostrarUltimaSync(ts) {
+    var el = document.getElementById('email-ultima-sync');
+    if (!el || !ts) return;
+    try {
+      var d = new Date(ts);
+      if (isNaN(d.getTime())) return;
+      var hoy = new Date();
+      var ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1);
+      var hora = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+      var texto;
+      if (d.toDateString() === hoy.toDateString()) {
+        texto = 'Actualizado hoy a las ' + hora;
+      } else if (d.toDateString() === ayer.toDateString()) {
+        texto = 'Actualizado ayer a las ' + hora;
+      } else {
+        var fecha = d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        texto = 'Actualizado el ' + fecha + ' a las ' + hora;
+      }
+      el.textContent = texto;
+    } catch(e) {}
+  }
+
+  function _setUltimaSync() {
+    var ts = new Date().toISOString();
+    try { localStorage.setItem('aroluz_email_sync_ts', ts); } catch(e) {}
+    _mostrarUltimaSync(ts);
+  }
+
+  window.ejecutarSincEmail = async function () {
+    if (_sincronizando) return;
+    var btn     = document.getElementById('btn-email-sync');
+    var timerEl = document.getElementById('email-sync-timer');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sincronizando…'; }
+    _sincronizando = true;
+    var t0 = Date.now();
+    if (timerEl) timerEl.textContent = '0s';
+    var _timerInterval = setInterval(function () {
+      var secs = Math.floor((Date.now() - t0) / 1000);
+      if (timerEl) timerEl.textContent = secs + 's';
+    }, 500);
+    try {
+      await _sincronizarEmail();
+    } finally {
+      clearInterval(_timerInterval);
+      _sincronizando = false;
+      if (btn && !_hayCambios) { btn.disabled = false; btn.textContent = '🔄 Sincronizar'; }
+    }
+  };
+
+  async function _sincronizarEmail() {
+    var inicialEl = document.getElementById('email-sync-inicial');
+    var spinnerEl = document.getElementById('email-sync-spinner');
+    var errEl     = document.getElementById('email-sync-error');
+    var errTxt    = document.getElementById('email-sync-error-txt');
+    var cfgLink   = document.getElementById('email-sync-cfg-link');
+    inicialEl.style.display = 'none';
+    spinnerEl.style.display = 'flex';
+    errEl.style.display     = 'none';
+    document.getElementById('email-sync-lista').innerHTML     = '';
+    document.getElementById('email-sync-vacio').style.display = 'none';
+    try {
+      var since = (document.getElementById('email-since') || {value: ''}).value;
+      var until = (document.getElementById('email-until') || {value: ''}).value;
+      var qp = new URLSearchParams();
+      if (since) qp.append('since', since);
+      if (until) qp.append('until', until);
+      var d = await apiFetch('/api/email/sync?' + qp.toString(), { method: 'POST' });
+      spinnerEl.style.display = 'none';
+      if (!d.ok) {
+        var esConfigError = (d.error || '').toLowerCase().includes('no configurado');
+        if (errTxt)  errTxt.textContent      = d.error || 'Error al sincronizar.';
+        if (cfgLink) cfgLink.style.display   = esConfigError ? 'block' : 'none';
+        errEl.style.display = 'block';
+        return;
+      }
+      _setUltimaSync();
+      _emailsDetectados = d.emails || [];
+      if (!_emailsDetectados.length) {
+        document.getElementById('email-sync-vacio').style.display = 'block';
+        return;
+      }
+      _renderEmails(_emailsDetectados);
+    } catch (e) {
+      spinnerEl.style.display = 'none';
+      var msg = e.name === 'AbortError'
+        ? 'Tiempo de espera agotado. Verificá que el servidor IMAP sea accesible.'
+        : 'Error de conexión: ' + e.message;
+      if (errTxt)  errTxt.textContent    = msg;
+      if (cfgLink) cfgLink.style.display = 'none';
+      errEl.style.display = 'block';
+    }
+  }
+
+  function _fechaEs(dateStr) {
+    if (!dateStr) return '';
+    try {
+      var d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('es-PE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+           + ' ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    } catch(e) { return dateStr; }
+  }
+
+  function _renderEmails(emails) {
+    var lista = document.getElementById('email-sync-lista');
+    var total = emails.length;
+    var countTxt = total === 1 ? '1 correo encontrado' : total + ' correos encontrados';
+    var resumen = '<div style="font-size:0.82rem;color:var(--texto-suave);padding:0.35rem 0.5rem;border-bottom:1px solid var(--borde);margin-bottom:0.5rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">'
+      + '<span>' + countTxt + '</span>'
+      + '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">'
+      + '<span id="email-status-todos" style="font-size:0.8rem"></span>'
+      + (total > 1 ? '<button class="btn btn-sm" id="email-btn-todos" onclick="importarTodos()" style="background:var(--acento,#2563eb);color:#fff;border:none;padding:0.2rem 0.65rem;border-radius:5px;cursor:pointer;font-size:0.8rem;white-space:nowrap">⬇ Importar todos</button>' : '')
+      + '</div>'
+      + '</div>';
+    lista.innerHTML = resumen + emails.map(function (em, idx) {
+      var pdfsOpts = em.pdfs.map(function (p) {
+        return '<option value="' + p.index + '">' + _esc(p.filename) + '</option>';
+      }).join('');
+      return (
+        '<div class="email-card" id="email-card-' + idx + '">' +
+        '<div class="email-card-meta">' +
+        '<div class="email-card-meta-row1">' +
+        '<span>📨 <strong>' + _esc(em.from_name) + '</strong>' +
+        (em.from_email ? ' &lt;' + _esc(em.from_email) + '&gt;' : '') + '</span>' +
+        (em.cliente_conocido ? '<span style="color:var(--verde,#16a34a);font-weight:600;white-space:nowrap;flex-shrink:0">✓ cliente registrado</span>' : '') +
+        '</div>' +
+        '<span>📅 ' + _esc(_fechaEs(em.date || '')) + '</span>' +
+        '</div>' +
+        '<div class="email-card-subject">' + _esc(em.subject) + '</div>' +
+        (em.pdfs.length ? '<div class="email-card-pdf" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">📄 PDF' + (em.pdfs.length > 1 ? 'S' : '') + ': ' +
+          em.pdfs.map(function (p) { return _esc(p.filename); }).join(', ') +
+          '<button class="btn-pdf-preview" onclick="togglePdfPreview(' + idx + ',' + (em.pdfs[0] ? em.pdfs[0].index : 0) + ',' + _esc(JSON.stringify(em.message_id)) + ',this)" title="Vista previa del PDF">👁 Ver</button>' +
+          '</div>' : '') +
+        (em.n_items_oc ? '<div style="font-size:0.78rem;color:#0369a1;background:#e0f2fe;padding:0.2rem 0.55rem;border-radius:4px;display:inline-block;margin-bottom:0.5rem">📋 ' + em.n_items_oc + ' ítem' + (em.n_items_oc > 1 ? 's' : '') + ' OC detectado' + (em.n_items_oc > 1 ? 's' : '') + '</div>' : '') +
+        '<div id="email-pdf-prev-' + idx + '" class="email-pdf-preview" style="display:none"></div>' +
+        (em.pdfs.length > 1 ? '<div style="margin-bottom:0.5rem"><label class="email-label">PDF a usar:</label>' +
+          '<select class="email-input" id="email-pdf-sel-' + idx + '">' + pdfsOpts + '</select></div>' : '') +
+        '<div class="email-form-row-3">' +
+        '<div><div class="email-label">Nombre de obra</div>' +
+        '<input class="email-input" id="email-obra-' + idx + '" type="text" value="' + _esc(em.nombre_obra) + '"></div>' +
+        '<div><div class="email-label">N° OC</div>' +
+        '<input class="email-input" id="email-oc-' + idx + '" type="text" value="' + _esc(em.numero_oc) + '"></div>' +
+        '<div><div class="email-label">Cliente</div>' +
+        '<input class="email-input" id="email-cli-' + idx + '" type="text" value="' + _esc(em.cliente_sugerido || em.from_name) + '"></div>' +
+        '</div>' +
+        '<div class="email-form-row-3">' +
+        '<div><div class="email-label">Lugar de entrega</div>' +
+        '<input class="email-input" id="email-lugar-' + idx + '" type="text" value="' + _esc(em.lugar_entrega || '') + '"></div>' +
+        '<div><div class="email-label">Fecha entrega</div>' +
+        '<input class="email-input" id="email-fentrega-' + idx + '" type="text" value="' + _esc(em.fecha_entrega || '') + '"></div>' +
+        '<div><div class="email-label">Fecha OC</div>' +
+        '<input class="email-input" id="email-foc-' + idx + '" type="text" value="' + _esc(em.fecha_oc || '') + '"></div>' +
+        '</div>' +
+        '<div class="email-form-row">' +
+        '<div id="email-status-' + idx + '" style="font-size:0.8rem;color:var(--texto-suave)"></div>' +
+        '<button class="btn btn-primary btn-sm" id="email-btn-crear-' + idx + '" onclick="importarEmail(' + idx + ')">Crear obra ✓</button>' +
+        '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  function _leerCamposEmail(idx, em) {
+    var obraEl     = document.getElementById('email-obra-'     + idx);
+    var ocEl       = document.getElementById('email-oc-'       + idx);
+    var cliEl      = document.getElementById('email-cli-'      + idx);
+    var lugarEl    = document.getElementById('email-lugar-'    + idx);
+    var fentregaEl = document.getElementById('email-fentrega-' + idx);
+    var focEl      = document.getElementById('email-foc-'      + idx);
+    var pdfSelEl   = document.getElementById('email-pdf-sel-'  + idx);
+    return {
+      nombre_obra:   obraEl     ? obraEl.value.trim()     : (em.nombre_obra || ''),
+      numero_oc:     ocEl       ? ocEl.value.trim()       : (em.numero_oc   || ''),
+      cliente:       cliEl      ? cliEl.value.trim()      : (em.cliente_sugerido || em.from_name || ''),
+      lugar_entrega: lugarEl    ? lugarEl.value.trim()    : (em.lugar_entrega || ''),
+      fecha_entrega: fentregaEl ? fentregaEl.value.trim() : (em.fecha_entrega || ''),
+      fecha_oc:      focEl      ? focEl.value.trim()      : (em.fecha_oc || ''),
+      pdf_index:     pdfSelEl   ? parseInt(pdfSelEl.value, 10) : (em.pdfs[0] ? em.pdfs[0].index : 0),
+      statusEl:      document.getElementById('email-status-'    + idx),
+      btn:           document.getElementById('email-btn-crear-'  + idx),
+    };
+  }
+
+  window.importarEmail = async function (idx) {
+    var em = _emailsDetectados[idx];
+    if (!em) return;
+
+    /* Prevenir doble-click concurrente para el mismo índice */
+    if (_importando.has(idx)) return;
+
+    var f        = _leerCamposEmail(idx, em);
+    var statusEl = f.statusEl;
+    var btn      = f.btn;
+
+    if (!f.nombre_obra) {
+      if (statusEl) { statusEl.textContent = '⚠ El nombre de obra no puede estar vacío.'; statusEl.style.color = '#b91c1c'; }
+      return;
+    }
+
+    /* Advertir si ya existe una obra con ese nombre en el kanban */
+    var nombresExistentes = Array.from(document.querySelectorAll('.kanban-card'))
+      .map(function (c) { return (c.dataset.nombre || '').trim().toUpperCase(); });
+    if (nombresExistentes.includes(f.nombre_obra.toUpperCase())) {
+      if (statusEl) {
+        statusEl.textContent = '⚠ Ya existe una obra con ese nombre en el tablero. Cambiá el nombre o importá igual.';
+        statusEl.style.color = '#b45309';
+      }
+      /* Ofrecer botón para forzar igualmente — releer inputs al confirmar */
+      if (btn) {
+        btn.textContent = 'Importar de todos modos';
+        btn.disabled = false;
+        btn.onclick = function () {
+          btn.textContent = 'Crear obra ✓';
+          btn.onclick = function () { window.importarEmail(idx); };
+          var f2 = _leerCamposEmail(idx, em);
+          _forzarImport(idx, em, f2.nombre_obra, f2.numero_oc, f2.cliente, f2.lugar_entrega, f2.fecha_entrega, f2.fecha_oc, f2.pdf_index, f2.statusEl, f2.btn);
+        };
+      }
+      return;
+    }
+
+    _forzarImport(idx, em, f.nombre_obra, f.numero_oc, f.cliente, f.lugar_entrega, f.fecha_entrega, f.fecha_oc, f.pdf_index, statusEl, btn);
+  };
+
+  async function _forzarImport(idx, em, nombre_obra, numero_oc, cliente, lugar_entrega, fecha_entrega, fecha_oc, pdf_index, statusEl, btn) {
+    _importando.add(idx);
+    if (statusEl) { statusEl.textContent = 'Descargando PDF y creando obra…'; statusEl.style.color = 'var(--texto-suave)'; }
+    if (btn) btn.disabled = true;
+
+    var controller = new AbortController();
+    var timeoutId  = setTimeout(function () { controller.abort(); }, 30000);
+
+    try {
+      var r = await fetch('/api/email/importar', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: em.message_id, pdf_index: pdf_index, nombre_obra: nombre_obra, cliente: cliente, numero_oc: numero_oc, lugar_entrega: lugar_entrega, fecha_entrega: fecha_entrega, fecha_oc: fecha_oc }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      var d;
+      try { d = await r.json(); }
+      catch (_e) { d = { ok: false, error: 'Respuesta inválida del servidor (HTTP ' + r.status + ')' }; }
+
+      if (d.ok) {
+        if (statusEl) statusEl.textContent = '';
+        var card = document.getElementById('email-card-' + idx);
+        if (d.omitido) {
+          /* Obra ya existía — saltar sin tocar la card */
+          if (card) card.classList.add('email-omitido');
+          if (statusEl) { statusEl.textContent = 'Obra ya existe — omitida'; statusEl.style.color = 'var(--texto-suave)'; }
+          if (btn) { btn.disabled = true; btn.textContent = 'Ya existe'; }
+        } else {
+          if (card) {
+            card.classList.add('email-importado');
+            var itemsMsg = (d.n_items_importados && d.n_items_importados > 0)
+              ? ' — ' + d.n_items_importados + ' ítem' + (d.n_items_importados > 1 ? 's' : '') + ' OC cargado' + (d.n_items_importados > 1 ? 's' : '')
+              : '';
+            card.insertAdjacentHTML('beforeend', '<div class="email-importado-badge">✓ Obra <strong>' + _esc(d.proyecto) + '</strong> creada — PDF adjunto' + itemsMsg + '</div>');
+          }
+          _hayCambios = true;
+          var btnTabl = document.getElementById('btn-email-ver-tablero');
+          var btnSync = document.getElementById('btn-email-sync');
+          if (btnTabl) { btnTabl.style.display = ''; }
+          if (btnSync) { btnSync.style.display = 'none'; }
+        }
+      } else {
+        var errMsg = d.error || 'Error al crear la obra.';
+        /* Traducir errores HTTP conocidos */
+        if (r.status === 422) errMsg = 'Datos inválidos: ' + errMsg;
+        else if (r.status === 400) errMsg = 'Error de configuración: ' + errMsg;
+        else if (r.status >= 500) errMsg = 'Error del servidor: ' + errMsg;
+        if (statusEl) { statusEl.textContent = '⚠ ' + errMsg; statusEl.style.color = '#b91c1c'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Reintentar'; }
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      var msg = e.name === 'AbortError'
+        ? '⚠ Tiempo de espera agotado (30 s). Verificá la conexión IMAP.'
+        : '⚠ Error de conexión: ' + e.message;
+      if (statusEl) { statusEl.textContent = msg; statusEl.style.color = '#b91c1c'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Reintentar'; }
+    } finally {
+      _importando.delete(idx);
+    }
+  }
+
+  window.importarTodos = async function () {
+    var btnTodos   = document.getElementById('email-btn-todos');
+    var statusTodos = document.getElementById('email-status-todos');
+    if (!btnTodos) return;
+
+    /* Índices pendientes: sin `.email-importado` y con nombre_obra no vacío */
+    var pendientes = _emailsDetectados.map(function (em, idx) {
+      var card = document.getElementById('email-card-' + idx);
+      if (card && card.classList.contains('email-importado')) return null;
+      var obraEl = document.getElementById('email-obra-' + idx);
+      var nombre = obraEl ? obraEl.value.trim() : (em.nombre_obra || '').trim();
+      return nombre ? idx : null;
+    }).filter(function (i) { return i !== null; });
+
+    if (!pendientes.length) {
+      if (statusTodos) { statusTodos.textContent = 'Todos ya importados.'; statusTodos.style.color = 'var(--texto-suave)'; }
+      return;
+    }
+
+    btnTodos.disabled = true;
+    /* Deshabilitar botones individuales mientras corre el bulk */
+    pendientes.forEach(function (idx) {
+      var b = document.getElementById('email-btn-crear-' + idx);
+      if (b) b.disabled = true;
+    });
+
+    var ok = 0, omitidas = 0, errores = 0;
+    for (var i = 0; i < pendientes.length; i++) {
+      var idx = pendientes[i];
+      var em  = _emailsDetectados[idx];
+      if (!em || _importando.has(idx)) { errores++; continue; }
+
+      if (statusTodos) {
+        statusTodos.textContent = 'Importando ' + (i + 1) + ' / ' + pendientes.length + '…';
+        statusTodos.style.color = 'var(--texto-suave)';
+      }
+
+      var f = _leerCamposEmail(idx, em);
+
+      await _forzarImport(idx, em, f.nombre_obra, f.numero_oc, f.cliente, f.lugar_entrega, f.fecha_entrega, f.fecha_oc, f.pdf_index, f.statusEl, f.btn);
+
+      var card = document.getElementById('email-card-' + idx);
+      if (card && card.classList.contains('email-importado')) ok++;
+      else if (card && card.classList.contains('email-omitido')) omitidas++;
+      else errores++;
+    }
+
+    /* Resumen final */
+    if (statusTodos) {
+      var partes = [];
+      if (ok > 0)       partes.push('✓ ' + ok + (ok === 1 ? ' obra creada' : ' obras creadas'));
+      if (omitidas > 0) partes.push(omitidas + (omitidas === 1 ? ' ya existía' : ' ya existían'));
+      if (errores > 0)  partes.push('⚠ ' + errores + ' con error');
+      if (partes.length) {
+        statusTodos.textContent = partes.join(' · ');
+        statusTodos.style.color = errores > 0 ? '#b91c1c' : ok > 0 ? 'var(--verde,#16a34a)' : 'var(--texto-suave)';
+      }
+    }
+
+    /* Volver a habilitar solo los que fallaron */
+    pendientes.forEach(function (idx) {
+      var card = document.getElementById('email-card-' + idx);
+      var b    = document.getElementById('email-btn-crear-' + idx);
+      if (b && card && !card.classList.contains('email-importado')) b.disabled = false;
+    });
+    btnTodos.disabled = false;
+  };
+
+  window.togglePdfPreview = async function (idx, pdfIndex, messageId, btn) {
+    var container = document.getElementById('email-pdf-prev-' + idx);
+    if (!container) return;
+
+    /* Toggle: si ya está visible, ocultarlo */
+    if (container.style.display !== 'none') {
+      container.style.display = 'none';
+      btn.textContent = '👁 Ver';
+      return;
+    }
+
+    /* Si ya tiene contenido renderizado, solo mostrarlo */
+    if (container.dataset.loaded === '1') {
+      container.style.display = 'block';
+      btn.textContent = '▲ Ocultar';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    container.style.display = 'block';
+    container.innerHTML = '<div style="padding:1rem;font-size:0.82rem;color:var(--texto-suave)">Cargando PDF…</div>';
+
+    try {
+      var em = _emailsDetectados[idx];
+      var url = '/api/email/pdf-preview?message_id=' + encodeURIComponent(em ? em.message_id : messageId)
+              + '&pdf_index=' + pdfIndex;
+      var resp = await fetch(url);
+      if (!resp.ok) {
+        container.innerHTML = '<div style="padding:1rem;color:#b91c1c;font-size:0.82rem">No se pudo cargar el PDF.</div>';
+        btn.disabled = false; btn.textContent = '👁 Ver';
+        return;
+      }
+      var arrayBuf = await resp.arrayBuffer();
+      var pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+      if (!pdfjsLib) { container.innerHTML = '<div style="padding:1rem;font-size:0.82rem">PDF.js no disponible.</div>'; btn.disabled = false; btn.textContent = '👁 Ver'; return; }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+      var nPages = Math.min(pdfDoc.numPages, 2); /* solo primeras 2 páginas */
+      container.innerHTML = '';
+      for (var i = 1; i <= nPages; i++) {
+        var page   = await pdfDoc.getPage(i);
+        var vp     = page.getViewport({ scale: 1 });
+        var scale  = (container.clientWidth || 320) / vp.width;
+        var scaled = page.getViewport({ scale: scale });
+        var canvas = document.createElement('canvas');
+        canvas.width  = scaled.width;
+        canvas.height = scaled.height;
+        container.appendChild(canvas);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: scaled }).promise;
+      }
+      container.dataset.loaded = '1';
+      btn.textContent = '▲ Ocultar';
+    } catch (e) {
+      container.innerHTML = '<div style="padding:1rem;color:#b91c1c;font-size:0.82rem">Error: ' + e.message + '</div>';
+      btn.textContent = '👁 Ver';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  function _esc(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+}());
 </script>
 {% endblock %}
