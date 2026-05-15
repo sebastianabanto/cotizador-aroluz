@@ -68,7 +68,8 @@ web/
 │   ├── cotizar.py          # POST /api/cotizar/{tipo} — calls motor.py, returns JSON
 │   ├── carrito.py          # GET/POST /api/carrito — SQLite-persisted cart per user
 │   ├── exportar.py         # POST /api/exportar/{pdf|xlsx} — streaming file download
-│   └── historial.py        # GET /historial + export PDF/XLSX from saved quotes
+│   ├── historial.py        # GET /historial + export PDF/XLSX from saved quotes
+│   └── email_imap.py       # GET+POST /api/email/* — sync IMAP, parse OC PDFs, geocode
 ├── templates/
 │   ├── base.html                   # Base layout (nav, session, messages)
 │   ├── login.html
@@ -98,6 +99,58 @@ web/
 - Export PDF/XLSX converts prices to USD when `moneda = DOLARES` using the saved `dolar_rate`.
 - PDF header redesigned: blue table with company info + subtitle. Carrito allows selecting `validez` (15/30/60/90 días).
 - Historial page has filter bar (client, project, date range) and shows correct currency symbol (S/ or $).
+
+### Módulo Email IMAP (agregado may 2026)
+
+**Propósito:** Evitar la carga manual de órdenes de compra. Conecta a la bandeja IMAP de la empresa, detecta automáticamente los correos que contienen OC (por asunto o dominio del remitente), extrae los datos del PDF adjunto y crea el proyecto correspondiente en el kanban con un solo clic.
+
+**Endpoints** (prefijo `/api/email/`, montado en `web/main.py`):
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET`  | `/api/email/config` | Devuelve la configuración IMAP guardada (contraseña enmascarada). Solo admin. |
+| `POST` | `/api/email/config` | Guarda host, puerto, usuario, contraseña, carpeta y `days_back`. Solo admin. |
+| `POST` | `/api/email/sync` | Conecta al IMAP, escanea los últimos N emails y devuelve los que detecta como OC con PDF adjunto. Acepta `?since=` y `?until=` para filtrar por fecha. |
+| `POST` | `/api/email/importar` | Descarga el PDF del email indicado, crea el proyecto en la BD (con `lugar_entrega`, `fecha_entrega`, `fecha_oc`), guarda el PDF en disco, importa los ítems OC y registra el email como importado. |
+| `GET`  | `/api/email/pdf-preview` | Retorna el PDF del email como `StreamingResponse` para previsualizarlo en el navegador antes de importar. |
+| `GET`  | `/api/email/geocode` | Geocodifica una dirección para ordenar la ruta N→S. Usa primero un dict de distritos de Lima (instantáneo) y luego Nominatim como fallback. |
+
+**Formatos de OC soportados:**
+
+- **S10** — identificado por la etiqueta `Número` (capital N, con tilde). Extrae `Número`, `Fecha`, `Facturar a`, `Proyecto Almacén`, `Lugar de entrega`, `Fecha de entrega`.
+- **JEF** — usa `Nº 0001-XXXXXX`, fecha con ciudad (`Lima, dd/mm/yyyy`), `Glosa`, `Dirección Entrega`.
+- **CLASEM / genérico** — detecta `FACTURA A NOMBRE DE`, `PROYECTO :`, `Dirección de Entrega`, etiquetas genéricas (`OBRA`, `REFERENCIA`, `DESCRIPCIÓN`, etc.) y el patrón `CÓDIGO - NOMBRE DE OBRA`.
+
+**Tablas SQLite nuevas:**
+
+| Tabla | Descripción |
+|-------|-------------|
+| `email_imap_config` | Fila única (id=1) con host, port, username, password, folder, days_back. |
+| `email_importados` | Registro de emails procesados: `message_id` (PK), `proyecto`, `importado_at`, `pdf_hash` (SHA-256 para detectar reenvíos con el mismo adjunto). |
+
+**Columnas nuevas en `proyectos`** (migración automática con `_add_column_if_missing`):
+
+| Columna | Descripción |
+|---------|-------------|
+| `lugar_entrega` | Dirección de entrega extraída del PDF o ingresada manualmente. |
+| `fecha_entrega` | Fecha de entrega solicitada (formato dd/mm/yyyy). |
+| `fecha_oc` | Fecha de emisión de la OC (formato dd/mm/yyyy). |
+| `notas` | Campo libre de observaciones del proyecto. |
+
+**Flujo típico:**
+1. Admin configura IMAP en Ajustes → Correo (`POST /api/email/config`).
+2. Usuario abre la pantalla de correo y hace clic en "Sincronizar" (`POST /api/email/sync`).
+3. Aparece la lista de emails detectados con datos pre-rellenados (nombre de obra, cliente, N° OC).
+4. Usuario revisa el PDF (`GET /api/email/pdf-preview`), ajusta los campos si es necesario e importa (`POST /api/email/importar`).
+5. El proyecto aparece automáticamente en el kanban en estado APROBADO con sus ítems OC cargados.
+
+**Notas de implementación:**
+- Operaciones IMAP se ejecutan con `run_in_threadpool` para no bloquear el event loop de FastAPI.
+- Deduplicación doble: por `message_id` (evita reimportar el mismo email) y por `pdf_hash` SHA-256 (evita duplicados por reenvíos con el mismo adjunto).
+- Correos de ingreso/recepción de OC (`INGRESO POR OC`, `NOTA DE INGRESO`, etc.) se filtran tanto en el asunto como en el contenido del PDF.
+- La geocodificación usa un diccionario hardcodeado de ~50 distritos de Lima Metropolitana para evitar latencia; Nominatim se llama solo si el distrito no está en el dict.
+
+---
 
 **Known limitations / pending polish:**
 - No catalog import UI for the initial Excel file (must enter path manually in Config page)
@@ -182,3 +235,33 @@ A backup is kept at `cotizador_config_backup.json`.
 - **Never touch `gui/logica.py`** — web logic lives exclusively in `web/motor.py`.
 - **Install packages** always via `venv\Scripts\python.exe -m pip install <package>` (never `pip.exe` directly).
 - **NUNCA cambiar el formato/diseño del PDF exportado** — la plantilla oficial es `web/templates/cotizacion_pdf.html`. Si hay un problema técnico con el generador de PDF (Playwright, WeasyPrint, etc.), se debe cambiar el motor de renderizado, NUNCA el diseño/estructura del template ni sustituirlo por otra implementación (ej. ReportLab programático). El aspecto visual del PDF es decisión exclusiva del usuario.
+
+---
+
+## Archivos clave del módulo web
+
+| Archivo | Rol |
+|---------|-----|
+| `web/motor.py` | PricingConfig dataclass + 7 funciones `cotizar_*` |
+| `web/main.py` | FastAPI app + todas las rutas HTML |
+| `web/auth.py` | Sesiones firmadas (cookie HTTP-only, 7 días) |
+| `web/database.py` | SQLite: usuarios, clientes, atenciones, monedas + `cargar_config()` |
+| `web/rutas/cotizar.py` | 7 endpoints `POST /api/cotizar/{tipo}` |
+| `web/rutas/carrito.py` | Carrito SQLite persistente por usuario |
+| `web/rutas/exportar.py` | PDF + XLSX streaming download |
+| `web/rutas/historial.py` | Historial guardado: CRUD + export PDF/XLSX |
+| `web/rutas/email_imap.py` | Router IMAP: sync de emails, parseo de OC (S10/JEF/CLASEM), geocodificación Lima |
+| `web/templates/base.html` | Layout base (nav, sesión, mensajes) |
+| `web/templates/cotizacion.html` | Formulario de cotización principal |
+| `web/templates/cotizacion_pdf.html` | Preview PDF (WeasyPrint) |
+| `web/templates/carrito.html` | Carrito + selector de validez |
+| `web/templates/catalogo.html` | Catálogo de precio fijo |
+| `web/templates/configuracion.html` | Config de precios |
+| `web/templates/configuracion_catalogo.html` | Importar catálogo desde Excel |
+| `web/templates/clientes.html` | Clientes master-detail (JS vanilla) |
+| `web/templates/historial.html` | Historial + barra de filtros + col Usuario (solo admin) |
+| `web/templates/cuenta.html` | Mi Cuenta — cambiar contraseña (todos los roles) |
+| `web/static/style.css` | CSS completo responsive (sin Bootstrap) |
+| `web/static/cotizar-layout.js` | JS para el formulario de cotización |
+| `web/static/IMAGEN_LOGO_*.png` | Logo de la empresa |
+| `web/data/aroluz.db` | SQLite auto-creada al primer arranque |
