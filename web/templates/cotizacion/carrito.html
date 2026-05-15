@@ -20,6 +20,7 @@
         <div class="ac-wrapper">
           <input type="text" id="cliente-input" class="form-control"
                  placeholder="Escribir para buscar…" autocomplete="off"
+                 autocorrect="off" autocapitalize="words" spellcheck="false"
                  oninput="onClienteInput()" onfocus="onClienteFocus()" onblur="onClienteBlur()">
           <div id="cliente-lista" class="ac-lista" style="display:none;"></div>
         </div>
@@ -36,6 +37,7 @@
           <div class="ac-wrapper" style="flex:1;">
             <input type="text" id="atencion-input" class="form-control"
                    placeholder="Escribir para buscar…" autocomplete="off"
+                   autocorrect="off" autocapitalize="words" spellcheck="false"
                    oninput="onAtencionInput()" onfocus="onAtencionFocus()" onblur="onAtencionBlur()">
             <div id="atencion-lista" class="ac-lista" style="display:none;"></div>
           </div>
@@ -52,7 +54,8 @@
       </div>
       <div class="form-group">
         <label class="form-label" for="proyecto">Proyecto / Referencia</label>
-        <input type="text" id="proyecto" class="form-control" placeholder="Ej: Edificio Central Piso 3">
+        <input type="text" id="proyecto" class="form-control" placeholder="Ej: Edificio Central Piso 3"
+               autocorrect="off" autocapitalize="sentences" spellcheck="false">
       </div>
       <!-- Moneda: autocomplete -->
       <div class="form-group">
@@ -60,6 +63,7 @@
         <div class="ac-wrapper">
           <input type="text" id="moneda-input" class="form-control"
                  placeholder="Seleccionar moneda…" autocomplete="off"
+                 autocorrect="off" autocapitalize="off" spellcheck="false"
                  oninput="onMonedaInput()" onfocus="onMonedaFocus()" onblur="onMonedaBlur()">
           <div id="moneda-lista" class="ac-lista" style="display:none;"></div>
         </div>
@@ -67,7 +71,8 @@
       </div>
       <div class="form-group" style="grid-column: 1 / -1;">
         <label class="form-label" for="encabezado-tabla">Texto fila amarilla &nbsp;<span style="font-weight:400; color:var(--texto-suave);">(opcional — aparece en la fila amarilla de la cotización)</span></label>
-        <input type="text" id="encabezado-tabla" class="form-control" placeholder="Ej: BANDEJA PORTACABLE Y ACCESORIOS">
+        <input type="text" id="encabezado-tabla" class="form-control" placeholder="Ej: BANDEJA PORTACABLE Y ACCESORIOS"
+               autocorrect="off" autocapitalize="characters" spellcheck="false">
       </div>
     </div>
   </details>
@@ -122,6 +127,7 @@
                 <button onclick="cambiarCant({{ item.id }}, -1)" aria-label="Restar cantidad de {{ item.descripcion }}">−</button>
                 <input type="number" id="cant-{{ item.id }}" value="{{ item.cantidad }}"
                   min="0.01" max="999" step="any" onchange="actualizarCant({{ item.id }})"
+                  inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                   aria-label="Cantidad de {{ item.descripcion }}">
                 <button onclick="cambiarCant({{ item.id }}, 1)" aria-label="Sumar cantidad de {{ item.descripcion }}">+</button>
               </div>
@@ -213,15 +219,18 @@
     <div class="grid-2" style="margin-top:0.5rem;">
       <div class="form-group">
         <label class="form-label" for="m-desc">Descripción</label>
-        <input type="text" id="m-desc" class="form-control" placeholder="Descripción del producto">
+        <input type="text" id="m-desc" class="form-control" placeholder="Descripción del producto"
+               autocorrect="off" autocapitalize="sentences" spellcheck="false">
       </div>
       <div class="form-group">
         <label class="form-label" for="m-precio">Precio Unitario (S/)</label>
-        <input type="number" id="m-precio" class="form-control" value="0" min="0" step="0.01" inputmode="decimal">
+        <input type="number" id="m-precio" class="form-control" value="0" min="0" step="0.01" inputmode="decimal"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="form-group">
         <label class="form-label" for="m-cantidad">Cantidad</label>
-        <input type="number" id="m-cantidad" class="form-control" value="1" min="1" inputmode="numeric">
+        <input type="number" id="m-cantidad" class="form-control" value="1" min="1" inputmode="numeric"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="form-group">
         <label class="form-label" for="m-unidad">Unidad</label>
@@ -235,7 +244,8 @@
       </div>
       <div class="form-group">
         <label class="form-label" for="m-peso">Peso Unitario (kg, opcional)</label>
-        <input type="number" id="m-peso" class="form-control" value="0" min="0" step="0.001" inputmode="decimal">
+        <input type="number" id="m-peso" class="form-control" value="0" min="0" step="0.001" inputmode="decimal"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
     </div>
     <button class="btn btn-secondary" onclick="agregarManual()">Agregar al carrito</button>
@@ -276,7 +286,7 @@
 ════════════════════════════════════════════ -->
 <div id="modal-importar" role="dialog" aria-modal="true" aria-labelledby="modal-imp-titulo"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100;
-            align-items:center; justify-content:center; padding:1rem;">
+            align-items:center; justify-content:center; padding:1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="modal-inner importar-modal-inner">
 
     <!-- Cabecera -->
@@ -503,7 +513,7 @@
 ════════════════════════════════════════════ -->
 <div id="modal-editar" role="dialog" aria-modal="true" aria-labelledby="modal-edit-titulo"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100;
-            align-items:center; justify-content:center; padding:1rem;">
+            align-items:center; justify-content:center; padding:1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="card" style="width:100%; max-width:480px; padding:1.5rem; position:relative;">
     <h3 id="modal-edit-titulo" style="margin:0 0 1.25rem; font-size:1rem;">Editar ítem</h3>
 
@@ -517,11 +527,13 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
       <div class="form-group">
         <label class="form-label" for="edit-und">Unidad</label>
-        <input type="text" id="edit-und" class="form-control" style="text-transform:uppercase;">
+        <input type="text" id="edit-und" class="form-control" style="text-transform:uppercase;"
+               autocorrect="off" autocapitalize="characters" spellcheck="false">
       </div>
       <div class="form-group">
         <label class="form-label" for="edit-precio">Precio U. (S/)</label>
-        <input type="number" id="edit-precio" class="form-control" step="0.01" min="0">
+        <input type="number" id="edit-precio" class="form-control" step="0.01" min="0"
+               inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
     </div>
 
@@ -542,7 +554,7 @@
 ════════════════════════════════════════════ -->
 <div id="modal-espesor" role="dialog" aria-modal="true" aria-labelledby="modal-esp-titulo"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100;
-            align-items:center; justify-content:center; padding:1rem;">
+            align-items:center; justify-content:center; padding:1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="modal-inner" style="max-width:420px; width:100%;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h2 id="modal-esp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Cambiar espesor</h2>
@@ -577,7 +589,7 @@
 ════════════════════════════════════════════ -->
 <div id="modal-nuevo-cliente" role="dialog" aria-modal="true"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1200;
-            align-items:center; justify-content:center; padding:1rem;">
+            align-items:center; justify-content:center; padding:1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div style="background:#fff; border-radius:10px; padding:1.5rem; width:100%; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,.25);">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h2 style="margin:0; font-size:1.05rem; color:var(--azul);">Nuevo Cliente</h2>
@@ -586,15 +598,18 @@
 
     <div class="form-group">
       <label class="form-label" for="nc-nombre">Nombre del cliente <span style="color:#e53e3e;">*</span></label>
-      <input type="text" id="nc-nombre" class="form-control" placeholder="Ej: Empresa SAC">
+      <input type="text" id="nc-nombre" class="form-control" placeholder="Ej: Empresa SAC"
+             autocorrect="off" autocapitalize="words" spellcheck="false">
     </div>
     <div class="form-group">
       <label class="form-label" for="nc-ruc">RUC <span style="font-weight:400; color:var(--texto-suave);">(opcional, 11 dígitos)</span></label>
-      <input type="text" id="nc-ruc" class="form-control" placeholder="Ej: 20512345678" maxlength="11" inputmode="numeric">
+      <input type="text" id="nc-ruc" class="form-control" placeholder="Ej: 20512345678" maxlength="11" inputmode="numeric"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     </div>
     <div class="form-group">
       <label class="form-label" for="nc-ubicacion">Ubicación <span style="font-weight:400; color:var(--texto-suave);">(opcional)</span></label>
-      <input type="text" id="nc-ubicacion" class="form-control" placeholder="Ej: Lima">
+      <input type="text" id="nc-ubicacion" class="form-control" placeholder="Ej: Lima"
+             autocorrect="off" autocapitalize="sentences" spellcheck="false">
     </div>
 
     <hr style="border:none; border-top:1px solid #e5e7eb; margin:0.75rem 0;">
@@ -602,11 +617,13 @@
 
     <div class="form-group">
       <label class="form-label" for="nc-atencion">Nombre del contacto <span style="color:#e53e3e;">*</span></label>
-      <input type="text" id="nc-atencion" class="form-control" placeholder="Ej: Juan Pérez">
+      <input type="text" id="nc-atencion" class="form-control" placeholder="Ej: Juan Pérez"
+             autocorrect="off" autocapitalize="words" spellcheck="false">
     </div>
     <div class="form-group">
       <label class="form-label" for="nc-email">Email <span style="font-weight:400; color:var(--texto-suave);">(opcional)</span></label>
-      <input type="email" id="nc-email" class="form-control" placeholder="Ej: juan@empresa.com">
+      <input type="email" id="nc-email" class="form-control" placeholder="Ej: juan@empresa.com"
+             autocorrect="off" autocapitalize="off" spellcheck="false">
     </div>
 
     <div id="nc-error" style="display:none; color:#e53e3e; font-size:0.82rem; margin-bottom:0.75rem;"></div>
@@ -1056,7 +1073,8 @@ async function agregarManual() {
       <div class="cantidad-ctrl">
         <button onclick="cambiarCant(${item.id}, -1)" aria-label="Restar cantidad">−</button>
         <input type="number" id="cant-${item.id}" value="${item.cantidad}" min="0.01" max="999" step="any"
-               onchange="actualizarCant(${item.id})" aria-label="Cantidad">
+               onchange="actualizarCant(${item.id})" aria-label="Cantidad"
+               inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button onclick="cambiarCant(${item.id}, 1)" aria-label="Sumar cantidad">+</button>
       </div>
     </td>

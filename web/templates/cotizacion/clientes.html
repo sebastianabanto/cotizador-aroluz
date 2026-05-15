@@ -34,7 +34,8 @@
           <label class="sr-only" for="buscador-clientes">Buscar cliente</label>
           <input type="text" id="buscador-clientes" class="form-control"
             placeholder="Buscar cliente…" oninput="filtrarClientes()"
-            style="font-size:0.875rem;">
+            style="font-size:0.875rem;"
+            autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
         <div id="lista-clientes" style="max-height:420px; overflow-y:auto;">
           <!-- Se renderiza via JS -->
@@ -213,16 +214,19 @@ function mostrarPanelCliente(cliente, atenciones) {
       <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Nombre</label>
-          <input type="text" id="ec-nombre" class="form-control" value="${esc(cliente.nombre)}">
+          <input type="text" id="ec-nombre" class="form-control" value="${esc(cliente.nombre)}"
+                 autocorrect="off" autocapitalize="words" spellcheck="false">
         </div>
         <div class="form-group">
           <label class="form-label">RUC</label>
-          <input type="text" id="ec-ruc" class="form-control" value="${esc(cliente.ruc || '')}" placeholder="Ej: 20123456789">
+          <input type="text" id="ec-ruc" class="form-control" value="${esc(cliente.ruc || '')}" placeholder="Ej: 20123456789"
+                 inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">Dirección</label>
-        <input type="text" id="ec-ubicacion" class="form-control" value="${esc(cliente.ubicacion || '')}" placeholder="Av. ...">
+        <input type="text" id="ec-ubicacion" class="form-control" value="${esc(cliente.ubicacion || '')}" placeholder="Av. ..."
+               autocorrect="off" autocapitalize="sentences" spellcheck="false">
       </div>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="guardarCliente('${esc(cliente.codigo)}')">Guardar cliente</button>
@@ -240,11 +244,13 @@ function mostrarPanelCliente(cliente, atenciones) {
         <div class="grid-2">
           <div class="form-group">
             <label class="form-label">Nombre</label>
-            <input type="text" id="na-nombre" class="form-control" placeholder="Juan Pérez">
+            <input type="text" id="na-nombre" class="form-control" placeholder="Juan Pérez"
+                 autocorrect="off" autocapitalize="words" spellcheck="false">
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input type="email" id="na-email" class="form-control" placeholder="juan@empresa.com">
+            <input type="email" id="na-email" class="form-control" placeholder="juan@empresa.com"
+                 autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="agregarAtencion('${esc(cliente.codigo)}')">Guardar atención</button>
@@ -442,19 +448,23 @@ function mostrarFormNuevo() {
       <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Código *</label>
-          <input type="text" id="nc-codigo" class="form-control" placeholder="Ej: CONKRETO">
+          <input type="text" id="nc-codigo" class="form-control" placeholder="Ej: CONKRETO"
+                 autocorrect="off" autocapitalize="characters" spellcheck="false">
         </div>
         <div class="form-group">
           <label class="form-label">Nombre *</label>
-          <input type="text" id="nc-nombre" class="form-control" placeholder="Nombre de la empresa">
+          <input type="text" id="nc-nombre" class="form-control" placeholder="Nombre de la empresa"
+                 autocorrect="off" autocapitalize="words" spellcheck="false">
         </div>
         <div class="form-group">
           <label class="form-label">RUC</label>
-          <input type="text" id="nc-ruc" class="form-control" placeholder="Ej: 20123456789">
+          <input type="text" id="nc-ruc" class="form-control" placeholder="Ej: 20123456789"
+                 inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
         <div class="form-group">
           <label class="form-label">Dirección</label>
-          <input type="text" id="nc-ubicacion" class="form-control" placeholder="Av. ...">
+          <input type="text" id="nc-ubicacion" class="form-control" placeholder="Av. ..."
+                 autocorrect="off" autocapitalize="sentences" spellcheck="false">
         </div>
       </div>
       <button class="btn btn-primary" onclick="crearCliente()">Crear cliente</button>

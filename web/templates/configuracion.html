@@ -113,17 +113,20 @@
           <div class="cfg-field">
             <label class="cfg-label" for="dolar">Dólar (S/ por USD)</label>
             <input type="number" id="dolar" class="form-control" step="0.01" min="0"
-              value="{{ config.valores_defecto.dolar }}">
+              value="{{ config.valores_defecto.dolar }}"
+              inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="cfg-field">
             <label class="cfg-label" for="usd-productos">USD / kg — Productos</label>
             <input type="number" id="usd-productos" class="form-control" step="0.01" min="0"
-              value="{{ config.valores_defecto.usd_kg_productos }}">
+              value="{{ config.valores_defecto.usd_kg_productos }}"
+              inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="cfg-field">
             <label class="cfg-label" for="usd-cajas">USD / kg — Cajas de Pase</label>
             <input type="number" id="usd-cajas" class="form-control" step="0.01" min="0"
-              value="{{ config.valores_defecto.usd_kg_cajas }}">
+              value="{{ config.valores_defecto.usd_kg_cajas }}"
+              inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
         </div>
       </div>
@@ -156,21 +159,24 @@
                   <div class="pt-input-wrap">
                     <span class="pt-prefix">S/</span>
                     <input type="number" id="go-12" step="0.01" min="0"
-                      value="{{ config.valores_defecto.precios_go['1.2'] }}">
+                      value="{{ config.valores_defecto.precios_go['1.2'] }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
                 <td>
                   <div class="pt-input-wrap">
                     <span class="pt-prefix">S/</span>
                     <input type="number" id="go-15" step="0.01" min="0"
-                      value="{{ config.valores_defecto.precios_go['1.5'] }}">
+                      value="{{ config.valores_defecto.precios_go['1.5'] }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
                 <td>
                   <div class="pt-input-wrap">
                     <span class="pt-prefix">S/</span>
                     <input type="number" id="go-20" step="0.01" min="0"
-                      value="{{ config.valores_defecto.precios_go['2.0'] }}">
+                      value="{{ config.valores_defecto.precios_go['2.0'] }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
               </tr>
@@ -183,21 +189,24 @@
                   <div class="pt-input-wrap">
                     <span class="pt-prefix">S/</span>
                     <input type="number" id="gc-12" step="0.01" min="0"
-                      value="{{ config.valores_defecto.precios_gc['1.2'] }}">
+                      value="{{ config.valores_defecto.precios_gc['1.2'] }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
                 <td>
                   <div class="pt-input-wrap">
                     <span class="pt-prefix">S/</span>
                     <input type="number" id="gc-15" step="0.01" min="0"
-                      value="{{ config.valores_defecto.precios_gc['1.5'] }}">
+                      value="{{ config.valores_defecto.precios_gc['1.5'] }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
                 <td>
                   <div class="pt-input-wrap">
                     <span class="pt-prefix">S/</span>
                     <input type="number" id="gc-20" step="0.01" min="0"
-                      value="{{ config.valores_defecto.precios_gc['2.0'] }}">
+                      value="{{ config.valores_defecto.precios_gc['2.0'] }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
               </tr>
@@ -246,13 +255,15 @@
                 <td>
                   <div class="pt-input-wrap">
                     <input type="number" id="fg30-{{ cod }}" step="0.001" min="0.001"
-                      value="{{ fg30.get(cod, def30) }}">
+                      value="{{ fg30.get(cod, def30) }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
                 <td>
                   <div class="pt-input-wrap">
                     <input type="number" id="fg35-{{ cod }}" step="0.001" min="0.001"
-                      value="{{ fg35.get(cod, def35) }}">
+                      value="{{ fg35.get(cod, def35) }}"
+                      inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                   </div>
                 </td>
               </tr>
@@ -277,7 +288,7 @@
 
   <!-- ── Modal de confirmación guardar config ── -->
   <div id="modal-confirm-cfg" style="display:none; position:fixed; inset:0; z-index:9000;
-    background:rgba(0,0,0,0.45); align-items:center; justify-content:center;">
+    background:rgba(0,0,0,0.45); align-items:center; justify-content:center; overflow-y:auto; -webkit-overflow-scrolling:touch;">
     <div style="background:#fff; border-radius:12px; padding:1.75rem 2rem; max-width:420px;
       width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
       <div style="font-size:1.5rem; margin-bottom:0.5rem;">⚠️</div>
@@ -648,15 +659,18 @@
         <div class="cfg-grid-2">
           <div class="cfg-field">
             <label class="cfg-label">Servidor IMAP</label>
-            <input id="imap-host" type="text" class="cfg-input" placeholder="ej: imap.gmail.com">
+            <input id="imap-host" type="text" class="cfg-input" placeholder="ej: imap.gmail.com"
+                   autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="cfg-field">
             <label class="cfg-label">Puerto</label>
-            <input id="imap-port" type="number" class="cfg-input" value="993" min="1" max="65535" style="max-width:8rem">
+            <input id="imap-port" type="number" class="cfg-input" value="993" min="1" max="65535" style="max-width:8rem"
+                   inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="cfg-field">
             <label class="cfg-label">Usuario (correo)</label>
-            <input id="imap-user" type="email" class="cfg-input" placeholder="tucorreo@ejemplo.com">
+            <input id="imap-user" type="email" class="cfg-input" placeholder="tucorreo@ejemplo.com"
+                   autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="cfg-field">
             <label class="cfg-label">Contraseña / App Password</label>
@@ -664,11 +678,13 @@
           </div>
           <div class="cfg-field">
             <label class="cfg-label">Carpeta</label>
-            <input id="imap-folder" type="text" class="cfg-input" value="INBOX" placeholder="INBOX">
+            <input id="imap-folder" type="text" class="cfg-input" value="INBOX" placeholder="INBOX"
+                   autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
           <div class="cfg-field">
             <label class="cfg-label">Días hacia atrás</label>
-            <input id="imap-days" type="number" class="cfg-input" value="30" min="1" max="365" style="max-width:8rem">
+            <input id="imap-days" type="number" class="cfg-input" value="30" min="1" max="365" style="max-width:8rem"
+                   inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
         </div>
 

@@ -42,7 +42,7 @@
       <div class="ac-wrapper">
         <input type="text" class="kanban-filtro" id="kanban-filtro"
                placeholder="Buscar obra o cliente..."
-               autocomplete="off"
+               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
                oninput="this.value=this.value.toUpperCase(); onFiltroInput(this.value)"
                onfocus="onFiltroFocus()"
                onblur="onFiltroBlur()">
@@ -85,6 +85,7 @@
                   <input class="kc-nombre-input kc-edit-field" type="text"
                          value="{{ p.nombre | e }}"
                          placeholder="Nombre de obra"
+                         autocorrect="off" autocapitalize="sentences" spellcheck="false"
                          onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
                   <div class="kc-dir-row">
                     <a class="kc-ubicacion{% if not p.direccion %} kc-sin-dato{% endif %} kc-map-href"
@@ -95,13 +96,14 @@
                   <input class="kc-dir-input kc-edit-field" type="text"
                          value="{{ p.direccion or '' }}"
                          placeholder="Dirección de obra"
+                         autocorrect="off" autocapitalize="sentences" spellcheck="false"
                          onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
                   <div class="kc-cliente-tag{% if not p.cliente %} kc-sin-dato{% endif %}">{{ p.cliente or '—' }}</div>
                   <div class="kc-cliente-ac">
                     <input class="kc-cliente-input" type="text"
                            value="{{ p.cliente | e }}"
                            placeholder="Cliente"
-                           autocomplete="off"
+                           autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
                            oninput="kcClienteInput(this)"
                            onfocus="kcClienteFocus(this)"
                            onblur="kcClienteBlur(this)"
@@ -115,6 +117,7 @@
                     <input class="kc-oc-input kc-edit-field" type="text"
                            value="{{ p.numero_oc or '' }}"
                            placeholder="N° OC"
+                           autocorrect="off" autocapitalize="off" spellcheck="false"
                            onblur="guardarNumeroOC(this)"
                            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
                     <button class="btn-kc-edit" title="Editar"
@@ -185,6 +188,7 @@
                 <input class="kc-contacto-input" type="text"
                        value="{{ p.contacto or '' }}"
                        placeholder="Teléfono o nombre…"
+                       autocorrect="off" autocapitalize="words" spellcheck="false"
                        onblur="guardarContacto(this)"
                        onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}">
               </div>
@@ -260,12 +264,14 @@
     <div class="form-group">
       <label for="nueva-obra-nombre">Nombre de obra <span class="req">*</span></label>
       <input id="nueva-obra-nombre" type="text" name="nombre" required
-             placeholder="Ej: Edificio Torres del Sur">
+             placeholder="Ej: Edificio Torres del Sur"
+             autocorrect="off" autocapitalize="sentences" spellcheck="false">
     </div>
     <div class="form-group">
       <label for="nueva-obra-cliente">Cliente <span class="req">*</span></label>
       <input id="nueva-obra-cliente" type="text" name="cliente" required
-             placeholder="Ej: Constructora XYZ">
+             placeholder="Ej: Constructora XYZ"
+             autocorrect="off" autocapitalize="words" spellcheck="false">
     </div>
     <div id="nueva-obra-error" class="form-error" style="display:none"></div>
     <div class="modal-simple-footer">
@@ -407,7 +413,7 @@
 .modal-email[open] { width: min(500px, 94vw); max-height: 82vh; display: flex; flex-direction: column; }
 .modal-email .modal-simple-header { flex-shrink: 0; }
 .modal-email .modal-simple-footer { flex-shrink: 0; }
-.email-sync-body { overflow-y: auto; flex: 1; padding: 1rem 1.25rem; }
+.email-sync-body { overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; padding: 1rem 1.25rem; }
 .email-spinner { display: flex; align-items: center; gap: 0.75rem; color: var(--texto-suave); padding: 1.5rem 0; font-size: 0.9rem; }
 .email-spinner-icon { font-size: 1.5rem; }
 .email-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; margin-bottom: 0.85rem; background: #fafafa; }
@@ -953,20 +959,20 @@
     const clsSaldo = saldo > 0 ? 'oc-saldo positivo' : 'oc-saldo cero';
     return `<tr data-id="${item.id}">
       <td><input class="oc-item-input oc-desc" type="text" value="${esc(item.descripcion)}"
-           placeholder="Ítem / producto"
+           placeholder="Ítem / producto" autocorrect="off" autocapitalize="sentences" spellcheck="false"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
       <td><input class="oc-item-input oc-un" type="text" value="${esc(item.unidad)}"
-           placeholder="UND" style="width:3.5rem"
+           placeholder="UND" style="width:3.5rem" autocorrect="off" autocapitalize="characters" spellcheck="false"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
       <td><input class="oc-item-input oc-ped" type="number" min="0" step="any" value="${item.cantidad_pedida}"
-           style="width:4.5rem"
+           style="width:4.5rem" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
            oninput="recalcSaldo(this.closest('tr'))"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
       <td><input class="oc-item-input oc-des" type="number" min="0" step="any" value="${item.cantidad_despachada}"
-           style="width:4.5rem"
+           style="width:4.5rem" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
            oninput="recalcSaldo(this.closest('tr'))"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
@@ -981,20 +987,20 @@
     const prefijo = n ? String(n) + '. ' : '';
     return `<tr data-id="new">
       <td><input class="oc-item-input oc-desc" type="text" value="${prefijo}"
-           placeholder="Ítem / producto"
+           placeholder="Ítem / producto" autocorrect="off" autocapitalize="sentences" spellcheck="false"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
       <td><input class="oc-item-input oc-un" type="text" value=""
-           placeholder="UND" style="width:3.5rem"
+           placeholder="UND" style="width:3.5rem" autocorrect="off" autocapitalize="characters" spellcheck="false"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
       <td><input class="oc-item-input oc-ped" type="number" min="0" step="any" value=""
-           style="width:4.5rem" placeholder="0"
+           style="width:4.5rem" placeholder="0" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
            oninput="recalcSaldo(this.closest('tr'))"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
       <td><input class="oc-item-input oc-des" type="number" min="0" step="any" value=""
-           style="width:4.5rem" placeholder="0"
+           style="width:4.5rem" placeholder="0" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
            oninput="recalcSaldo(this.closest('tr'))"
            onblur="guardarItemOC(this.closest('tr'))"
            onkeydown="if(event.key==='Enter'){this.blur();event.preventDefault()}"></td>
@@ -1930,19 +1936,19 @@
           '<select class="email-input" id="email-pdf-sel-' + idx + '">' + pdfsOpts + '</select></div>' : '') +
         '<div class="email-form-row-3">' +
         '<div><div class="email-label">Nombre de obra</div>' +
-        '<input class="email-input" id="email-obra-' + idx + '" type="text" value="' + _esc(em.nombre_obra) + '"></div>' +
+        '<input class="email-input" id="email-obra-' + idx + '" type="text" value="' + _esc(em.nombre_obra) + '" autocorrect="off" autocapitalize="sentences" spellcheck="false"></div>' +
         '<div><div class="email-label">N° OC</div>' +
-        '<input class="email-input" id="email-oc-' + idx + '" type="text" value="' + _esc(em.numero_oc) + '"></div>' +
+        '<input class="email-input" id="email-oc-' + idx + '" type="text" value="' + _esc(em.numero_oc) + '" autocorrect="off" autocapitalize="off" spellcheck="false"></div>' +
         '<div><div class="email-label">Cliente</div>' +
-        '<input class="email-input" id="email-cli-' + idx + '" type="text" value="' + _esc(em.cliente_sugerido || em.from_name) + '"></div>' +
+        '<input class="email-input" id="email-cli-' + idx + '" type="text" value="' + _esc(em.cliente_sugerido || em.from_name) + '" autocorrect="off" autocapitalize="words" spellcheck="false"></div>' +
         '</div>' +
         '<div class="email-form-row-3">' +
         '<div><div class="email-label">Lugar de entrega</div>' +
-        '<input class="email-input" id="email-lugar-' + idx + '" type="text" value="' + _esc(em.lugar_entrega || '') + '"></div>' +
+        '<input class="email-input" id="email-lugar-' + idx + '" type="text" value="' + _esc(em.lugar_entrega || '') + '" autocorrect="off" autocapitalize="sentences" spellcheck="false"></div>' +
         '<div><div class="email-label">Fecha entrega</div>' +
-        '<input class="email-input" id="email-fentrega-' + idx + '" type="text" value="' + _esc(em.fecha_entrega || '') + '"></div>' +
+        '<input class="email-input" id="email-fentrega-' + idx + '" type="text" value="' + _esc(em.fecha_entrega || '') + '" autocorrect="off" autocapitalize="off" spellcheck="false"></div>' +
         '<div><div class="email-label">Fecha OC</div>' +
-        '<input class="email-input" id="email-foc-' + idx + '" type="text" value="' + _esc(em.fecha_oc || '') + '"></div>' +
+        '<input class="email-input" id="email-foc-' + idx + '" type="text" value="' + _esc(em.fecha_oc || '') + '" autocorrect="off" autocapitalize="off" spellcheck="false"></div>' +
         '</div>' +
         '<div class="email-form-row">' +
         '<div id="email-status-' + idx + '" style="font-size:0.8rem;color:var(--texto-suave)"></div>' +

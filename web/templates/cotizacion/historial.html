@@ -28,9 +28,11 @@
     <div class="fil-row fil-row-inputs">
       <label class="sr-only" for="fil-cliente">Filtrar por cliente</label>
       <input type="text" id="fil-cliente"  placeholder="Filtrar por cliente…"  class="form-control"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
              oninput="filtrarHistorial()">
       <label class="sr-only" for="fil-proyecto">Filtrar por proyecto</label>
       <input type="text" id="fil-proyecto" placeholder="Filtrar por proyecto…" class="form-control"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
              oninput="filtrarHistorial()">
     </div>
 
@@ -72,7 +74,8 @@
       </div>
       <label class="sr-only" for="fil-desc">Buscar en descripción</label>
       <input type="text" id="fil-desc" placeholder="Ej: 400x100, ESCALERILLA, GC…" class="form-control"
-             style="flex:1; min-width:200px;" oninput="triggerFetch()">
+             style="flex:1; min-width:200px;" autocorrect="off" autocapitalize="off" spellcheck="false"
+             oninput="triggerFetch()">
     </div>
 
     <!-- Fila acciones: fecha · limpiar -->
@@ -277,7 +280,7 @@
 
 <!-- Modal detalle -->
 <div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-titulo"
-     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center; padding:1rem;">
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center; padding:1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="modal-inner">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h2 id="modal-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Detalle de cotización</h2>
@@ -318,7 +321,7 @@
   </div>
 </div>
 <!-- Modal editar cotización -->
-<div id="modal-editar" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100; align-items:center; justify-content:center; padding:1rem;">
+<div id="modal-editar" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100; align-items:center; justify-content:center; padding:1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="modal-inner" style="max-width:420px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h2 style="margin:0; font-size:1.1rem; color:var(--azul);">Editar cotización</h2>
@@ -419,7 +422,7 @@
 ═══════════════════════════════════════════════════════ -->
 <div id="modal-stats" role="dialog" aria-modal="true" aria-labelledby="stats-titulo"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1300;
-            align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto;">
+            align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="modal-inner" style="max-width:760px; width:100%; margin:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
       <h2 id="stats-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Estadísticas del Historial</h2>
@@ -470,7 +473,7 @@
 ═══════════════════════════════════════════════════════ -->
 <div id="modal-comparar" role="dialog" aria-modal="true" aria-labelledby="cmp-titulo"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1300;
-            align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto;">
+            align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="modal-inner" style="max-width:900px; width:100%; margin:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h2 id="cmp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Comparar cotizaciones</h2>

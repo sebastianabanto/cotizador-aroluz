@@ -33,7 +33,8 @@
         <div style="margin-bottom:0.5rem;">
           <input type="text" id="buscador-cat" class="form-control"
             placeholder="Buscar…" oninput="filtrarArbol()"
-            style="font-size:0.875rem;">
+            style="font-size:0.875rem;"
+            autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
         <div id="arbol-cat" style="max-height:520px; overflow-y:auto;"></div>
         <div style="border-top:1px solid var(--gris-borde); padding-top:0.6rem; margin-top:0.5rem;">
@@ -363,11 +364,13 @@ function renderProductos() {
       <div class="grid-2">
         <div class="form-group" style="grid-column:1/-1;">
           <label class="form-label">Descripción *</label>
-          <input type="text" id="np-desc" class="form-control" placeholder="Nombre del producto">
+          <input type="text" id="np-desc" class="form-control" placeholder="Nombre del producto"
+                 autocorrect="off" autocapitalize="sentences" spellcheck="false">
         </div>
         <div class="form-group">
           <label class="form-label">Precio (S/) *</label>
-          <input type="number" id="np-precio" class="form-control" step="0.01" min="0" placeholder="0.00">
+          <input type="number" id="np-precio" class="form-control" step="0.01" min="0" placeholder="0.00"
+                 inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
         <div class="form-group">
           <label class="form-label">Unidad</label>
@@ -381,7 +384,8 @@ function renderProductos() {
         </div>
         <div class="form-group">
           <label class="form-label">Presentación</label>
-          <input type="text" id="np-presentacion" class="form-control" placeholder="Ej: CAJ.100, PQT20">
+          <input type="text" id="np-presentacion" class="form-control" placeholder="Ej: CAJ.100, PQT20"
+                 autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
       </div>
       <div style="display:flex; justify-content:flex-end;">
@@ -429,7 +433,8 @@ function iniciarEditarProd(pIdx) {
   row.innerHTML = `
     <td><input type="text" id="ep-desc-${pIdx}" class="form-control form-control-sm" value="${esc(p.descripcion)}"></td>
     <td><input type="number" id="ep-precio-${pIdx}" class="form-control form-control-sm" step="0.01"
-         value="${p.precio}" style="width:90px;"></td>
+         value="${p.precio}" style="width:90px;"
+         inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></td>
     <td><select id="ep-unidad-${pIdx}" class="form-control form-control-sm">${opciones}</select></td>
     <td><input type="text" id="ep-pres-${pIdx}" class="form-control form-control-sm"
          value="${esc(p.presentacion || '')}"></td>
