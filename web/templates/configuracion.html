@@ -18,6 +18,9 @@
     <button class="cfg-tab" onclick="switchTab('roles', this)">
       <span class="cfg-tab-icon">🔐</span> Roles y Permisos
     </button>
+    <button class="cfg-tab" onclick="switchTab('correo', this)">
+      <span class="cfg-tab-icon">📧</span> Correo
+    </button>
   </div>
 
   <!-- ══════════════════════════════════════════════ -->
@@ -623,6 +626,74 @@
   </div><!-- /panel-roles -->
 
 
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- Panel: Correo IMAP                             -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="cfg-panel oculto" id="panel-correo">
+
+    <div class="cfg-card">
+      <div class="cfg-card-header">
+        <span class="cfg-card-icon" style="background:#e8f4fd; color:#1a6fad;">📧</span>
+        <span>Conexión IMAP</span>
+      </div>
+      <div class="cfg-card-body">
+
+        <p style="margin:0 0 1rem;color:var(--texto-suave);font-size:0.875rem;">
+          Configurá tu cuenta de correo para leer órdenes de compra automáticamente.
+          Para <strong>Gmail</strong>, generá una <em>App Password</em> en
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com → Seguridad → Contraseñas de aplicación</a>
+          y usala como contraseña aquí.
+        </p>
+
+        <div class="cfg-grid-2">
+          <div class="cfg-field">
+            <label class="cfg-label">Servidor IMAP</label>
+            <input id="imap-host" type="text" class="cfg-input" placeholder="ej: imap.gmail.com">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Puerto</label>
+            <input id="imap-port" type="number" class="cfg-input" value="993" min="1" max="65535" style="max-width:8rem">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Usuario (correo)</label>
+            <input id="imap-user" type="email" class="cfg-input" placeholder="tucorreo@ejemplo.com">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Contraseña / App Password</label>
+            <input id="imap-pass" type="password" class="cfg-input" placeholder="Ingresá contraseña (en blanco = mantener la actual)">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Carpeta</label>
+            <input id="imap-folder" type="text" class="cfg-input" value="INBOX" placeholder="INBOX">
+          </div>
+          <div class="cfg-field">
+            <label class="cfg-label">Días hacia atrás</label>
+            <input id="imap-days" type="number" class="cfg-input" value="30" min="1" max="365" style="max-width:8rem">
+          </div>
+        </div>
+
+        <div id="imap-msg" style="display:none;margin-top:0.75rem;font-size:0.875rem;padding:0.5rem 0.75rem;border-radius:6px"></div>
+
+        <div style="display:flex;gap:0.75rem;margin-top:1.25rem;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="guardarImap()">Guardar configuración</button>
+          <button class="btn btn-outline" onclick="probarImap()">Probar conexión</button>
+        </div>
+
+        <div class="imap-presets" style="margin-top:1.5rem">
+          <p style="font-size:0.8rem;color:var(--texto-suave);margin-bottom:0.5rem">Servidores comunes:</p>
+          <div style="display:flex;flex-wrap:wrap;gap:0.5rem">
+            <button class="btn btn-outline btn-sm" onclick="setImapPreset('imap.gmail.com',993)">Gmail</button>
+            <button class="btn btn-outline btn-sm" onclick="setImapPreset('outlook.office365.com',993)">Outlook / Hotmail</button>
+            <button class="btn btn-outline btn-sm" onclick="setImapPreset('imap.mail.yahoo.com',993)">Yahoo</button>
+            <button class="btn btn-outline btn-sm" onclick="setImapPreset('imap.zoho.com',993)">Zoho</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /panel-correo -->
+
 
 </div><!-- /container -->
 {% endblock %}
@@ -751,6 +822,8 @@
 /* ── Fields ── */
 .cfg-field { margin-bottom: 0.9rem; }
 .cfg-field:last-child { margin-bottom: 0; }
+.cfg-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.25rem; }
+@media (max-width: 600px) { .cfg-grid-2 { grid-template-columns: 1fr; } }
 .cfg-label {
   display: block;
   font-size: 0.8rem; font-weight: 600;
@@ -1327,6 +1400,62 @@ async function guardarConfig() {
   toast(data.ok ? 'Configuración guardada' : (data.error || 'Error al guardar'), data.ok ? 'success' : 'error');
 }
 
+
+// ── IMAP ──
+(function () {
+  async function _cargarImap() {
+    try {
+      const r = await apiFetch('/api/email/config');
+      if (r.configurado && r.config) {
+        document.getElementById('imap-host').value   = r.config.host     || '';
+        document.getElementById('imap-port').value   = r.config.port     || 993;
+        document.getElementById('imap-user').value   = r.config.username || '';
+        document.getElementById('imap-folder').value = r.config.folder   || 'INBOX';
+        document.getElementById('imap-days').value   = r.config.days_back || 30;
+      }
+    } catch (_) {}
+  }
+
+  document.querySelector('.cfg-tab[onclick*="correo"]').addEventListener('click', _cargarImap);
+
+  window.setImapPreset = function (host, port) {
+    document.getElementById('imap-host').value = host;
+    document.getElementById('imap-port').value = port;
+  };
+
+  window.guardarImap = async function () {
+    const body = {
+      host:      document.getElementById('imap-host').value.trim(),
+      port:      parseInt(document.getElementById('imap-port').value) || 993,
+      username:  document.getElementById('imap-user').value.trim(),
+      password:  document.getElementById('imap-pass').value,
+      folder:    document.getElementById('imap-folder').value.trim() || 'INBOX',
+      days_back: parseInt(document.getElementById('imap-days').value) || 30,
+    };
+    if (!body.host || !body.username) { toast('Completá al menos el servidor y el usuario.', 'error'); return; }
+    const r = await apiFetch('/api/email/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    toast(r.ok ? 'Configuración de correo guardada.' : (r.error || 'Error al guardar.'), r.ok ? 'success' : 'error');
+  };
+
+  window.probarImap = async function () {
+    const msgEl = document.getElementById('imap-msg');
+    msgEl.textContent = 'Probando conexión…';
+    msgEl.style.cssText = 'display:block;background:#fef9c3;color:#713f12;padding:0.5rem 0.75rem;border-radius:6px;font-size:0.875rem;margin-top:0.75rem';
+    const r = await apiFetch('/api/email/sync', { method: 'POST' });
+    if (r.ok) {
+      const n = r.emails ? r.emails.length : 0;
+      msgEl.textContent = `✓ Conexión exitosa. ${n} email(s) nuevo(s) con OC detectados.`;
+      msgEl.style.background = '#d1fae5'; msgEl.style.color = '#065f46';
+    } else {
+      msgEl.textContent = r.error || 'Error al conectar.';
+      msgEl.style.background = '#fee2e2'; msgEl.style.color = '#991b1b';
+    }
+  };
+}());
 
 </script>
 {% endblock %}
