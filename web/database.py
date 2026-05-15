@@ -220,6 +220,26 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS email_imap_config (
+            id       INTEGER PRIMARY KEY DEFAULT 1,
+            host     TEXT NOT NULL DEFAULT '',
+            port     INTEGER NOT NULL DEFAULT 993,
+            username TEXT NOT NULL DEFAULT '',
+            password TEXT NOT NULL DEFAULT '',
+            folder   TEXT NOT NULL DEFAULT 'INBOX',
+            days_back INTEGER NOT NULL DEFAULT 30
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS email_importados (
+            message_id    TEXT PRIMARY KEY,
+            proyecto      TEXT NOT NULL DEFAULT '',
+            importado_at  TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
 
     # Migraciones: agregar columnas nuevas si no existen (bases de datos existentes)
@@ -236,6 +256,7 @@ def init_db():
     _add_column_if_missing(conn, "usuarios", "rol", "TEXT NOT NULL DEFAULT 'USER'")
     _add_column_if_missing(conn, "usuarios", "ver_asistencias", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "carrito_items", "descripcion_calculada", "TEXT DEFAULT NULL")
+    _add_column_if_missing(conn, "email_importados", "pdf_hash", "TEXT NOT NULL DEFAULT ''")
     _migrate_cantidad_to_real(conn)
     _add_column_if_missing(conn, "cotizaciones", "origen", "TEXT NOT NULL DEFAULT 'web'")
     # Promover al usuario admin a ADMIN si aún no lo es
@@ -1409,11 +1430,15 @@ def init_proyectos():
         )
     """)
     # Migraciones de columnas
-    _add_column_if_missing(conn, "proyectos", "direccion", "TEXT NOT NULL DEFAULT ''")
-    _add_column_if_missing(conn, "proyectos", "cliente",  "TEXT NOT NULL DEFAULT ''")
-    _add_column_if_missing(conn, "proyectos", "numero_oc", "TEXT NOT NULL DEFAULT ''")
-    _add_column_if_missing(conn, "proyectos", "created_at", "TEXT")
-    _add_column_if_missing(conn, "proyectos", "contacto",  "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "direccion",     "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "cliente",       "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "numero_oc",     "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "created_at",    "TEXT")
+    _add_column_if_missing(conn, "proyectos", "contacto",      "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "lugar_entrega", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "fecha_entrega", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "fecha_oc",      "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "proyectos", "notas",         "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "proyecto_adjuntos", "categoria", "TEXT NOT NULL DEFAULT 'oc'")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_proyectos_estado ON proyectos(estado)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_proyecto_adjuntos_proyecto ON proyecto_adjuntos(proyecto)")
@@ -1437,6 +1462,10 @@ def get_proyectos_con_stats() -> List[Dict]:
             p.updated_at,
             p.created_at,
             p.contacto,
+            p.lugar_entrega,
+            p.fecha_entrega,
+            p.fecha_oc,
+            COALESCE(p.notas, '') AS notas,
             COALESCE(SUM(c.total_precio), 0) AS total_cotizado,
             MAX(c.fecha) AS ultima_fecha,
             (SELECT c2.cliente_nombre FROM cotizaciones c2
@@ -1508,6 +1537,13 @@ def update_proyecto_direccion(nombre: str, direccion: str):
         "UPDATE proyectos SET direccion=? WHERE nombre=?",
         (direccion.strip(), nombre),
     )
+    conn.commit()
+    conn.close()
+
+
+def update_proyecto_notas(nombre: str, notas: str):
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("UPDATE proyectos SET notas=? WHERE nombre=?", (notas.strip(), nombre))
     conn.commit()
     conn.close()
 
@@ -1626,19 +1662,36 @@ def renombrar_proyecto(nombre: str, nuevo_nombre: str, nuevo_cliente: str) -> bo
     return True
 
 
-def crear_proyecto(nombre: str, cliente: str) -> bool:
-    """Crea un proyecto manualmente en estado APROBADO. Retorna False si ya existe."""
+def crear_proyecto(
+    nombre: str,
+    cliente: str,
+    lugar_entrega: str = "",
+    fecha_entrega: str = "",
+    fecha_oc: str = "",
+) -> bool:
+    """Crea un proyecto en estado APROBADO. Retorna False si ya existe."""
     from datetime import datetime
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     c.execute(
-        "INSERT OR IGNORE INTO proyectos (nombre, cliente, estado, created_at) VALUES (?, ?, 'APROBADO', ?)",
-        (nombre.strip(), cliente.strip(), datetime.now().strftime("%Y-%m-%d")),
+        """INSERT OR IGNORE INTO proyectos
+           (nombre, cliente, estado, created_at, lugar_entrega, fecha_entrega, fecha_oc)
+           VALUES (?, ?, 'APROBADO', ?, ?, ?, ?)""",
+        (nombre.strip(), cliente.strip(), datetime.now().strftime("%Y-%m-%d"),
+         lugar_entrega.strip(), fecha_entrega.strip(), fecha_oc.strip()),
     )
     created = c.rowcount > 0
     conn.commit()
     conn.close()
     return created
+
+
+def proyecto_existe(nombre: str) -> bool:
+    """Retorna True si ya hay un proyecto con ese nombre exacto."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    row = conn.execute("SELECT 1 FROM proyectos WHERE nombre=?", (nombre.strip(),)).fetchone()
+    conn.close()
+    return row is not None
 
 
 def eliminar_proyecto(nombre: str) -> bool:
@@ -1655,6 +1708,7 @@ def eliminar_proyecto(nombre: str) -> bool:
             pass
     conn.execute("DELETE FROM proyecto_adjuntos WHERE proyecto=?", (nombre,))
     conn.execute("DELETE FROM proyecto_oc_items WHERE proyecto=?", (nombre,))
+    conn.execute("DELETE FROM email_importados WHERE proyecto=?", (nombre,))
     c_del = conn.execute("DELETE FROM proyectos WHERE nombre=?", (nombre,))
     deleted = c_del.rowcount > 0
     conn.commit()
@@ -1858,6 +1912,103 @@ def fusionar_reporte_asistencia(
     )
     conn.commit()
     conn.close()
+
+
+# ── IMAP / correo electrónico ────────────────────────────────────────────────
+
+def get_email_imap_config() -> Optional[Dict]:
+    """Devuelve la configuración IMAP guardada, o None si aún no está configurada."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM email_imap_config WHERE id=1").fetchone()
+    conn.close()
+    if not row or not row["host"]:
+        return None
+    return dict(row)
+
+
+def save_email_imap_config(host: str, port: int, username: str, password: str,
+                            folder: str, days_back: int) -> None:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute(
+        """INSERT INTO email_imap_config (id, host, port, username, password, folder, days_back)
+           VALUES (1, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+               host=excluded.host, port=excluded.port, username=excluded.username,
+               password=excluded.password, folder=excluded.folder, days_back=excluded.days_back""",
+        (host, port, username, password, folder, days_back),
+    )
+    conn.commit()
+    conn.close()
+
+
+def email_ya_importado(message_id: str) -> bool:
+    """True si el message_id ya fue importado y el proyecto todavía existe."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    row = conn.execute(
+        """SELECT ei.proyecto FROM email_importados ei
+           JOIN proyectos p ON p.nombre = ei.proyecto
+           WHERE ei.message_id = ?""",
+        (message_id,),
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def pdf_hash_ya_importado(pdf_hash: str) -> bool:
+    """True si ya se importó un PDF con ese hash SHA-256 y el proyecto aún existe.
+    Permite detectar reenvíos/respuestas que adjuntan el mismo PDF."""
+    if not pdf_hash:
+        return False
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    row = conn.execute(
+        """SELECT ei.proyecto FROM email_importados ei
+           JOIN proyectos p ON p.nombre = ei.proyecto
+           WHERE ei.pdf_hash = ?""",
+        (pdf_hash,),
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def registrar_email_importado(message_id: str, proyecto: str, pdf_hash: str = "") -> None:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute(
+        """INSERT OR IGNORE INTO email_importados (message_id, proyecto, importado_at, pdf_hash)
+           VALUES (?, ?, ?, ?)""",
+        (message_id, proyecto, _dt.now().strftime("%Y-%m-%d %H:%M:%S"), pdf_hash),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_dominios_clientes() -> set:
+    """Devuelve el conjunto de dominios de correo de las atenciones registradas (ej. {'empresa.com'})."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    rows = conn.execute("SELECT email FROM atenciones WHERE email != ''").fetchall()
+    conn.close()
+    dominios = set()
+    for (email_addr,) in rows:
+        if "@" in email_addr:
+            domain = email_addr.split("@", 1)[1].strip().lower()
+            if domain:
+                dominios.add(domain)
+    return dominios
+
+
+def get_cliente_nombre_por_dominio(domain: str) -> str:
+    """Devuelve el nombre del cliente registrado con ese dominio de correo, o '' si no existe."""
+    if not domain:
+        return ""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    row = conn.execute(
+        """SELECT c.nombre FROM atenciones a
+           JOIN clientes c ON c.codigo = a.codigo_empresa
+           WHERE lower(a.email) LIKE ? LIMIT 1""",
+        (f"%@{domain.lower()}",),
+    ).fetchone()
+    conn.close()
+    return row[0] if row else ""
 
 
 # Inicializar al importar
