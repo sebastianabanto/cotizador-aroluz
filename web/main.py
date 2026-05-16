@@ -42,6 +42,7 @@ from web.database import (
     get_oc_items, add_oc_item, update_oc_item, delete_oc_item,
     ESTADOS_KANBAN, ESTADO_LABELS, ADJUNTOS_DIR,
 )
+from web.changelog import VERSIONES as _CHANGELOG
 from web.rutas import cotizar as rutas_cotizar
 from web.rutas import carrito as rutas_carrito
 from web.rutas import exportar as rutas_exportar
@@ -617,6 +618,17 @@ async def catalogo_page(request: Request, usuario: dict = Depends(require_login)
 
 
 # ─────────────────────────────────────────────
+# Página Changelog
+# ─────────────────────────────────────────────
+
+@app.get("/changelog", response_class=HTMLResponse)
+async def changelog_page(request: Request, usuario: dict = Depends(require_admin)):
+    return templates.TemplateResponse(
+        "changelog.html",
+        ctx(request, usuario, versiones=_CHANGELOG),
+    )
+
+
 # Página Configuración
 # ─────────────────────────────────────────────
 

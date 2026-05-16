@@ -38,12 +38,13 @@
         {{ usuario.n or usuario.u }} ▾
       </button>
       <div class="user-dropdown-menu" id="user-dropdown-menu">
-        <a href="/cuenta"   class="user-dropdown-item">👤 Mi cuenta</a>
+        <a href="/cuenta"    class="user-dropdown-item">👤 Mi cuenta</a>
         {% if usuario.r == 'ADMIN' %}
-        <a href="/usuarios" class="user-dropdown-item">🔑 Usuarios</a>
+        <a href="/usuarios"  class="user-dropdown-item">🔑 Usuarios</a>
+        <a href="/changelog" class="user-dropdown-item">📋 Versiones</a>
         {% endif %}
         <div class="user-dropdown-divider"></div>
-        <a href="/logout"   class="user-dropdown-item user-dropdown-logout">✕ Cerrar sesión</a>
+        <a href="/logout"    class="user-dropdown-item user-dropdown-logout">✕ Cerrar sesión</a>
       </div>
     </div>
   </div>
