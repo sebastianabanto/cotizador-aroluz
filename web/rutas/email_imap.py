@@ -6,6 +6,7 @@ import hashlib
 import imaplib
 import io
 import re
+import time
 import unicodedata
 from datetime import datetime, timedelta
 from typing import Optional
@@ -1087,8 +1088,11 @@ def _buscar_emails_con_pdf(cfg: dict) -> list:
             continue
 
     resultados = []
+    _deadline = time.time() + 50  # 50 s — margen antes del timeout de 60 s del proxy
     # Paso 2: descargar emails candidatos y buscar PDFs
     for uid, hdr_raw, subject_ok, domain_ok in candidatos:
+        if time.time() > _deadline:
+            break
         try:
             hdr_msg    = _email_mod.message_from_bytes(hdr_raw)
             message_id = hdr_msg.get("Message-ID", "").strip() or f"uid-{uid.decode()}"
