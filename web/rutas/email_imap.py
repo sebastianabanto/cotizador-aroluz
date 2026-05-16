@@ -64,6 +64,40 @@ _INGRESO_OC_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Patrones de falsos positivos: correos que mencionan OC pero NO son órdenes de compra
+_FALSO_POSITIVO_RE = re.compile(
+    r"(?:"
+    # Solicitudes de documentos / calidad / certificados / fichas
+    r"SOLICITUD\s+DE\s+DOCUMENTOS"
+    r"|DOCUMENTOS\s+DE\s+CALIDAD"
+    r"|SOLICITUD\s+DE\s+CALIDAD"
+    r"|SOLICITUD\s+DE\s+CERTIFICAD[OA]S?"
+    r"|FICHA\s+T[EÉ]CNICA"
+    # Homologación
+    r"|SOLICITUD\s+DE\s+HOMOLOGACI[OÓ]N"
+    r"|\bHOMOLOGACI[OÓ]N\b"
+    # Solicitudes de cotización / precio (no son compras todavía)
+    r"|SOLICITUD\s+DE\s+COTIZACI[OÓ]N"
+    r"|SOLICITUD\s+DE\s+PRECIO"
+    # Consultas (ej: "Consulta sobre OC", "Consulta de precios")
+    r"|\bCONSULTA\s+(?:SOBRE|DE|POR|ACERCA|RESPECTO)"
+    # Seguimiento de OC existente
+    r"|\bSEGUIMIENTO\s+(?:DE\s+)?(?:OC\b|O\.C\.|O/C|ORDEN)"
+    # Confirmación de recepción / acuse de recibo
+    r"|CONFIRMACI[OÓ]N\s+DE\s+RECEPCI[OÓ]N"
+    r"|RECEPCI[OÓ]N\s+DE\s+(?:OC\b|O\.C\.|O/C|ORDEN)"
+    # Validación / observaciones / anulación de OC
+    r"|VALIDACI[OÓ]N\s+DE\s+(?:OC\b|O\.C\.|O/C|ORDEN)"
+    r"|OBSERVACIONES\s+(?:A\s+LA\s+|DE\s+)?(?:OC\b|O\.C\.|O/C|ORDEN)"
+    r"|ANULACI[OÓ]N\s+DE\s+(?:OC\b|O\.C\.|O/C|ORDEN)"
+    # Garantía / muestra / información
+    r"|SOLICITUD\s+DE\s+GARANT[IÍ]A"
+    r"|SOLICITUD\s+DE\s+MUESTRA"
+    r"|REQUERIMIENTO\s+DE\s+INFORMACI[OÓ]N"
+    r")",
+    re.IGNORECASE,
+)
+
 
 def _texto_es_oc(texto: str) -> bool:
     return bool(_OC_RE.search(texto))
@@ -72,6 +106,11 @@ def _texto_es_oc(texto: str) -> bool:
 def _texto_es_ingreso_oc(texto: str) -> bool:
     """True si el texto indica que es un ingreso/recepción de OC (no una OC)."""
     return bool(_INGRESO_OC_RE.search(texto))
+
+
+def _texto_es_falso_positivo(texto: str) -> bool:
+    """True si el asunto parece relacionado con OC pero NO es una orden de compra real."""
+    return bool(_FALSO_POSITIVO_RE.search(texto))
 
 
 def _sender_domain(from_header: str) -> str:
@@ -1048,9 +1087,9 @@ def _buscar_emails_con_pdf(cfg: dict) -> list:
         imap.logout()
         return []
 
-    # Paso 1: leer encabezados de los últimos 80 emails y pre-filtrar
+    # Paso 1: leer encabezados de los últimos 300 emails y pre-filtrar
     candidatos = []
-    for uid in reversed(uids[-80:]):
+    for uid in reversed(uids[-300:]):
         try:
             status, hdr_data = imap.fetch(uid, _HDR_FIELDS)
             if status != "OK" or not hdr_data or not hdr_data[0]:
@@ -1076,6 +1115,10 @@ def _buscar_emails_con_pdf(cfg: dict) -> list:
             if _texto_es_ingreso_oc(subject):
                 continue
 
+            # Excluir falsos positivos (consultas, solicitudes de docs, seguimientos, etc.)
+            if _texto_es_falso_positivo(subject):
+                continue
+
             subject_ok = _texto_es_oc(subject)
             domain_ok  = bool(domain and domain in dominios_clientes)
 
@@ -1088,7 +1131,7 @@ def _buscar_emails_con_pdf(cfg: dict) -> list:
             continue
 
     resultados = []
-    _deadline = time.time() + 50  # 50 s — margen antes del timeout de 60 s del proxy
+    _deadline = time.time() + 110  # 110 s — toleramos espera de mes completo
     # Paso 2: descargar emails candidatos y buscar PDFs
     for uid, hdr_raw, subject_ok, domain_ok in candidatos:
         if time.time() > _deadline:

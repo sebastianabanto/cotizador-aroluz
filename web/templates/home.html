@@ -396,12 +396,13 @@
       <a href="/configuracion" id="email-sync-cfg-link" style="display:none;margin-top:0.5rem;font-size:0.8rem;color:#b91c1c;text-decoration:underline;display:block">⚙ Configurar correo</a>
     </div>
   </div>
-  <div class="modal-simple-footer" style="justify-content:flex-end;gap:0.75rem">
-    <div style="margin-right:auto;display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;color:var(--texto-suave);flex-wrap:wrap">
-      <span>📅</span>
-      <input type="date" id="email-since" style="font-size:0.78rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--borde);color:var(--texto)">
-      <span>→</span>
-      <input type="date" id="email-until" style="font-size:0.78rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--borde);color:var(--texto)">
+  <input type="hidden" id="email-since">
+  <input type="hidden" id="email-until">
+  <div class="modal-simple-footer" style="justify-content:flex-end;gap:0.75rem;flex-wrap:wrap">
+    <div class="email-mes-selector">
+      <button id="btn-email-mes-prev" class="email-mes-nav" onclick="emailNavMes(-1)" title="Mes anterior">&#8249;</button>
+      <span id="email-mes-label" class="email-mes-chip">Mayo 2026</span>
+      <button id="btn-email-mes-next" class="email-mes-nav" onclick="emailNavMes(1)" title="Mes siguiente">&#8250;</button>
     </div>
     <button id="btn-email-sync" class="btn btn-outline btn-sm" onclick="ejecutarSincEmail()">🔄 Sincronizar</button>
     <button id="btn-email-ver-tablero" class="btn btn-primary" onclick="verTableroEmail()" style="display:none">📋 Ver en tablero</button>
@@ -436,6 +437,12 @@
 .btn-pdf-preview:disabled { opacity: 0.5; cursor: default; }
 .email-pdf-preview { margin-top: 0.5rem; max-height: 360px; overflow-y: auto; border: 1px solid var(--borde); border-radius: 8px; background: #f8fafc; }
 .email-pdf-preview canvas { display: block; width: 100%; height: auto; margin-bottom: 2px; }
+/* Selector de mes */
+.email-mes-selector { display:flex; align-items:center; gap:0.3rem; margin-right:auto; }
+.email-mes-chip { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:999px; padding:0.22rem 1rem; font-weight:600; font-size:0.82rem; min-width:8.5rem; text-align:center; white-space:nowrap; }
+.email-mes-nav { background:none; border:1px solid var(--borde); border-radius:50%; width:1.7rem; height:1.7rem; cursor:pointer; font-size:1.15rem; line-height:1; display:flex; align-items:center; justify-content:center; color:var(--texto-suave); padding:0; flex-shrink:0; }
+.email-mes-nav:hover:not(:disabled) { background:var(--fondo-hover,#f1f5f9); color:var(--texto); }
+.email-mes-nav:disabled { opacity:0.3; cursor:default; }
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -1779,15 +1786,44 @@
     if (btnTabl) { btnTabl.style.display = 'none'; }
   }
 
+  /* ── Selector de mes para sync de correo ── */
+  var _emailAnio = 0, _emailMes = 0;
+  var _MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  function _fmtLocal(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function _emailActualizarMes() {
+    var hoy = new Date();
+    var esMesActual = (_emailAnio === hoy.getFullYear() && _emailMes === hoy.getMonth());
+    // Etiqueta
+    document.getElementById('email-mes-label').textContent = _MESES_ES[_emailMes] + ' ' + _emailAnio;
+    // Deshabilitar "siguiente" si ya estamos en el mes actual
+    var btnNext = document.getElementById('btn-email-mes-next');
+    if (btnNext) btnNext.disabled = esMesActual;
+    // Calcular since y until
+    var primerDia = new Date(_emailAnio, _emailMes, 1);
+    var ultimoDia = esMesActual ? hoy : new Date(_emailAnio, _emailMes + 1, 0);
+    var sinceEl = document.getElementById('email-since');
+    var untilEl = document.getElementById('email-until');
+    if (sinceEl) sinceEl.value = _fmtLocal(primerDia);
+    if (untilEl) untilEl.value = _fmtLocal(ultimoDia);
+  }
+
+  window.emailNavMes = function (dir) {
+    _emailMes += dir;
+    if (_emailMes > 11) { _emailMes = 0; _emailAnio++; }
+    if (_emailMes < 0)  { _emailMes = 11; _emailAnio--; }
+    _emailActualizarMes();
+  };
+
   window.abrirModalEmail = function () {
     _resetModal();
     var hoy = new Date();
-    var hace15 = new Date(hoy); hace15.setDate(hace15.getDate() - 15);
-    var _fmt = function(d) { return d.toISOString().slice(0, 10); };
-    var sinceEl = document.getElementById('email-since');
-    var untilEl = document.getElementById('email-until');
-    if (sinceEl) sinceEl.value = _fmt(hace15);
-    if (untilEl) untilEl.value = _fmt(hoy);
+    _emailAnio = hoy.getFullYear();
+    _emailMes  = hoy.getMonth();
+    _emailActualizarMes();
     _modal.showModal();
   };
 
