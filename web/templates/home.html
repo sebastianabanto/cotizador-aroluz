@@ -1611,7 +1611,7 @@
         .filter(Boolean)
     )).sort(function(a, b) { return a.localeCompare(b); });
 
-    if (cardClientes.length < 2) { container.style.display = 'none'; return; }
+    if (cardClientes.length < 1) { container.style.display = 'none'; return; }
 
     /* Lookup normalizado: quita puntos y espacios finales para comparar */
     function _norm(s) { return s.trim().toLowerCase().replace(/[\s.]+$/, ''); }

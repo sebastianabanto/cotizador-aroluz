@@ -9,6 +9,10 @@ document.addEventListener("DOMContentLoaded", function () {
     renderBarrasHorizontales(empleados, "grafico-barras");
     renderHeatmap(empleados, "heatmap-wrap");
     renderHorasEntrada(empleados, "grafico-entrada");
+    renderAusenciasPorDia(empleados, "grafico-dias-semana");
+    if (typeof TODOS_REPORTES !== "undefined" && TODOS_REPORTES.length > 1) {
+        renderTendenciaMensual("grafico-tendencia");
+    }
 });
 
 // ── Colores ────────────────────────────────────────────────
@@ -288,6 +292,171 @@ function renderHorasEntrada(empleados, contenedorId) {
 
     svg += "</svg>";
     cont.innerHTML = svg;
+}
+
+// ── 5. Ausencias por día de semana ──────────────────────────────────────────
+function renderAusenciasPorDia(empleados, contenedorId) {
+    const cont = document.getElementById(contenedorId);
+    if (!cont || empleados.length === 0) return;
+
+    const diasSem = ["Lun", "Mar", "Mié", "Jue", "Vie"];
+    const conteo  = [0, 0, 0, 0, 0];
+
+    empleados.forEach(function(emp) {
+        emp.detalle.forEach(function(d) {
+            if (!d.ausente || d.es_fin_semana) return;
+            var prefijo = (d.fecha || "").substring(0, 3);
+            var idx = diasSem.indexOf(prefijo);
+            if (idx >= 0) conteo[idx]++;
+        });
+    });
+
+    var total = conteo.reduce(function(a, b) { return a + b; }, 0);
+    if (total === 0) {
+        cont.innerHTML = '<p class="config-vacio" style="padding:16px 0">Sin ausencias registradas este período.</p>';
+        return;
+    }
+
+    var maxVal   = Math.max.apply(null, conteo) || 1;
+    var ANCHO    = 420;
+    var ALTO     = 160;
+    var MAR_IZQ  = 36;
+    var MAR_DER  = 16;
+    var MAR_SUP  = 12;
+    var MAR_INF  = 28;
+    var chartW   = ANCHO - MAR_IZQ - MAR_DER;
+    var chartH   = ALTO  - MAR_SUP - MAR_INF;
+    var barW     = Math.floor(chartW / diasSem.length * 0.55);
+    var barGap   = Math.floor(chartW / diasSem.length);
+
+    var svg = '<svg width="100%" viewBox="0 0 ' + ANCHO + ' ' + ALTO + '" xmlns="http://www.w3.org/2000/svg">';
+
+    [0, Math.round(maxVal / 2), maxVal].forEach(function(v) {
+        var y = MAR_SUP + chartH * (1 - v / maxVal);
+        svg += '<line x1="' + MAR_IZQ + '" y1="' + y + '" x2="' + (ANCHO - MAR_DER) + '" y2="' + y + '" stroke="#e5e7eb" stroke-width="1"/>';
+        svg += svgText(MAR_IZQ - 4, y + 4, String(v), { anchor: "end", size: 9, fill: C_SUB });
+    });
+
+    diasSem.forEach(function(dia, i) {
+        var val   = conteo[i];
+        var xCent = MAR_IZQ + i * barGap + barGap / 2;
+        var xBar  = xCent - barW / 2;
+        var barH  = val > 0 ? Math.max(4, chartH * val / maxVal) : 0;
+        var yBar  = MAR_SUP + chartH - barH;
+        var color = (val === maxVal && maxVal > 0) ? C_ROJO : C_AZUL;
+
+        if (barH > 0) {
+            svg += svgRect(xBar, yBar, barW, barH, color,
+                           val + " ausencia" + (val !== 1 ? "s" : "") + " los " + dia, 3);
+        }
+        if (val > 0) {
+            svg += svgText(xCent, yBar - 3, String(val), { anchor: "middle", size: 10, fill: color, weight: "600" });
+        }
+        svg += svgText(xCent, MAR_SUP + chartH + 16, dia, { anchor: "middle", size: 11, fill: C_TEXTO });
+    });
+
+    svg += "</svg>";
+    cont.innerHTML = svg;
+}
+
+// ── 6. Tendencia mensual ─────────────────────────────────────
+async function renderTendenciaMensual(contenedorId) {
+    var cont = document.getElementById(contenedorId);
+    if (!cont) return;
+
+    cont.innerHTML = '<p class="config-vacio" style="padding:12px 0">Cargando tendencia...</p>';
+
+    try {
+        var resultados = await Promise.all(
+            TODOS_REPORTES.map(function(r) {
+                return fetch("/asistencias/api/dashboard/" + r.id)
+                    .then(function(resp) { return resp.ok ? resp.json() : null; })
+                    .catch(function() { return null; });
+            })
+        );
+
+        var puntos = [];
+        TODOS_REPORTES.forEach(function(r, i) {
+            var data = resultados[i];
+            if (!data || !data.kpis) return;
+            puntos.push({
+                label: (r.periodo_label || r.periodo || "").split(" — ")[0],
+                pct:   data.kpis.pct_asistencia || 0,
+                id:    r.id,
+            });
+        });
+
+        if (puntos.length < 2) {
+            cont.innerHTML = '<p class="config-vacio" style="padding:12px 0">Se necesitan al menos 2 períodos para mostrar la tendencia.</p>';
+            return;
+        }
+
+        var ANCHO   = 700;
+        var ALTO    = 180;
+        var MAR_IZQ = 44;
+        var MAR_DER = 20;
+        var MAR_SUP = 16;
+        var MAR_INF = 40;
+        var chartW  = ANCHO - MAR_IZQ - MAR_DER;
+        var chartH  = ALTO  - MAR_SUP  - MAR_INF;
+
+        var pcts    = puntos.map(function(p) { return p.pct; });
+        var minPct  = Math.max(0,   Math.floor(Math.min.apply(null, pcts) / 10) * 10 - 10);
+        var maxPct  = Math.min(100, Math.ceil( Math.max.apply(null, pcts) / 10) * 10 + 5);
+        var rango   = maxPct - minPct || 1;
+
+        function toX(i) { return MAR_IZQ + (i / (puntos.length - 1)) * chartW; }
+        function toY(pct) { return MAR_SUP + chartH * (1 - (pct - minPct) / rango); }
+
+        var svg = '<svg width="100%" viewBox="0 0 ' + ANCHO + ' ' + ALTO + '" xmlns="http://www.w3.org/2000/svg">';
+
+        [minPct, Math.round((minPct + maxPct) / 2), maxPct].forEach(function(v) {
+            var y = toY(v);
+            svg += '<line x1="' + MAR_IZQ + '" y1="' + y + '" x2="' + (ANCHO - MAR_DER) + '" y2="' + y + '" stroke="#e5e7eb" stroke-width="1"/>';
+            svg += svgText(MAR_IZQ - 4, y + 4, v + "%", { anchor: "end", size: 9, fill: C_SUB });
+        });
+
+        var ptsPath = puntos.map(function(p, i) { return toX(i) + "," + toY(p.pct); }).join(" ");
+        svg += '<polyline points="' + ptsPath + '" fill="none" stroke="' + C_AZUL + '" stroke-width="2.5" stroke-linejoin="round"/>';
+
+        var ptsArea = MAR_IZQ + "," + (MAR_SUP + chartH) + " " + ptsPath + " " + (ANCHO - MAR_DER) + "," + (MAR_SUP + chartH);
+        svg += '<polygon points="' + ptsArea + '" fill="' + C_AZUL + '" fill-opacity="0.08"/>';
+
+        puntos.forEach(function(p, i) {
+            var x       = toX(i);
+            var y       = toY(p.pct);
+            var esActual = p.id === REPORTE_ACTUAL_ID;
+            var r       = esActual ? 7 : 5;
+            var fill    = esActual ? C_AZUL : C_AZUL_L;
+
+            svg += '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + fill + '" stroke="#fff" stroke-width="2" data-id="' + p.id + '">'
+                 + '<title>' + _esc(p.label) + ': ' + p.pct + '%</title></circle>';
+
+            svg += svgText(x, y - r - 5, p.pct + "%",
+                           { anchor: "middle", size: 10,
+                             fill: esActual ? C_AZUL : C_TEXTO,
+                             weight: esActual ? "700" : "normal" });
+
+            svg += svgText(x, MAR_SUP + chartH + 16, p.label,
+                           { anchor: "middle", size: 10,
+                             fill: esActual ? C_AZUL : C_SUB,
+                             weight: esActual ? "600" : "normal" });
+        });
+
+        svg += "</svg>";
+        cont.innerHTML = '<div style="overflow-x:auto">' + svg + '</div>';
+
+        cont.querySelectorAll("circle[data-id]").forEach(function(circle) {
+            var id = circle.getAttribute("data-id");
+            circle.style.cursor = "pointer";
+            circle.addEventListener("click", function() {
+                window.location.href = "/asistencias/dashboard/" + id;
+            });
+        });
+
+    } catch(err) {
+        cont.innerHTML = '<p class="config-vacio">Error al cargar la tendencia mensual.</p>';
+    }
 }
 
 // ── 4. Comparador: barras agrupadas ───────────────────────

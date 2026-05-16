@@ -38,6 +38,10 @@
             <span class="kpi-valor">{{ kpis.prom_horas_dia }}h</span>
             <span class="kpi-label">Prom. horas / día</span>
         </div>
+        <div class="kpi-card kpi-verde-suave">
+            <span class="kpi-valor">{{ kpis.empleados_sin_falta }}</span>
+            <span class="kpi-label">Asistencia perfecta</span>
+        </div>
     </div>
 
     <!-- ── Descripción de KPIs ── -->
@@ -83,6 +87,22 @@
         <div class="heatmap-wrap" id="heatmap-wrap"></div>
     </div>
 
+    <!-- ── Ausencias por día de semana ── -->
+    <div class="card">
+        <h3 class="chart-titulo">Ausencias por día de la semana</h3>
+        <p class="chart-sub">Días hábiles sin asistencia, agrupados por día (lunes – viernes)</p>
+        <div id="grafico-dias-semana"></div>
+    </div>
+
+    <!-- ── Tendencia mensual ── -->
+    {% if todos_reportes | length > 1 %}
+    <div class="card">
+        <h3 class="chart-titulo">Tendencia mensual — % asistencia</h3>
+        <p class="chart-sub">Evolución del porcentaje de asistencia entre todos los períodos guardados</p>
+        <div id="grafico-tendencia" class="chart-tendencia-wrap"></div>
+    </div>
+    {% endif %}
+
     <!-- ── Hora de entrada ── -->
     <div class="card">
         <h3 class="chart-titulo">Hora de entrada por día y empleado</h3>
@@ -120,6 +140,8 @@
 <script>
 const DATOS_REPORTE = {{ datos | tojson }};
 const KPIS = {{ kpis | tojson }};
+const TODOS_REPORTES = {{ todos_reportes | tojson }};
+const REPORTE_ACTUAL_ID = {{ reporte.id }};
 </script>
 <script src="/static/asistencias-dashboard.js"></script>
 {% endblock %}

@@ -1826,7 +1826,7 @@ def listar_reportes_asistencia() -> List[Dict]:
     c = conn.cursor()
     c.execute(
         """SELECT id, periodo, periodo_label, fecha_subida, subido_por, nombre_archivo, num_empleados
-           FROM reportes_asistencia ORDER BY fecha_subida DESC"""
+           FROM reportes_asistencia ORDER BY periodo ASC"""
     )
     rows = [dict(r) for r in c.fetchall()]
     conn.close()

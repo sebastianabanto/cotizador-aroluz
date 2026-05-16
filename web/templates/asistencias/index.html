@@ -34,8 +34,8 @@
                 <td>{{ r.subido_por }}</td>
                 <td class="acciones-reporte">
                     <a href="/asistencias/dashboard/{{ r.id }}" class="btn btn-sm">Dashboard</a>
-                    <a href="/asistencias/reportes/{{ r.id }}/procesar" class="btn btn-sm btn-outline">Procesar</a>
-                    <a href="/asistencias/reportes/{{ r.id }}/pdf" class="btn btn-sm btn-outline">PDF</a>
+                    <a href="/asistencias/reportes/{{ r.id }}/procesar" class="btn btn-sm btn-outline">Ver tabla</a>
+                    <a href="/asistencias/reportes/{{ r.id }}/pdf" class="btn btn-sm btn-outline">↓ PDF</a>
                     <button class="btn btn-sm btn-outline btn-danger-outline"
                             onclick="eliminarReporte({{ r.id }}, '{{ r.periodo_label | replace("'", "\\'") }}')">
                         Eliminar

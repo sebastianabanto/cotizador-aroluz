@@ -608,7 +608,7 @@ td.num { font-variant-numeric: tabular-nums; }
 /* KPI Grid */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 14px;
     margin-bottom: 20px;
 }
@@ -764,6 +764,26 @@ td.num { font-variant-numeric: tabular-nums; }
     .kpi-grid  { grid-template-columns: repeat(2, 1fr); }
     .kpi-descs { grid-template-columns: repeat(2, 1fr); }
 }
+/* ── KPI: variante verde suave (asistencia perfecta) ── */
+.kpi-card.kpi-verde-suave {
+    background: #f0fdf4;
+    border-left: 4px solid #86efac;
+}
+.kpi-card.kpi-verde-suave .kpi-valor { color: #15803d; }
+.kpi-card.kpi-verde-suave .kpi-label { color: #166534; }
+
+/* ── Subtítulo de gráfico ── */
+.chart-sub {
+    font-size: var(--fs-sm, 0.85rem);
+    color: var(--texto-suave, #5c6878);
+    margin: -6px 0 12px;
+}
+
+/* ── Contenedor tendencia mensual ── */
+.chart-tendencia-wrap {
+    overflow-x: auto;
+}
+
 @media (max-width: 560px) {
     .kpi-grid  { grid-template-columns: 1fr 1fr; }
     .kpi-descs { grid-template-columns: 1fr 1fr; }
