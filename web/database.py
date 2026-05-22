@@ -1070,6 +1070,25 @@ def mover_item_carrito_db(item_id: int, username: str, direccion: str) -> bool:
     return True
 
 
+def reordenar_carrito_db(username: str, ids_ordenados: list) -> bool:
+    """Establece la posición de los cuerpos según el orden indicado. Las tapas siguen a su cuerpo."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    c = conn.cursor()
+    for idx, item_id in enumerate(ids_ordenados):
+        posicion = (idx + 1) * 10
+        c.execute(
+            "UPDATE carrito_items SET posicion=? WHERE id=? AND username=? AND tapa_para_id IS NULL",
+            (posicion, item_id, username),
+        )
+        c.execute(
+            "UPDATE carrito_items SET posicion=? WHERE tapa_para_id=? AND username=?",
+            (posicion + 0.5, item_id, username),
+        )
+    conn.commit()
+    conn.close()
+    return True
+
+
 def update_item_completo_carrito_db(
     item_id: int, username: str,
     descripcion: str, unidad: str,

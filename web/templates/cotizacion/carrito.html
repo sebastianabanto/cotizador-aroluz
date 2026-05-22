@@ -94,7 +94,7 @@
       <table id="tabla-carrito">
         <thead>
           <tr>
-            <th style="width:32px;"></th>
+            <th style="width:28px;"></th>
             <th style="width:32px;">#</th>
             <th>Descripción</th>
             <th style="width:90px;">Cant.</th>
@@ -108,13 +108,10 @@
           {% set ns = namespace(cuerpo_idx=0) %}
           {% for item in carrito %}
           {% if not item.tapa_para_id %}{% set ns.cuerpo_idx = ns.cuerpo_idx + 1 %}{% endif %}
-          <tr id="fila-{{ item.id }}" {% if item.tapa_para_id %}class="fila-tapa-sep" data-tapa-de="{{ item.tapa_para_id }}"{% endif %}>
+          <tr id="fila-{{ item.id }}" {% if not item.tapa_para_id %}draggable="true"{% endif %} {% if item.tapa_para_id %}class="fila-tapa-sep" data-tapa-de="{{ item.tapa_para_id }}"{% endif %}>
             <td style="text-align:center; padding:2px 0;">
               {% if not item.tapa_para_id %}
-              <div style="display:flex; flex-direction:column; gap:1px;">
-                <button class="btn-reorden" onclick="moverItem({{ item.id }}, 'arriba')" title="Subir">▲</button>
-                <button class="btn-reorden" onclick="moverItem({{ item.id }}, 'abajo')" title="Bajar">▼</button>
-              </div>
+              <span class="drag-handle" title="Arrastrar para reordenar">⠿</span>
               {% else %}
               <span style="color:var(--texto-suave); font-size:0.7rem; padding-left:4px;">↳</span>
               {% endif %}
@@ -719,23 +716,49 @@ details[open] .carrito-summary { margin-bottom: 0.75rem; }
 .epg-opts label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.82rem; }
 .epg-opts--row { flex-direction: row; gap: 0.9rem; flex-wrap: wrap; }
 
-/* ── Botones de reorden ── */
-.btn-reorden {
-  background: none;
-  border: 1px solid var(--borde, #d1d5db);
-  border-radius: 3px;
-  width: 22px;
-  height: 16px;
-  font-size: 0.6rem;
-  cursor: pointer;
-  display: flex;
+/* ── Drag handle ── */
+.drag-handle {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 24px;
+  height: 28px;
+  font-size: 1.05rem;
+  cursor: grab;
   color: var(--texto-suave);
-  padding: 0;
-  line-height: 1;
+  border-radius: 3px;
+  user-select: none;
+  touch-action: none;
+  transition: color 0.15s, background 0.15s;
+  letter-spacing: -2px;
 }
-.btn-reorden:hover { background: var(--fondo-tabla, #f4f7fc); color: var(--azul); }
+.drag-handle:hover { color: var(--azul); background: var(--fondo-tabla, #f4f7fc); }
+.drag-handle:active { cursor: grabbing; }
+
+/* ── Clone flotante para drag-and-drop táctil ── */
+.dd-touch-clone {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.88;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.22);
+  border-radius: 7px;
+  background: var(--blanco);
+  border: 2px solid var(--azul, #2563eb);
+  overflow: hidden;
+}
+
+/* ── Fila siendo arrastrada ── */
+tr.dd-dragging { opacity: 0.35; }
+
+/* ── Indicador de posición de drop ── */
+.dd-drop-cell {
+  height: 3px;
+  padding: 0;
+  background: var(--azul, #2563eb);
+  border: none;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.45);
+}
 
 /* ── Tapa separada ── */
 .fila-tapa-sep td { background: #fafbff; }
@@ -1152,10 +1175,7 @@ function _renderFilaCarrito(item, cuerpoIdx) {
 
   const col1 = esTapaSep
     ? `<span style="color:var(--texto-suave); font-size:0.7rem; padding-left:4px;">↳</span>`
-    : `<div style="display:flex; flex-direction:column; gap:1px;">
-         <button class="btn-reorden" onclick="moverItem(${item.id}, 'arriba')" title="Subir">▲</button>
-         <button class="btn-reorden" onclick="moverItem(${item.id}, 'abajo')" title="Bajar">▼</button>
-       </div>`;
+    : `<span class="drag-handle" title="Arrastrar para reordenar">⠿</span>`;
 
   const numCell = esTapaSep ? '' : cuerpoIdx;
 
@@ -1173,6 +1193,8 @@ function _renderFilaCarrito(item, cuerpoIdx) {
   if (esTapaSep) {
     tr.className = 'fila-tapa-sep';
     tr.dataset.tapaDe = item.tapa_para_id;
+  } else {
+    tr.draggable = true;
   }
   tr.innerHTML = `
     <td style="text-align:center; padding:2px 0;">${col1}</td>
@@ -1280,12 +1302,10 @@ async function agregarManual() {
 
   const tr = document.createElement('tr');
   tr.id = `fila-${item.id}`;
+  tr.draggable = true;
   tr.innerHTML = `
     <td style="text-align:center; padding:2px 0;">
-      <div style="display:flex; flex-direction:column; gap:1px;">
-        <button class="btn-reorden" onclick="moverItem(${item.id}, 'arriba')" title="Subir">▲</button>
-        <button class="btn-reorden" onclick="moverItem(${item.id}, 'abajo')" title="Bajar">▼</button>
-      </div>
+      <span class="drag-handle" title="Arrastrar para reordenar">⠿</span>
     </td>
     <td data-label="#">${idx}</td>
     <td data-label="">
@@ -1875,18 +1895,217 @@ async function convertirAML(itemId) {
   }
 }
 
-// ── Reordenar ítems ──
-async function moverItem(itemId, direccion) {
-  const fd = formData({ direccion });
-  const data = await apiFetch(`/api/carrito/mover/${itemId}`, { method: 'POST', body: fd });
-  if (data.ok) {
-    _navegandoInternamente = true;
-    sessionStorage.setItem('_reloadProgramatico', '1');
-    window.location.reload();
-  } else {
-    toast('No se pudo mover el ítem', 'error');
+// ── Drag & Drop reordering ──
+let _dragId           = null;
+let _dropTargetId     = null;
+let _dropBefore       = true;
+let _ptrOnHandle      = false;  // rastrear si pointerdown fue sobre el handle
+
+function _ddIndicator() {
+  let el = document.getElementById('dd-drop-line');
+  if (!el) {
+    el = document.createElement('tr');
+    el.id = 'dd-drop-line';
+    el.innerHTML = `<td colspan="8" class="dd-drop-cell"></td>`;
   }
+  return el;
 }
+
+function _ddCleanup(tbody) {
+  document.getElementById('dd-drop-line')?.remove();
+  tbody?.querySelectorAll('.dd-dragging').forEach(r => r.classList.remove('dd-dragging'));
+  _dragId = null;
+  _dropTargetId = null;
+  _ptrOnHandle = false;
+}
+
+function _initDragDrop() {
+  const tbody = document.getElementById('tbody-carrito');
+  if (!tbody || tbody._ddBound) return;
+  tbody._ddBound = true;
+
+  // Registrar si el puntero bajó sobre el handle (antes de que dispare dragstart)
+  tbody.addEventListener('pointerdown', e => {
+    _ptrOnHandle = !!e.target.closest('.drag-handle');
+  });
+
+  tbody.addEventListener('dragstart', e => {
+    // Solo permitir el drag si el gesto empezó sobre el handle
+    if (!_ptrOnHandle) { e.preventDefault(); return; }
+    const tr = e.target.closest('tr');
+    if (!tr || tr.classList.contains('fila-tapa-sep')) { e.preventDefault(); return; }
+
+    _dragId = parseInt(tr.id.replace('fila-', ''));
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(_dragId));
+
+    // Diferir la clase para que el ghost del navegador no la capture
+    requestAnimationFrame(() => {
+      tr.classList.add('dd-dragging');
+      const tapa = tbody.querySelector(`tr[data-tapa-de="${_dragId}"]`);
+      if (tapa) tapa.classList.add('dd-dragging');
+    });
+  });
+
+  tbody.addEventListener('dragend', () => _ddCleanup(tbody));
+
+  tbody.addEventListener('dragover', e => {
+    if (_dragId === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const tr = e.target.closest('tr');
+    if (!tr || !tr.id?.startsWith('fila-')) return;
+    const tid = parseInt(tr.id.replace('fila-', ''));
+    if (isNaN(tid) || tid === _dragId || tr.dataset.tapaDe) return;
+
+    const rect = tr.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+
+    if (tid === _dropTargetId && before === _dropBefore) return;
+    _dropTargetId = tid;
+    _dropBefore   = before;
+
+    const ind = _ddIndicator();
+    if (before) {
+      tbody.insertBefore(ind, tr);
+    } else {
+      const tapa = tbody.querySelector(`tr[data-tapa-de="${tid}"]`);
+      const after = tapa || tr;
+      after.after(ind);
+    }
+  });
+
+  tbody.addEventListener('dragleave', e => {
+    if (!tbody.contains(e.relatedTarget)) {
+      document.getElementById('dd-drop-line')?.remove();
+      _dropTargetId = null;
+    }
+  });
+
+  tbody.addEventListener('drop', async e => {
+    e.preventDefault();
+    if (_dragId === null || _dropTargetId === null) { _ddCleanup(tbody); return; }
+
+    // Calcular nuevo orden a partir del DOM actual (sin las clases dd-dragging)
+    const cuerpos = [...tbody.querySelectorAll('tr[draggable]:not(.fila-tapa-sep)')]
+      .filter(tr => !tr.classList.contains('dd-dragging'))
+      .map(tr => parseInt(tr.id.replace('fila-', '')));
+
+    const targetIdx = cuerpos.indexOf(_dropTargetId);
+    const insertAt  = _dropBefore ? targetIdx : targetIdx + 1;
+    cuerpos.splice(insertAt, 0, _dragId);
+
+    _ddCleanup(tbody);
+
+    const fd = formData({ orden: JSON.stringify(cuerpos) });
+    const data = await apiFetch('/api/carrito/reordenar', { method: 'POST', body: fd });
+    if (data.ok && data.carrito) {
+      _reconstruirTablaCarrito(data.carrito);
+    } else {
+      toast('Error al reordenar', 'error');
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', _initDragDrop);
+
+// ── Drag-and-drop táctil (mobile) ──
+function _initTouchDrag() {
+  const tbody = document.getElementById('tbody-carrito');
+  if (!tbody || tbody._touchBound) return;
+  tbody._touchBound = true;
+
+  let _tid      = null;   // id del item arrastrado
+  let _clone    = null;   // elemento flotante
+  let _offX     = 0;      // offset dedo dentro del clone
+  let _offY     = 0;
+  let _targetId = null;   // id del item objetivo
+  let _before   = true;
+
+  function _removeClone() { _clone?.remove(); _clone = null; }
+
+  function _onTouchMove(e) {
+    if (_tid === null || !_clone) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    _clone.style.left = (t.clientX - _offX) + 'px';
+    _clone.style.top  = (t.clientY - _offY) + 'px';
+
+    // Detectar fila bajo el dedo
+    _clone.style.visibility = 'hidden';
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    _clone.style.visibility = '';
+    const tr = el?.closest('tr');
+    if (!tr || !tr.id?.startsWith('fila-') || tr.dataset.tapaDe) return;
+    const targetId = parseInt(tr.id.replace('fila-', ''));
+    if (isNaN(targetId) || targetId === _tid) return;
+
+    const rect = tr.getBoundingClientRect();
+    _before = t.clientY < rect.top + rect.height / 2;
+    _targetId = targetId;
+    const ind = _ddIndicator();
+    if (_before) { tbody.insertBefore(ind, tr); }
+    else { const tapa = tbody.querySelector(`tr[data-tapa-de="${targetId}"]`); (tapa || tr).after(ind); }
+  }
+
+  async function _onTouchEnd() {
+    document.removeEventListener('touchmove', _onTouchMove);
+    document.removeEventListener('touchend',  _onTouchEnd);
+    document.removeEventListener('touchcancel', _onTouchEnd);
+
+    _removeClone();
+    tbody.querySelectorAll('.dd-dragging').forEach(r => r.classList.remove('dd-dragging'));
+    document.getElementById('dd-drop-line')?.remove();
+
+    if (_tid !== null && _targetId !== null) {
+      const cuerpos = [...tbody.querySelectorAll('tr[draggable]:not(.fila-tapa-sep)')]
+        .filter(r => parseInt(r.id.replace('fila-', '')) !== _tid)
+        .map(r => parseInt(r.id.replace('fila-', '')));
+      const idx = cuerpos.indexOf(_targetId);
+      cuerpos.splice(_before ? idx : idx + 1, 0, _tid);
+
+      const fd = formData({ orden: JSON.stringify(cuerpos) });
+      const data = await apiFetch('/api/carrito/reordenar', { method: 'POST', body: fd });
+      if (data.ok && data.carrito) { _reconstruirTablaCarrito(data.carrito); }
+      else { toast('Error al reordenar', 'error'); }
+    }
+    _tid = null; _targetId = null;
+  }
+
+  tbody.addEventListener('touchstart', e => {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    const tr = handle.closest('tr');
+    if (!tr || tr.classList.contains('fila-tapa-sep')) return;
+
+    _tid = parseInt(tr.id.replace('fila-', ''));
+    const touch = e.touches[0];
+    const rect = tr.getBoundingClientRect();
+    _offX = touch.clientX - rect.left;
+    _offY = touch.clientY - rect.top;
+
+    const cloneEl = tr.cloneNode(true);
+    cloneEl.id = '';
+    cloneEl.className = 'dd-touch-clone';
+    cloneEl.style.width = rect.width + 'px';
+    cloneEl.style.left  = (touch.clientX - _offX) + 'px';
+    cloneEl.style.top   = (touch.clientY - _offY) + 'px';
+    document.body.appendChild(cloneEl);
+    _clone = cloneEl;
+
+    requestAnimationFrame(() => {
+      tr.classList.add('dd-dragging');
+      tbody.querySelector(`tr[data-tapa-de="${_tid}"]`)?.classList.add('dd-dragging');
+    });
+
+    document.addEventListener('touchmove',   _onTouchMove,  { passive: false });
+    document.addEventListener('touchend',    _onTouchEnd);
+    document.addEventListener('touchcancel', _onTouchEnd);
+  }, { passive: true });
+}
+
+document.addEventListener('DOMContentLoaded', _initTouchDrag);
 
 // ── Tapas juntas / separadas ──
 let _tapasModo = 'junto'; // 'junto' | 'separada'

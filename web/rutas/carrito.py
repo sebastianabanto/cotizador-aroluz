@@ -24,6 +24,7 @@ from web.database import (
     delete_item_carrito_db,
     clear_carrito_db,
     mover_item_carrito_db,
+    reordenar_carrito_db,
     cargar_config,
 )
 from web.motor import (
@@ -359,6 +360,23 @@ async def api_mover_item(
         return JSONResponse({"ok": False, "error": "Dirección inválida"}, status_code=400)
     moved = mover_item_carrito_db(item_id, usuario["u"], direccion)
     return JSONResponse({"ok": moved})
+
+
+@router.post("/reordenar")
+async def api_reordenar_carrito(
+    usuario: dict = Depends(require_login),
+    orden: str = Form(...),
+):
+    """Reordena los ítems del carrito según el array JSON de IDs de cuerpos."""
+    try:
+        ids = json.loads(orden)
+        if not isinstance(ids, list):
+            raise ValueError
+        ids = [int(i) for i in ids]
+    except (ValueError, TypeError):
+        return JSONResponse({"ok": False, "error": "orden inválido"}, status_code=400)
+    reordenar_carrito_db(usuario["u"], ids)
+    return JSONResponse({"ok": True, "carrito": get_carrito(usuario["u"])})
 
 
 @router.post("/recalcular/{item_id}")
