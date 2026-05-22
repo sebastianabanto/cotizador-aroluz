@@ -4,6 +4,19 @@
 
 VERSIONES = [
     {
+        "version": "1.7",
+        "fecha": "2026-05-21",
+        "titulo": "Abreviaciones en clientes + edición avanzada del carrito",
+        "cambios": [
+            ("nueva",      "Los dropdowns de cliente muestran la abreviación configurada en lugar del código interno (ej: BETONDECKEN en vez de BETONDEC)"),
+            ("nueva",      "Lista de Clientes y Atenciones también muestra la abreviación en el panel izquierdo"),
+            ("nueva",      "Botones para mover ítems arriba/abajo en la tabla del carrito"),
+            ("nueva",      "Recálculo de precio y peso de un ítem con nuevos parámetros (espesor, ganancia, tapa)"),
+            ("mejora",     "Editar ítem del carrito actualiza el DOM sin recargar la página"),
+            ("mejora",     "Módulo de planchas detecta correctamente ítems combinados (cuerpo + tapa) e ítems en metro lineal"),
+        ],
+    },
+    {
         "version": "1.6",
         "fecha": "2026-05-16",
         "titulo": "Filtros inteligentes de correo + selector de mes",
