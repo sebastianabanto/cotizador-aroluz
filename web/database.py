@@ -245,6 +245,7 @@ def init_db():
     # Migraciones: agregar columnas nuevas si no existen (bases de datos existentes)
     _add_column_if_missing(conn, "clientes", "ruc", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "clientes", "ubicacion", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "clientes", "abreviacion", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "atenciones", "email", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "cotizaciones", "cliente_nombre", "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "cotizaciones", "cliente_ruc", "TEXT NOT NULL DEFAULT ''")
@@ -256,6 +257,8 @@ def init_db():
     _add_column_if_missing(conn, "usuarios", "rol", "TEXT NOT NULL DEFAULT 'USER'")
     _add_column_if_missing(conn, "usuarios", "ver_asistencias", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "carrito_items", "descripcion_calculada", "TEXT DEFAULT NULL")
+    _add_column_if_missing(conn, "carrito_items", "posicion", "REAL DEFAULT NULL")
+    _add_column_if_missing(conn, "carrito_items", "tapa_para_id", "INTEGER DEFAULT NULL")
     _add_column_if_missing(conn, "email_importados", "pdf_hash", "TEXT NOT NULL DEFAULT ''")
     _migrate_cantidad_to_real(conn)
     _add_column_if_missing(conn, "cotizaciones", "origen", "TEXT NOT NULL DEFAULT 'web'")
@@ -514,7 +517,7 @@ def obtener_catalogo() -> Dict[str, List]:
     conn.row_factory = sqlite3.Row
 
     clientes = [dict(r) for r in conn.execute(
-        "SELECT codigo, nombre, ruc, ubicacion FROM clientes ORDER BY codigo"
+        "SELECT codigo, nombre, ruc, ubicacion, abreviacion FROM clientes ORDER BY codigo"
     ).fetchall()]
     atenciones = [dict(r) for r in conn.execute(
         "SELECT nombre, codigo_empresa, email FROM atenciones ORDER BY nombre"
@@ -530,7 +533,7 @@ def obtener_cliente(codigo: str) -> Optional[Dict]:
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     row = conn.execute(
-        "SELECT codigo, nombre, ruc, ubicacion FROM clientes WHERE codigo=?", (codigo,)
+        "SELECT codigo, nombre, ruc, ubicacion, abreviacion FROM clientes WHERE codigo=?", (codigo,)
     ).fetchone()
     conn.close()
     return dict(row) if row else None
@@ -633,12 +636,12 @@ def importar_catalogo_desde_excel(ruta_excel: str) -> Dict[str, int]:
     return conteo
 
 
-def agregar_cliente(codigo: str, nombre: str = "", ruc: str = "", ubicacion: str = "") -> bool:
+def agregar_cliente(codigo: str, nombre: str = "", ruc: str = "", ubicacion: str = "", abreviacion: str = "") -> bool:
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute(
-            "INSERT OR IGNORE INTO clientes (codigo, nombre, ruc, ubicacion) VALUES (?, ?, ?, ?)",
-            (codigo.strip(), nombre.strip() or codigo.strip(), ruc.strip(), ubicacion.strip()),
+            "INSERT OR IGNORE INTO clientes (codigo, nombre, ruc, ubicacion, abreviacion) VALUES (?, ?, ?, ?, ?)",
+            (codigo.strip(), nombre.strip() or codigo.strip(), ruc.strip(), ubicacion.strip(), abreviacion.strip()),
         )
         conn.commit()
         conn.close()
@@ -677,13 +680,13 @@ def eliminar_atencion(nombre: str) -> bool:
     return True
 
 
-def editar_cliente(codigo: str, nuevo_nombre: str, ruc: str = "", ubicacion: str = "") -> bool:
-    """Actualiza nombre, RUC y dirección de un cliente existente."""
+def editar_cliente(codigo: str, nuevo_nombre: str, ruc: str = "", ubicacion: str = "", abreviacion: str = "") -> bool:
+    """Actualiza nombre, RUC, dirección y abreviación de un cliente existente."""
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.execute(
-            "UPDATE clientes SET nombre=?, ruc=?, ubicacion=? WHERE codigo=?",
-            (nuevo_nombre.strip(), ruc.strip(), ubicacion.strip(), codigo.strip()),
+            "UPDATE clientes SET nombre=?, ruc=?, ubicacion=?, abreviacion=? WHERE codigo=?",
+            (nuevo_nombre.strip(), ruc.strip(), ubicacion.strip(), abreviacion.strip(), codigo.strip()),
         )
         conn.commit()
         conn.close()
@@ -734,7 +737,7 @@ def exportar_contactos_xlsx() -> bytes:
 
     # Hoja CLIENTES
     ws_cli = wb.create_sheet("CLIENTES")
-    headers_cli = ["codigo", "nombre", "ruc", "ubicacion"]
+    headers_cli = ["codigo", "nombre", "ruc", "ubicacion", "abreviacion"]
     for col, h in enumerate(headers_cli, 1):
         cell = ws_cli.cell(row=1, column=col, value=h)
         cell.font = bold
@@ -743,6 +746,7 @@ def exportar_contactos_xlsx() -> bytes:
         ws_cli.cell(row=row_idx, column=2, value=c.get("nombre", ""))
         ws_cli.cell(row=row_idx, column=3, value=c.get("ruc", ""))
         ws_cli.cell(row=row_idx, column=4, value=c.get("ubicacion", ""))
+        ws_cli.cell(row=row_idx, column=5, value=c.get("abreviacion", ""))
 
     # Hoja ATENCIONES
     ws_ate = wb.create_sheet("ATENCIONES")
@@ -797,21 +801,23 @@ def importar_contactos_desde_xlsx(contenido_bytes: bytes) -> Dict[str, int]:
     # Hoja CLIENTES
     if "CLIENTES" in wb.sheetnames:
         ws = wb["CLIENTES"]
-        for row in ws.iter_rows(min_row=2, max_col=4, values_only=True):
+        for row in ws.iter_rows(min_row=2, max_col=5, values_only=True):
             codigo = _s(row[0]) if len(row) > 0 else ""
             if not codigo:
                 continue
             nombre = _s(row[1]) if len(row) > 1 else ""
             ruc = _s(row[2]) if len(row) > 2 else ""
             ubicacion = _s(row[3]) if len(row) > 3 else ""
+            abreviacion = _s(row[4]) if len(row) > 4 else ""
             conn.execute(
-                """INSERT INTO clientes (codigo, nombre, ruc, ubicacion)
-                   VALUES (?, ?, ?, ?)
+                """INSERT INTO clientes (codigo, nombre, ruc, ubicacion, abreviacion)
+                   VALUES (?, ?, ?, ?, ?)
                    ON CONFLICT(codigo) DO UPDATE SET
                      nombre=excluded.nombre,
                      ruc=excluded.ruc,
-                     ubicacion=excluded.ubicacion""",
-                (codigo, nombre or codigo, ruc, ubicacion),
+                     ubicacion=excluded.ubicacion,
+                     abreviacion=excluded.abreviacion""",
+                (codigo, nombre or codigo, ruc, ubicacion, abreviacion),
             )
             conteo["clientes"] += 1
 
@@ -891,22 +897,37 @@ def get_carrito_db(username: str) -> List[Dict]:
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT * FROM carrito_items WHERE username=? ORDER BY id",
+        "SELECT * FROM carrito_items WHERE username=? ORDER BY COALESCE(posicion, id)",
         (username,),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def add_item_carrito_db(username: str, item: Dict) -> int:
+def add_item_carrito_db(username: str, item: Dict, tapa_para_id: Optional[int] = None) -> int:
     """Inserta un item en el carrito. Retorna el id generado."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
+    # Determinar posicion: siguiente entero después del máximo actual (solo cuerpos)
+    max_pos = c.execute(
+        "SELECT COALESCE(MAX(COALESCE(posicion, id)), 0) FROM carrito_items WHERE username=? AND tapa_para_id IS NULL",
+        (username,),
+    ).fetchone()[0]
+    if tapa_para_id is not None:
+        # Tapa: posicion = posicion del cuerpo + 0.5
+        cuerpo_pos = c.execute(
+            "SELECT COALESCE(posicion, id) FROM carrito_items WHERE id=?",
+            (tapa_para_id,),
+        ).fetchone()
+        new_pos = float(cuerpo_pos[0]) + 0.5 if cuerpo_pos else float(int(max_pos) + 1)
+    else:
+        new_pos = float(int(max_pos) + 1)
     c.execute(
         """INSERT INTO carrito_items
            (username, tipo, descripcion, precio_unitario, peso_unitario,
-            cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, descripcion_calculada)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, descripcion_calculada,
+            posicion, tapa_para_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             username,
             item.get("tipo", ""),
@@ -918,6 +939,8 @@ def add_item_carrito_db(username: str, item: Dict) -> int:
             item.get("tipo_galvanizado", "GO"),
             item.get("porcentaje_ganancia", "30"),
             item.get("descripcion_calculada") or None,
+            new_pos,
+            tapa_para_id,
         ),
     )
     item_id = c.lastrowid
@@ -1006,6 +1029,70 @@ def clear_carrito_db(username: str):
     conn.execute("DELETE FROM carrito_items WHERE username=?", (username,))
     conn.commit()
     conn.close()
+
+
+def mover_item_carrito_db(item_id: int, username: str, direccion: str) -> bool:
+    """Mueve un item cuerpo arriba o abajo en el carrito. Las tapas vinculadas se mueven junto."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    # Solo cuerpos (no tapas separadas)
+    cuerpos = conn.execute(
+        """SELECT id, COALESCE(posicion, id) AS pos FROM carrito_items
+           WHERE username=? AND tapa_para_id IS NULL ORDER BY COALESCE(posicion, id)""",
+        (username,),
+    ).fetchall()
+    cuerpos = [(r["id"], r["pos"]) for r in cuerpos]
+
+    idx = next((i for i, (cid, _) in enumerate(cuerpos) if cid == item_id), None)
+    if idx is None:
+        conn.close()
+        return False
+    if direccion == "arriba" and idx == 0:
+        conn.close()
+        return False
+    if direccion == "abajo" and idx == len(cuerpos) - 1:
+        conn.close()
+        return False
+
+    target_idx = idx - 1 if direccion == "arriba" else idx + 1
+    cur_id, cur_pos = cuerpos[idx]
+    tgt_id, tgt_pos = cuerpos[target_idx]
+
+    c = conn.cursor()
+    # Swap posicion de los dos cuerpos
+    c.execute("UPDATE carrito_items SET posicion=? WHERE id=? AND username=?", (tgt_pos, cur_id, username))
+    c.execute("UPDATE carrito_items SET posicion=? WHERE id=? AND username=?", (cur_pos, tgt_id, username))
+    # Actualizar tapas vinculadas a cada cuerpo
+    c.execute("UPDATE carrito_items SET posicion=? WHERE tapa_para_id=? AND username=?", (tgt_pos + 0.5, cur_id, username))
+    c.execute("UPDATE carrito_items SET posicion=? WHERE tapa_para_id=? AND username=?", (cur_pos + 0.5, tgt_id, username))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def update_item_completo_carrito_db(
+    item_id: int, username: str,
+    descripcion: str, unidad: str,
+    precio_unitario: float, peso_unitario: float,
+    tipo_galvanizado: str, porcentaje_ganancia: str,
+    descripcion_calculada: Optional[str] = None,
+) -> bool:
+    """Actualiza todos los campos calculables de un item."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    c = conn.cursor()
+    c.execute(
+        """UPDATE carrito_items
+           SET descripcion=?, unidad=?, precio_unitario=?, peso_unitario=?,
+               tipo_galvanizado=?, porcentaje_ganancia=?, descripcion_calculada=?
+           WHERE id=? AND username=?""",
+        (descripcion, unidad, round(precio_unitario, 4), round(peso_unitario, 6),
+         tipo_galvanizado, porcentaje_ganancia,
+         descripcion_calculada or None, item_id, username),
+    )
+    updated = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
 
 
 def cargar_cotizacion_al_carrito_db(cotizacion_id: int, username: str, require_ownership: bool = True) -> Optional[Dict]:

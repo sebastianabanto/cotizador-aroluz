@@ -172,7 +172,7 @@ function renderLista(filtrados) {
   cont.innerHTML = filtrados.map(c => `
     <div class="cliente-item${clienteActivo === c.codigo ? ' activo' : ''}"
          onclick="cargarCliente('${esc(c.codigo)}')" data-codigo="${esc(c.codigo)}">
-      <span class="cliente-codigo">${c.codigo}</span>
+      <span class="cliente-codigo">${c.abreviacion || c.codigo}</span>
       <span class="cliente-nombre">${c.nombre}</span>
     </div>
   `).join('');
@@ -181,7 +181,11 @@ function renderLista(filtrados) {
 function filtrarClientes() {
   const q = document.getElementById('buscador-clientes').value.trim().toLowerCase();
   const filtrados = q
-    ? CLIENTES_DATA.filter(c => c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q))
+    ? CLIENTES_DATA.filter(c =>
+        c.codigo.toLowerCase().includes(q) ||
+        c.nombre.toLowerCase().includes(q) ||
+        (c.abreviacion || '').toLowerCase().includes(q)
+      )
     : CLIENTES_DATA;
   renderLista(filtrados);
 }
@@ -218,15 +222,20 @@ function mostrarPanelCliente(cliente, atenciones) {
                  autocorrect="off" autocapitalize="words" spellcheck="false">
         </div>
         <div class="form-group">
+          <label class="form-label">Abreviación</label>
+          <input type="text" id="ec-abreviacion" class="form-control" value="${esc(cliente.abreviacion || '')}" placeholder="Ej: AYA"
+                 autocorrect="off" autocapitalize="characters" spellcheck="false">
+        </div>
+        <div class="form-group">
           <label class="form-label">RUC</label>
           <input type="text" id="ec-ruc" class="form-control" value="${esc(cliente.ruc || '')}" placeholder="Ej: 20123456789"
                  inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Dirección</label>
-        <input type="text" id="ec-ubicacion" class="form-control" value="${esc(cliente.ubicacion || '')}" placeholder="Av. ..."
-               autocorrect="off" autocapitalize="sentences" spellcheck="false">
+        <div class="form-group">
+          <label class="form-label">Dirección</label>
+          <input type="text" id="ec-ubicacion" class="form-control" value="${esc(cliente.ubicacion || '')}" placeholder="Av. ..."
+                 autocorrect="off" autocapitalize="sentences" spellcheck="false">
+        </div>
       </div>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="guardarCliente('${esc(cliente.codigo)}')">Guardar cliente</button>
@@ -294,10 +303,12 @@ async function guardarCliente(codigo) {
   if (!nombre) { toast('El nombre no puede estar vacío', 'error'); return; }
   const ruc = document.getElementById('ec-ruc').value.trim();
   if (!validarRUC(ruc)) { toast('El RUC debe tener exactamente 11 dígitos numéricos', 'error'); return; }
+  const abreviacion = document.getElementById('ec-abreviacion').value.trim();
   const fd = formData({
     nombre,
     ruc,
     ubicacion: document.getElementById('ec-ubicacion').value.trim(),
+    abreviacion,
   });
   const data = await apiFetch(`/configuracion/cliente/${encodeURIComponent(codigo)}`, { method: 'PUT', body: fd });
   if (data.ok) {
@@ -308,6 +319,7 @@ async function guardarCliente(codigo) {
       CLIENTES_DATA[idx].nombre = nombre;
       CLIENTES_DATA[idx].ruc = document.getElementById('ec-ruc').value.trim();
       CLIENTES_DATA[idx].ubicacion = document.getElementById('ec-ubicacion').value.trim();
+      CLIENTES_DATA[idx].abreviacion = abreviacion;
     }
     filtrarClientes();
   } else {
@@ -457,6 +469,11 @@ function mostrarFormNuevo() {
                  autocorrect="off" autocapitalize="words" spellcheck="false">
         </div>
         <div class="form-group">
+          <label class="form-label">Abreviación</label>
+          <input type="text" id="nc-abreviacion" class="form-control" placeholder="Ej: AYA"
+                 autocorrect="off" autocapitalize="characters" spellcheck="false">
+        </div>
+        <div class="form-group">
           <label class="form-label">RUC</label>
           <input type="text" id="nc-ruc" class="form-control" placeholder="Ej: 20123456789"
                  inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -485,11 +502,12 @@ async function crearCliente() {
     nombre,
     ruc,
     ubicacion: document.getElementById('nc-ubicacion').value.trim(),
+    abreviacion: document.getElementById('nc-abreviacion').value.trim(),
   });
   const data = await apiFetch('/configuracion/cliente/agregar', { method: 'POST', body: fd });
   if (data.ok) {
     toast(`Cliente "${codigo}" creado`, 'success');
-    CLIENTES_DATA.push({ codigo, nombre, ruc: fd.get('ruc'), ubicacion: fd.get('ubicacion') });
+    CLIENTES_DATA.push({ codigo, nombre, ruc: fd.get('ruc'), ubicacion: fd.get('ubicacion'), abreviacion: fd.get('abreviacion') });
     CLIENTES_DATA.sort((a, b) => a.codigo.localeCompare(b.codigo));
     filtrarClientes();
     await cargarCliente(codigo);

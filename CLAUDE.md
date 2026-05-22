@@ -238,6 +238,32 @@ A backup is kept at `cotizador_config_backup.json`.
 
 ---
 
+## Patrón: actualización in-place del carrito (NO `window.location.reload()`)
+
+**Regla de oro**: cualquier acción que modifica el carrito (editar ítem, separar/juntar tapas, eliminar, recalcular, etc.) debe actualizar el DOM **sin recargar la página**. Recargar pierde el scroll y es muy incómodo cuando hay muchos ítems.
+
+**Razón**: el usuario reportó que recargar tras editar (modal lápiz, botón Tapas:Separadas, etc.) y volver al inicio de la lista rompe el flujo de trabajo. Los intentos de guardar/restaurar `window.scrollY` con `sessionStorage` + `history.scrollRestoration='manual'` no funcionaron de forma confiable (race conditions con el layout / `scroll-behavior:smooth`).
+
+**Cómo aplicar**:
+
+1. **Backend**: la ruta debe devolver los datos completos del/los ítem(s) afectado(s), no solo `{ok: true}`. Para cambios localizados (1-2 ítems): devolver `{cuerpo: {...}, tapa?: {...}, tapa_action?: "updated"|"deleted", tapa_id?}`. Para cambios masivos (separar/juntar tapas, importar, etc.): devolver el carrito completo en `{carrito: [...]}` con `get_carrito(usuario["u"])`.
+
+2. **Frontend** — helpers existentes en `web/templates/cotizacion/carrito.html`:
+   - `_actualizarFilaCarrito(item)` — reescribe in-place las celdas de `#fila-${id}` (descripción, subtítulo galv/comisión/peso, unidad, P.U., P.T.) y actualiza `carritoMap`.
+   - `_eliminarFilaCarrito(itemId)` — quita la fila del DOM y de `carritoMap`.
+   - `_renderFilaCarrito(item, cuerpoIdx)` — genera el `<tr>` completo (espejo del template Jinja líneas 117-167); maneja cuerpos y tapas separadas (`fila-tapa-sep`, `↳`, padding, etc.).
+   - `_reconstruirTablaCarrito(carrito)` — limpia tbody, rebuildea desde la lista, llama `actualizarTotales()` y actualiza el contador "Productos (N items)".
+   - Después de cualquier cambio: llamar `actualizarTotales()` para refrescar totales y peso.
+
+3. **Casos ya migrados** (referencias para nuevas implementaciones):
+   - `agregarManual()` — usa `appendChild` directo (línea ~1191).
+   - `guardarEdicion()` (modal lápiz) — usa `_actualizarFilaCarrito` + `_eliminarFilaCarrito`.
+   - `toggleTapasModo()` (separar/juntar) — usa `_reconstruirTablaCarrito`.
+
+4. **Anti-patrón**: NO hacer `sessionStorage.setItem('_reloadProgramatico', '1'); window.location.reload();` para cambios de ítems en el carrito. Solo está justificado en acciones que cambian la estructura completa de la página (vaciar carrito, navegación desde otro módulo).
+
+---
+
 ## Archivos clave del módulo web
 
 | Archivo | Rol |

@@ -83,11 +83,9 @@
     <summary class="carrito-summary">
       <span>Productos ({{ carrito|length }} items)</span>
       <div class="espesor-header-btns" onclick="event.stopPropagation()">
-        <button class="btn btn-secondary btn-sm" onclick="abrirModalEspesor('cuerpo','all')" title="Cambiar espesor de todos los cuerpos">
-          ▣ Espesor Cuerpo
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="abrirModalEspesor('tapa','all')" title="Cambiar espesor de todas las tapas">
-          ▤ Espesor Tapa
+        <button class="btn btn-secondary btn-sm" id="btn-tapas-modo"
+                onclick="toggleTapasModo()" title="Cambiar modo de tapas">
+          Tapas: juntas
         </button>
       </div>
     </summary>
@@ -96,21 +94,36 @@
       <table id="tabla-carrito">
         <thead>
           <tr>
-            <th style="width:44px;">#</th>
+            <th style="width:32px;"></th>
+            <th style="width:32px;">#</th>
             <th>Descripción</th>
             <th style="width:90px;">Cant.</th>
             <th style="width:60px;">Und</th>
             <th style="width:120px;" class="td-num" id="th-pu">P.U. (S/)</th>
             <th style="width:120px;" class="td-num" id="th-pt">P.T. (S/)</th>
-            <th style="width:100px;"></th>
+            <th style="width:80px;"></th>
           </tr>
         </thead>
         <tbody id="tbody-carrito">
+          {% set ns = namespace(cuerpo_idx=0) %}
           {% for item in carrito %}
-          <tr id="fila-{{ item.id }}">
-            <td data-label="#">{{ loop.index }}</td>
+          {% if not item.tapa_para_id %}{% set ns.cuerpo_idx = ns.cuerpo_idx + 1 %}{% endif %}
+          <tr id="fila-{{ item.id }}" {% if item.tapa_para_id %}class="fila-tapa-sep" data-tapa-de="{{ item.tapa_para_id }}"{% endif %}>
+            <td style="text-align:center; padding:2px 0;">
+              {% if not item.tapa_para_id %}
+              <div style="display:flex; flex-direction:column; gap:1px;">
+                <button class="btn-reorden" onclick="moverItem({{ item.id }}, 'arriba')" title="Subir">▲</button>
+                <button class="btn-reorden" onclick="moverItem({{ item.id }}, 'abajo')" title="Bajar">▼</button>
+              </div>
+              {% else %}
+              <span style="color:var(--texto-suave); font-size:0.7rem; padding-left:4px;">↳</span>
+              {% endif %}
+            </td>
+            <td data-label="#">
+              {% if not item.tapa_para_id %}{{ ns.cuerpo_idx }}{% endif %}
+            </td>
             <td data-label="">
-              <div style="font-size:0.875rem;">{{ item.descripcion }}</div>
+              <div style="font-size:0.875rem; {% if item.tapa_para_id %}padding-left:0.75rem; color:var(--texto-suave);{% endif %}">{{ item.descripcion }}</div>
               {% if item.tipo_galvanizado == 'N/A' %}
               <div style="font-size:0.75rem; color:var(--texto-suave);">
                 {{ 'Manual' if item.tipo == 'MANUAL' else 'Catálogo' }} · {{ 'Con comisión' if item.porcentaje_ganancia == '35' else 'Sin comisión' }} · {{ item.unidad }}
@@ -142,15 +155,6 @@
             <td data-label="" style="white-space:nowrap;">
               <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
                 onclick="abrirModalEditar({{ item.id }})" title="Editar ítem">✏️</button>
-              {% if item.tipo == 'B' and item.unidad == 'UND' %}
-              <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
-                onclick="convertirAML({{ item.id }})" title="Convertir a metro lineal">ML</button>
-              {% endif %}
-              {% if item.tipo_galvanizado != 'N/A' %}
-              <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
-                onclick="abrirModalEspesorItem({{ item.id }})"
-                title="Cambiar espesor de este ítem">↕</button>
-              {% endif %}
               <button class="btn btn-danger btn-sm" onclick="eliminarItem({{ item.id }})"
                 aria-label="Eliminar {{ item.descripcion }}">✕</button>
             </td>
@@ -159,7 +163,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="4"></td>
+            <td colspan="5"></td>
             <td class="td-num" style="font-weight:600; font-size:0.9rem;">TOTAL</td>
             <td class="td-num" id="total-display" data-total-soles="{{ total }}" style="font-weight:700; font-size:1.1rem; color:var(--azul);">
               S/ {{ "%.2f"|format(total) }}
@@ -167,7 +171,7 @@
             <td></td>
           </tr>
           <tr>
-            <td colspan="4"></td>
+            <td colspan="5"></td>
             <td class="td-num" style="font-size:0.8rem; color:var(--texto-suave);">Peso total</td>
             <td class="td-num" id="peso-display" style="font-size:0.8rem; color:var(--texto-suave);">
               {{ "%.2f"|format(peso_total) }} kg
@@ -303,7 +307,7 @@
       <!-- Tabs de modo -->
       <div style="display:flex; gap:0; margin-bottom:0.75rem; border-bottom:2px solid var(--borde, #d1d5db);">
         <button id="btn-modo-tabla" onclick="setModoImportar('tabla')">
-          📋 Tabla (A/B)
+          📋 Tabla / Lista
         </button>
         <button id="btn-modo-libre" onclick="setModoImportar('libre')">
           ✍️ Texto libre
@@ -312,11 +316,12 @@
 
       <!-- Instrucciones modo tabla -->
       <div id="imp-ayuda-tabla" style="margin-bottom:0.75rem; font-size:0.875rem; color:var(--texto-suave);">
-        Copia una tabla y pégala aquí (Ctrl+V). Se aceptan varios formatos:<br>
-        <strong>A)</strong> Tabla de Excel / Google Sheets — columnas Descripción · UND · Cantidad (separadas por tabulador).<br>
-        <strong>B)</strong> Tabla completa con N°ítem, precio y total — se extraen solo Descripción, UND y Cant. (las demás columnas se ignoran).<br>
-        <strong>C)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em>.<br>
-        <strong>D)</strong> Metrado / presupuesto externo — línea <em>Código Descripción</em>, continuaciones, luego <em>N° Und Cant Precio Dcto Total</em>. Los ítems sin línea de datos se omiten.<br>
+        Pega directamente desde Excel, Word, PDF o sistemas externos. El formato se detecta automáticamente:<br>
+        <strong>A)</strong> Tabla Excel / Google Sheets — columnas separadas por tabulador (Descripción · UND · Cantidad).<br>
+        <strong>B)</strong> Lista de texto — <code>DESCRIPCIÓN &nbsp;&nbsp; UND &nbsp;&nbsp; Cantidad</code> por línea (1 o más espacios entre columnas).<br>
+        <strong>C)</strong> Tabla completa con N°ítem, precio y total — se extraen solo Descripción, UND y Cant.<br>
+        <strong>D)</strong> Lista multi-línea — cada ítem en 4 líneas: <em>N° / Descripción / Und / Cantidad</em>.<br>
+        <strong>E)</strong> Metrado / presupuesto externo — línea <em>Código + Descripción</em>, luego <em>N° Und Cant Precio...</em>.<br>
         <span style="color:var(--azul); font-weight:500;">Puedes omitir espesor, galvanizado y superficie — se ajustan en el preview (paso 2).</span>
       </div>
 
@@ -515,20 +520,70 @@
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1100;
             align-items:center; justify-content:center; padding:1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
   <div class="card" style="width:100%; max-width:480px; padding:1.5rem; position:relative;">
-    <h3 id="modal-edit-titulo" style="margin:0 0 1.25rem; font-size:1rem;">Editar ítem</h3>
+    <h3 id="modal-edit-titulo" style="margin:0 0 1.1rem; font-size:1rem;">Editar ítem</h3>
 
     <input type="hidden" id="edit-id">
+    <input type="hidden" id="edit-tipo">
+    <input type="hidden" id="edit-tipo-galv">
+    <input type="hidden" id="edit-es-manual">
 
     <div class="form-group" style="margin-bottom:0.75rem;">
-      <label class="form-label" for="edit-desc">Descripción</label>
+      <label class="form-label" for="edit-desc">Descripción / Medidas</label>
       <textarea id="edit-desc" class="form-control" rows="3" style="resize:vertical;"></textarea>
     </div>
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+    <!-- Opciones avanzadas: solo ítems calculados -->
+    <div id="edit-avanzado" style="display:none; border:1px solid var(--borde,#d1d5db); border-radius:6px;
+         padding:0.6rem 0.75rem; margin-bottom:0.75rem; background:var(--fondo-tabla,#f4f7fc);">
+
+      <div class="epg" id="edit-comision-row">
+        <div class="epg-label">Comisión:</div>
+        <div class="epg-opts">
+          <label><input type="radio" name="edit-ganancia" value="30" id="edit-ganancia-30"> Sin comisión</label>
+          <label><input type="radio" name="edit-ganancia" value="35" id="edit-ganancia-35"> Con comisión</label>
+        </div>
+      </div>
+
+      <div class="epg" id="edit-esp-cuerpo-row">
+        <div class="epg-label">Espesor cuerpo:</div>
+        <div class="epg-opts epg-opts--row">
+          <label><input type="radio" name="edit-esp-cuerpo" value="1.2"> 1.2 mm</label>
+          <label><input type="radio" name="edit-esp-cuerpo" value="1.5"> 1.5 mm</label>
+          <label><input type="radio" name="edit-esp-cuerpo" value="2.0"> 2.0 mm</label>
+        </div>
+      </div>
+
+      <div class="epg" id="edit-esp-tapa-row">
+        <div class="epg-label">Espesor tapa:</div>
+        <div class="epg-opts epg-opts--row">
+          <label><input type="radio" name="edit-esp-tapa" value="1.2"> 1.2 mm</label>
+          <label><input type="radio" name="edit-esp-tapa" value="1.5"> 1.5 mm</label>
+          <label><input type="radio" name="edit-esp-tapa" value="2.0"> 2.0 mm</label>
+        </div>
+      </div>
+
+      <div class="epg" id="edit-unidad-row" style="display:none;">
+        <div class="epg-label">Unidad:</div>
+        <div class="epg-opts epg-opts--row">
+          <label><input type="radio" name="edit-unidad-radio" value="UND" id="edit-unidad-und"> UND</label>
+          <label><input type="radio" name="edit-unidad-radio" value="ML" id="edit-unidad-ml"> ML (metro lineal)</label>
+        </div>
+      </div>
+
+      <div class="epg" id="edit-tapa-row" style="display:none; margin-bottom:0;">
+        <div class="epg-label">Tapa:</div>
+        <div class="epg-opts epg-opts--row">
+          <label><input type="radio" name="edit-con-tapa" value="si"> Con tapa</label>
+          <label><input type="radio" name="edit-con-tapa" value="no"> Sin tapa</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unidad + Precio: siempre en 2 columnas -->
+    <div id="edit-precio-group" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
       <div class="form-group">
-        <label class="form-label" for="edit-und">Unidad</label>
-        <input type="text" id="edit-und" class="form-control" style="text-transform:uppercase;"
-               autocorrect="off" autocapitalize="characters" spellcheck="false">
+        <label class="form-label">Unidad</label>
+        <div id="edit-unidad-container"></div>
       </div>
       <div class="form-group">
         <label class="form-label" for="edit-precio">Precio U. (S/)</label>
@@ -544,7 +599,7 @@
 
     <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
       <button class="btn btn-secondary" onclick="cerrarModalEditar()">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarEdicion()">Guardar</button>
+      <button class="btn btn-primary" id="btn-guardar-edicion" onclick="guardarEdicion()">Guardar</button>
     </div>
   </div>
 </div>
@@ -656,11 +711,41 @@ details[open] .carrito-summary { margin-bottom: 0.75rem; }
    para que los botones se vean bien sin el marcador por defecto */
 .carrito-summary::-webkit-details-marker { display: none; }
 .carrito-summary::marker { font-size: 0.9em; }
+
+/* ── Grupos de parámetros en modal editar ── */
+.epg { margin-bottom: 0.5rem; }
+.epg-label { font-size: 0.82rem; font-weight: 600; color: var(--texto); margin-bottom: 0.22rem; }
+.epg-opts { display: flex; flex-direction: column; gap: 0.15rem; }
+.epg-opts label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.82rem; }
+.epg-opts--row { flex-direction: row; gap: 0.9rem; flex-wrap: wrap; }
+
+/* ── Botones de reorden ── */
+.btn-reorden {
+  background: none;
+  border: 1px solid var(--borde, #d1d5db);
+  border-radius: 3px;
+  width: 22px;
+  height: 16px;
+  font-size: 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--texto-suave);
+  padding: 0;
+  line-height: 1;
+}
+.btn-reorden:hover { background: var(--fondo-tabla, #f4f7fc); color: var(--azul); }
+
+/* ── Tapa separada ── */
+.fila-tapa-sep td { background: #fafbff; }
+.fila-tapa-sep td:first-child { border-left: 3px solid #93c5fd; }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
+history.scrollRestoration = 'manual';
 // ── Datos embebidos ──
 const CLIENTES   = {{ catalogo.clientes  | tojson }};
 const ATENCIONES = {{ catalogo.atenciones | tojson }};
@@ -754,7 +839,7 @@ function _acKeydown(e, listaId, onSelect) {
 }
 
 // ── Autocomplete Cliente ──
-let _clienteActual = { codigo: '', nombre: '' };
+let _clienteActual = { codigo: '', nombre: '', abreviacion: '' };
 
 function renderListaCliente(filtrados) {
   const lista = document.getElementById('cliente-lista');
@@ -766,7 +851,7 @@ function renderListaCliente(filtrados) {
   } else {
     lista.innerHTML = itemVacio + filtrados.map(c =>
       `<div class="ac-item" data-codigo="${c.codigo}" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">
-        <span class="ac-code">${c.codigo}</span>
+        <span class="ac-code">${c.abreviacion || c.codigo}</span>
         <span class="ac-name"> — ${c.nombre}</span>
       </div>`
     ).join('');
@@ -783,7 +868,11 @@ function onClienteInput() {
   const q = document.getElementById('cliente-input').value.trim().toLowerCase();
   document.getElementById('cliente').value = '';
   const filtrados = q
-    ? CLIENTES.filter(c => c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q))
+    ? CLIENTES.filter(c =>
+        c.codigo.toLowerCase().includes(q) ||
+        c.nombre.toLowerCase().includes(q) ||
+        (c.abreviacion || '').toLowerCase().includes(q)
+      )
     : CLIENTES;
   renderListaCliente(filtrados);
 }
@@ -799,17 +888,18 @@ function onClienteBlur() {
     const hiddenVal = document.getElementById('cliente').value;
     // Restaurar texto visible solo si el hidden tiene un código seleccionado
     if (!inp.value.trim() && hiddenVal) {
-      inp.value = `${_clienteActual.codigo} — ${_clienteActual.nombre}`;
+      inp.value = `${_clienteActual.abreviacion || _clienteActual.codigo} — ${_clienteActual.nombre}`;
     }
   }, 200);
 }
 
 function seleccionarCliente(codigo, nombre) {
-  _clienteActual = { codigo, nombre };
-  document.getElementById('cliente-input').value = codigo ? `${codigo} — ${nombre}` : '';
+  const c = codigo ? CLIENTES.find(x => x.codigo === codigo) : null;
+  const label = c?.abreviacion || codigo;
+  _clienteActual = { codigo, nombre, abreviacion: c?.abreviacion || '' };
+  document.getElementById('cliente-input').value = codigo ? `${label} — ${nombre}` : '';
   document.getElementById('cliente').value = codigo;
   document.getElementById('cliente-lista').style.display = 'none';
-  const c = codigo ? CLIENTES.find(x => x.codigo === codigo) : null;
   document.getElementById('cliente-nombre').value = c?.nombre || '';
   document.getElementById('cliente-ruc').value = c?.ruc || '';
   document.getElementById('cliente-ubicacion').value = c?.ubicacion || '';
@@ -1009,6 +1099,133 @@ async function limpiarCarrito() {
   }
 }
 
+// Actualiza la fila de un ítem en el DOM con los nuevos datos del backend (sin recargar)
+function _actualizarFilaCarrito(item) {
+  const tr = document.getElementById(`fila-${item.id}`);
+  if (!tr) return;
+
+  // Mezclar con datos existentes (preservar cantidad y otros campos no enviados)
+  const prev = carritoMap.get(item.id) || {};
+  const itm = { ...prev, ...item };
+  carritoMap.set(item.id, itm);
+
+  // Celda descripción (índice 2): 2 divs — descripción principal + subtítulo
+  const divs = tr.cells[2].querySelectorAll('div');
+  if (divs[0]) divs[0].textContent = itm.descripcion;
+  if (divs[1]) {
+    const com = itm.porcentaje_ganancia === '35' ? 'Con comisión' : 'Sin comisión';
+    if (itm.tipo_galvanizado === 'N/A') {
+      const prefijo = itm.tipo === 'MANUAL' ? 'Manual' : 'Catálogo';
+      divs[1].textContent = `${prefijo} · ${com} · ${itm.unidad}`;
+    } else {
+      divs[1].textContent = `${itm.tipo_galvanizado} · ${com} · ${parseFloat(itm.peso_unitario).toFixed(2)} kg/und`;
+    }
+  }
+
+  // Celda unidad (índice 4)
+  if (tr.cells[4]) tr.cells[4].textContent = itm.unidad;
+
+  // P.U. y P.T.
+  const puEl = document.getElementById(`pu-${item.id}`);
+  if (puEl) {
+    puEl.dataset.precioSoles = itm.precio_unitario;
+    puEl.textContent = `${sym()} ${conv(itm.precio_unitario).toFixed(2)}`;
+  }
+  const ptEl = document.getElementById(`pt-${item.id}`);
+  if (ptEl) {
+    ptEl.textContent = `${sym()} ${conv(itm.precio_unitario * itm.cantidad).toFixed(2)}`;
+  }
+}
+
+function _eliminarFilaCarrito(itemId) {
+  document.getElementById(`fila-${itemId}`)?.remove();
+  carritoMap.delete(itemId);
+}
+
+// Genera el HTML de una fila del carrito (espejo del template Jinja en líneas 117-167)
+function _renderFilaCarrito(item, cuerpoIdx) {
+  const esTapaSep = !!item.tapa_para_id;
+  const s  = sym();
+  const pu = conv(item.precio_unitario);
+  const pt = conv(item.precio_unitario * item.cantidad);
+  const descEsc = _pl_escHtml(item.descripcion);
+
+  const col1 = esTapaSep
+    ? `<span style="color:var(--texto-suave); font-size:0.7rem; padding-left:4px;">↳</span>`
+    : `<div style="display:flex; flex-direction:column; gap:1px;">
+         <button class="btn-reorden" onclick="moverItem(${item.id}, 'arriba')" title="Subir">▲</button>
+         <button class="btn-reorden" onclick="moverItem(${item.id}, 'abajo')" title="Bajar">▼</button>
+       </div>`;
+
+  const numCell = esTapaSep ? '' : cuerpoIdx;
+
+  const com = item.porcentaje_ganancia === '35' ? 'Con comisión' : 'Sin comisión';
+  const subtitulo = item.tipo_galvanizado === 'N/A'
+    ? `${item.tipo === 'MANUAL' ? 'Manual' : 'Catálogo'} · ${com} · ${item.unidad}`
+    : `${item.tipo_galvanizado} · ${com} · ${parseFloat(item.peso_unitario).toFixed(2)} kg/und`;
+
+  const descStyle = esTapaSep
+    ? 'font-size:0.875rem; padding-left:0.75rem; color:var(--texto-suave);'
+    : 'font-size:0.875rem;';
+
+  const tr = document.createElement('tr');
+  tr.id = `fila-${item.id}`;
+  if (esTapaSep) {
+    tr.className = 'fila-tapa-sep';
+    tr.dataset.tapaDe = item.tapa_para_id;
+  }
+  tr.innerHTML = `
+    <td style="text-align:center; padding:2px 0;">${col1}</td>
+    <td data-label="#">${numCell}</td>
+    <td data-label="">
+      <div style="${descStyle}">${descEsc}</div>
+      <div style="font-size:0.75rem; color:var(--texto-suave);">${subtitulo}</div>
+    </td>
+    <td data-label="Cant.">
+      <div class="cantidad-ctrl">
+        <button onclick="cambiarCant(${item.id}, -1)" aria-label="Restar cantidad">−</button>
+        <input type="number" id="cant-${item.id}" value="${item.cantidad}" min="0.01" max="999" step="any"
+               onchange="actualizarCant(${item.id})" aria-label="Cantidad"
+               inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button onclick="cambiarCant(${item.id}, 1)" aria-label="Sumar cantidad">+</button>
+      </div>
+    </td>
+    <td data-label="Und." style="text-align:center;">${item.unidad}</td>
+    <td data-label="P.U." class="td-num" id="pu-${item.id}" data-precio-soles="${item.precio_unitario}">
+      ${s} ${pu.toFixed(2)}
+    </td>
+    <td data-label="P.T." class="td-num" id="pt-${item.id}">
+      ${s} ${pt.toFixed(2)}
+    </td>
+    <td data-label="" style="white-space:nowrap;">
+      <button class="btn btn-secondary btn-sm" style="padding:0 6px; margin-right:2px;"
+        onclick="abrirModalEditar(${item.id})" title="Editar ítem">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="eliminarItem(${item.id})"
+        aria-label="Eliminar ${descEsc}">✕</button>
+    </td>`;
+  return tr;
+}
+
+// Reconstruye toda la tabla del carrito a partir de la lista del backend (sin recargar)
+function _reconstruirTablaCarrito(carrito) {
+  const tbody = document.getElementById('tbody-carrito');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  carritoMap.clear();
+  let cuerpoIdx = 0;
+  carrito.forEach(item => {
+    if (!item.tapa_para_id) cuerpoIdx += 1;
+    tbody.appendChild(_renderFilaCarrito(item, cuerpoIdx));
+    carritoMap.set(item.id, item);
+  });
+  actualizarTotales();
+  const summarySpan = document.querySelector('#det-lista summary span:first-child');
+  if (summarySpan) {
+    const n = carritoMap.size;
+    summarySpan.textContent = `Productos (${n} item${n !== 1 ? 's' : ''})`;
+  }
+}
+
 function actualizarTotales() {
   let totalSoles = 0;
   let peso = 0;
@@ -1064,6 +1281,12 @@ async function agregarManual() {
   const tr = document.createElement('tr');
   tr.id = `fila-${item.id}`;
   tr.innerHTML = `
+    <td style="text-align:center; padding:2px 0;">
+      <div style="display:flex; flex-direction:column; gap:1px;">
+        <button class="btn-reorden" onclick="moverItem(${item.id}, 'arriba')" title="Subir">▲</button>
+        <button class="btn-reorden" onclick="moverItem(${item.id}, 'abajo')" title="Bajar">▼</button>
+      </div>
+    </td>
     <td data-label="#">${idx}</td>
     <td data-label="">
       <div style="font-size:0.875rem;">${_pl_escHtml(item.descripcion)}</div>
@@ -1254,8 +1477,9 @@ function restaurarFormulario() {
   if (!f) return;
 
   if (f.cliente) {
-    _clienteActual = { codigo: f.cliente, nombre: f.clienteNombre || '' };
-    document.getElementById('cliente-input').value = f.clienteInput || `${f.cliente} — ${f.clienteNombre || ''}`;
+    const _cr = CLIENTES.find(x => x.codigo === f.cliente);
+    _clienteActual = { codigo: f.cliente, nombre: f.clienteNombre || '', abreviacion: _cr?.abreviacion || '' };
+    document.getElementById('cliente-input').value = f.clienteInput || `${_cr?.abreviacion || f.cliente} — ${f.clienteNombre || ''}`;
     document.getElementById('cliente').value = f.cliente;
     document.getElementById('cliente-nombre').value = f.clienteNombre || '';
     document.getElementById('cliente-ruc').value = f.clienteRuc || '';
@@ -1380,16 +1604,185 @@ document.getElementById('modal-espesor').addEventListener('click', function(e) {
 // ════════════════════════════════════════════
 // Modal editar ítem
 // ════════════════════════════════════════════
+
+// Actualiza la descripción cuando el usuario cambia Con/Sin tapa
+function _actualizarDescConTapa(val) {
+  const descEl = document.getElementById('edit-desc');
+  let desc = descEl.value;
+  if (val === 'no') {
+    const pares = [
+      [/\(C\/UNI[ÓO]N\s+Y\s+TAPA\)/gi, '(C/UNIÓN SIN TAPA)'],
+      [/\bCON\s+TAPA\b/gi, 'SIN TAPA'],
+      [/\bC\/TAPA\b/gi, 'SIN TAPA'],
+      [/\bC\/T\b/gi, 'S/T'],
+    ];
+    let changed = false;
+    for (const [re, repl] of pares) {
+      const nuevo = desc.replace(re, repl);
+      if (nuevo !== desc) { desc = nuevo; changed = true; break; }
+    }
+    if (!changed && !/SIN\s+TAPA/i.test(desc)) desc = desc.trimEnd() + ' SIN TAPA';
+  } else {
+    const pares = [
+      [/\(C\/UNI[ÓO]N\s+SIN\s+TAPA\)/gi, '(C/UNIÓN Y TAPA)'],
+      [/\bSIN\s+TAPA\b/gi, 'C/TAPA'],
+      [/\bS\/T\b/gi, 'C/T'],
+    ];
+    for (const [re, repl] of pares) {
+      const nuevo = desc.replace(re, repl);
+      if (nuevo !== desc) { desc = nuevo; break; }
+    }
+  }
+  descEl.value = desc;
+}
+
+document.querySelectorAll('input[name="edit-con-tapa"]').forEach(r =>
+  r.addEventListener('change', () => _actualizarDescConTapa(r.value))
+);
+
+// Flag para saber si el modal está editando una tapa separada
+let _editandoTapaSep = false;
+
+// Actualiza el textarea readonly de la tapa separada cuando cambia el espesor
+document.querySelectorAll('input[name="edit-esp-tapa"]').forEach(r =>
+  r.addEventListener('change', () => {
+    if (!_editandoTapaSep) return;
+    const nuevoEsp = r.value; // e.g. "2.0"
+    const descEl = document.getElementById('edit-desc');
+    // Reemplaza todos los valores decimales seguidos de MM (ej: 1.5MM → 2.0MM)
+    descEl.value = descEl.value.replace(/\b(\d+\.\d+)MM\b/gi, nuevoEsp + 'MM');
+  })
+);
+
+function _renderUnidadContainer(esManual, tipo, unidad) {
+  const cont = document.getElementById('edit-unidad-container');
+  if (esManual) {
+    cont.innerHTML = `<input type="text" id="edit-und-text" class="form-control" value="${_pl_escHtml(unidad)}"
+      style="text-transform:uppercase;" autocorrect="off" autocapitalize="characters" spellcheck="false">`;
+  } else {
+    // Bandejas: radio UND/ML; otros: select estándar
+    if (tipo === 'B') {
+      const sel = (u) => u === unidad ? ' checked' : '';
+      cont.innerHTML = `<div style="display:flex; gap:0.9rem; padding-top:0.45rem; flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;">
+          <input type="radio" name="edit-unidad-radio" value="UND" id="edit-unidad-und"${sel('UND')}> UND
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;">
+          <input type="radio" name="edit-unidad-radio" value="ML" id="edit-unidad-ml"${sel('ML')}> ML
+        </label>
+      </div>`;
+    } else {
+      const opts = ['UND','ML','M2','KG','JGO'].map(u =>
+        `<option value="${u}"${u === unidad ? ' selected' : ''}>${u}</option>`
+      ).join('');
+      cont.innerHTML = `<select id="edit-und-text" class="form-control">${opts}</select>`;
+    }
+  }
+}
+
 function abrirModalEditar(itemId) {
   const item = carritoMap.get(itemId);
   if (!item) return;
-  document.getElementById('edit-id').value = itemId;
-  document.getElementById('edit-desc').value = item.descripcion;
-  document.getElementById('edit-und').value = item.unidad;
-  document.getElementById('edit-precio').value = item.precio_unitario;
+  const esManual   = item.tipo_galvanizado === 'N/A';
+  const esTapaSep  = !!item.tapa_para_id;
+  const ESP_VALIDOS = [1.2, 1.5, 2.0];
 
+  _editandoTapaSep = esTapaSep;
+
+  document.getElementById('edit-id').value = itemId;
+  document.getElementById('edit-tipo').value = item.tipo || '';
+  document.getElementById('edit-tipo-galv').value = item.tipo_galvanizado || '';
+  document.getElementById('edit-es-manual').value = esManual ? '1' : '0';
+
+  // Descripción: readonly para tapas separadas (se recalcula desde el cuerpo en el backend)
+  const descEl = document.getElementById('edit-desc');
+  descEl.value    = item.descripcion;
+  descEl.readOnly = esTapaSep;
+  descEl.style.color      = esTapaSep ? 'var(--texto-suave,#6b7280)' : '';
+  descEl.style.background = esTapaSep ? 'var(--fondo-tabla,#f4f7fc)' : '';
+  descEl.title = esTapaSep ? 'La descripción se genera automáticamente desde el cuerpo' : '';
+
+  // Precio: tapas separadas → sin redondeo al alza (lo calcula el backend)
+  const precioEl = document.getElementById('edit-precio');
+  precioEl.value    = esTapaSep
+    ? parseFloat(item.precio_unitario).toFixed(2)
+    : (Math.ceil(item.precio_unitario * 100) / 100).toFixed(2);
+  precioEl.readOnly = esTapaSep;
+  precioEl.style.color      = esTapaSep ? 'var(--texto-suave,#6b7280)' : '';
+  precioEl.style.background = esTapaSep ? 'var(--fondo-tabla,#f4f7fc)' : '';
+
+  // Unidad: tapas separadas → texto fijo (unidad bloqueada al cuerpo)
+  if (esTapaSep) {
+    document.getElementById('edit-unidad-container').innerHTML =
+      `<span style="padding-top:0.45rem; display:inline-block; color:var(--texto-suave,#6b7280); font-size:0.85rem;">${item.unidad}</span>`;
+  } else {
+    _renderUnidadContainer(esManual, item.tipo, item.unidad);
+  }
+
+  // Avanzado: solo para calculados
+  document.getElementById('edit-avanzado').style.display = esManual ? 'none' : '';
+
+  if (!esManual) {
+    // Comisión: ocultar para tapas separadas (bloqueada al cuerpo)
+    document.getElementById('edit-comision-row').style.display = esTapaSep ? 'none' : '';
+    if (!esTapaSep) {
+      const ganEl = document.getElementById(`edit-ganancia-${item.porcentaje_ganancia || '30'}`);
+      if (ganEl) ganEl.checked = true; else document.getElementById('edit-ganancia-30').checked = true;
+    }
+
+    // Espesor: leer MM de la descripcion_calculada (cuerpo) o descripcion (tapa sep)
+    const descRef = esTapaSep
+      ? (item.descripcion || '')
+      : (item.descripcion_calculada || item.descripcion);
+    const mmVals = [...descRef.matchAll(/(\d+\.\d+)MM/gi)].map(m => parseFloat(m[1]));
+    const espC = ESP_VALIDOS.includes(mmVals[0]) ? mmVals[0].toFixed(1) : '1.5';
+    let espT;
+    if (esTapaSep) {
+      espT = espC; // para tapa sep, el único MM en su descripcion es el de la tapa
+    } else {
+      // Si hay tapa vinculada como ítem separado, leer su espesor de ese ítem directamente
+      const _tapaVinc = Array.from(carritoMap.values()).find(i => i.tapa_para_id === itemId);
+      if (_tapaVinc) {
+        const _mmT = [...(_tapaVinc.descripcion || '').matchAll(/(\d+\.\d+)MM/gi)].map(m => parseFloat(m[1]));
+        espT = ESP_VALIDOS.includes(_mmT[0]) ? _mmT[0].toFixed(1) : espC;
+      } else {
+        espT = ESP_VALIDOS.includes(mmVals[1]) ? mmVals[1].toFixed(1) : espC;
+      }
+    }
+    const ecEl = document.querySelector(`input[name="edit-esp-cuerpo"][value="${espC}"]`);
+    if (ecEl) ecEl.checked = true;
+    const etEl = document.querySelector(`input[name="edit-esp-tapa"][value="${espT}"]`);
+    if (etEl) etEl.checked = true;
+
+    // Espesor cuerpo: ocultar para tapas separadas
+    document.getElementById('edit-esp-cuerpo-row').style.display = esTapaSep ? 'none' : '';
+
+    // Espesor tapa: ocultar para CP
+    document.getElementById('edit-esp-tapa-row').style.display = (item.tipo === 'CP') ? 'none' : '';
+
+    // Fila unidad: solo bandejas (mostrada dentro del container, no en avanzado)
+    document.getElementById('edit-unidad-row').style.display = 'none';
+
+    // Fila tapa (Con/Sin): ocultar para tapas separadas y CP
+    const tapaRow = document.getElementById('edit-tapa-row');
+    if (!esTapaSep && item.tipo !== 'CP') {
+      tapaRow.style.display = '';
+      const _tapaRe = /\bC[\/\\]?TAPA\b|\bCON\s+TAPA\b|\(C\/UNI[ÓO]N\s+Y\s+TAPA\)|\+\s*TAPA\b|\bY\s+TAPA\b/i;
+      const tieneTapaEnDesc = (item.descripcion_calculada || '').toUpperCase().includes('+ TAPA')
+                              || _tapaRe.test(item.descripcion || '');
+      // Si hay una tapa vinculada como ítem separado, también hay tapa
+      const tieneTapaVinculada = Array.from(carritoMap.values()).some(i => i.tapa_para_id === itemId);
+      const tapVal = (tieneTapaEnDesc || tieneTapaVinculada) ? 'si' : 'no';
+      const tapaEl = document.querySelector(`input[name="edit-con-tapa"][value="${tapVal}"]`);
+      if (tapaEl) tapaEl.checked = true;
+    } else {
+      tapaRow.style.display = 'none';
+    }
+  }
+
+  // Ítem programa: solo para manuales
   const progGroup = document.getElementById('edit-item-prog-group');
-  if (item.descripcion_calculada) {
+  if (esManual && item.descripcion_calculada) {
     progGroup.style.display = '';
     document.getElementById('edit-item-prog').value = item.descripcion_calculada;
   } else {
@@ -1409,23 +1802,61 @@ document.getElementById('modal-editar').addEventListener('click', function(e) {
 });
 
 async function guardarEdicion() {
-  const itemId = document.getElementById('edit-id').value;
-  const desc   = document.getElementById('edit-desc').value.trim();
-  const und    = document.getElementById('edit-und').value.trim().toUpperCase();
-  const precio = parseFloat(document.getElementById('edit-precio').value);
-  const prog   = document.getElementById('edit-item-prog').value.trim();
+  const itemId    = document.getElementById('edit-id').value;
+  const desc      = document.getElementById('edit-desc').value.trim();
+  const esManual  = document.getElementById('edit-es-manual').value === '1';
+  const prog      = document.getElementById('edit-item-prog').value.trim();
 
   if (!desc) { toast('La descripción no puede estar vacía', 'error'); return; }
-  if (isNaN(precio) || precio < 0) { toast('Precio inválido', 'error'); return; }
 
-  const fd = formData({ descripcion: desc, unidad: und, precio_unitario: precio, descripcion_calculada: prog });
-  const data = await apiFetch(`/api/carrito/editar/${itemId}`, { method: 'POST', body: fd });
+  const btn = document.getElementById('btn-guardar-edicion');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  // Leer unidad del contenedor dinámico
+  function _leerUnidad() {
+    const radio = document.querySelector('input[name="edit-unidad-radio"]:checked');
+    if (radio) return radio.value;
+    const sel = document.getElementById('edit-und-text');
+    return sel ? sel.value.trim().toUpperCase() || 'UND' : 'UND';
+  }
+
+  let data;
+  if (esManual) {
+    const und    = _leerUnidad();
+    const precio = parseFloat(document.getElementById('edit-precio').value);
+    if (isNaN(precio) || precio < 0) { toast('Precio inválido', 'error'); btn.disabled = false; btn.textContent = 'Guardar'; return; }
+    const precioRedondeado = Math.ceil(precio * 100) / 100;
+    const fd = formData({ descripcion: desc, unidad: und, precio_unitario: precioRedondeado, descripcion_calculada: prog });
+    data = await apiFetch(`/api/carrito/editar/${itemId}`, { method: 'POST', body: fd });
+  } else {
+    const ganancia  = document.querySelector('input[name="edit-ganancia"]:checked')?.value || '30';
+    const espCuerpo = document.querySelector('input[name="edit-esp-cuerpo"]:checked')?.value || '1.5';
+    const espTapa   = document.querySelector('input[name="edit-esp-tapa"]:checked')?.value || espCuerpo;
+    const conTapa   = document.querySelector('input[name="edit-con-tapa"]:checked')?.value || 'si';
+    const und       = _leerUnidad();
+    const fd = formData({
+      descripcion: desc, ganancia, espesor_cuerpo: espCuerpo, espesor_tapa: espTapa,
+      unidad: und, con_tapa: conTapa,
+    });
+    data = await apiFetch(`/api/carrito/recalcular/${itemId}`, { method: 'POST', body: fd });
+  }
+
+  btn.disabled = false; btn.textContent = 'Guardar';
   if (data.ok) {
     cerrarModalEditar();
     toast('Ítem actualizado', 'success');
-    _navegandoInternamente = true;
-    sessionStorage.setItem('_reloadProgramatico', '1');
-    setTimeout(() => window.location.reload(), 600);
+
+    // Actualizar la fila del cuerpo in-place (sin recargar → mantiene scroll)
+    if (data.cuerpo) _actualizarFilaCarrito(data.cuerpo);
+
+    // Manejar tapa vinculada
+    if (data.tapa_action === 'updated' && data.tapa) {
+      _actualizarFilaCarrito(data.tapa);
+    } else if (data.tapa_action === 'deleted' && data.tapa_id) {
+      _eliminarFilaCarrito(data.tapa_id);
+    }
+
+    actualizarTotales();
   } else {
     toast(data.error || 'Error al guardar', 'error');
   }
@@ -1443,6 +1874,76 @@ async function convertirAML(itemId) {
     toast(data.error || 'Error al convertir', 'error');
   }
 }
+
+// ── Reordenar ítems ──
+async function moverItem(itemId, direccion) {
+  const fd = formData({ direccion });
+  const data = await apiFetch(`/api/carrito/mover/${itemId}`, { method: 'POST', body: fd });
+  if (data.ok) {
+    _navegandoInternamente = true;
+    sessionStorage.setItem('_reloadProgramatico', '1');
+    window.location.reload();
+  } else {
+    toast('No se pudo mover el ítem', 'error');
+  }
+}
+
+// ── Tapas juntas / separadas ──
+let _tapasModo = 'junto'; // 'junto' | 'separada'
+
+function _actualizarBtnTapas() {
+  const btn = document.getElementById('btn-tapas-modo');
+  if (!btn) return;
+  if (_tapasModo === 'junto') {
+    btn.textContent = 'Tapas: juntas';
+    btn.style.cssText = '';
+  } else {
+    btn.textContent = 'Tapas: separadas';
+    btn.style.background = '#e8f0fb';
+    btn.style.borderColor = '#2563eb';
+    btn.style.color = '#2563eb';
+    btn.style.fontWeight = '600';
+  }
+}
+
+async function toggleTapasModo() {
+  const btn = document.getElementById('btn-tapas-modo');
+  btn.disabled = true;
+
+  if (_tapasModo === 'junto') {
+    const data = await apiFetch('/api/carrito/separar_tapas', { method: 'POST' });
+    btn.disabled = false;
+    if (!data.ok) { toast('Error al separar tapas', 'error'); return; }
+    if (data.separados > 0) {
+      _tapasModo = 'separada';
+      _actualizarBtnTapas();
+      if (data.carrito) _reconstruirTablaCarrito(data.carrito);
+      toast(`${data.separados} ítem(s) separados en cuerpo + tapa`, 'success');
+    } else {
+      toast('No hay ítems con tapa combinada para separar', 'error');
+    }
+  } else {
+    const data = await apiFetch('/api/carrito/juntar_tapas', { method: 'POST' });
+    btn.disabled = false;
+    if (!data.ok) { toast('Error al juntar tapas', 'error'); return; }
+    if (data.juntados > 0) {
+      _tapasModo = 'junto';
+      _actualizarBtnTapas();
+      if (data.carrito) _reconstruirTablaCarrito(data.carrito);
+      toast(`${data.juntados} tapa(s) unidas a su cuerpo`, 'success');
+    } else {
+      toast('No hay tapas separadas para unir', 'error');
+    }
+  }
+}
+
+// Detectar modo inicial según si hay filas de tapa separada
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelectorAll('.fila-tapa-sep').length > 0) {
+    _tapasModo = 'separada';
+    _actualizarBtnTapas();
+  }
+});
 
 // importar.js se carga después de este bloque
 async function aplicarEspesor() {

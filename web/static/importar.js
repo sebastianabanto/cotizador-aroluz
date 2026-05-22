@@ -131,7 +131,7 @@ function setModoImportar(modo) {
     btnLibre.setAttribute('style', _base + _estiloInactivo);
     ayudaTabla.style.display = 'block';
     ayudaLibre.style.display = 'none';
-    textarea.placeholder = 'Pega aquí la tabla (Tab entre columnas)…';
+    textarea.placeholder = 'Pega aquí una tabla de Excel, lista de Word/PDF o texto:\n\nTUBO CONDUIT EMT 3/4   UND   20\nCURVA EMT GALVANIZADO 1/2   UND   15\n\nTambién se aceptan tablas con tabuladores, metrados y multi-columna.';
     btnProcesar.textContent = 'Procesar tabla';
   } else {
     btnTabla.setAttribute('style', _base + _estiloInactivo);
@@ -166,12 +166,12 @@ function _parseTextoLibre(text) {
       // ── Excepción: línea con formato tabla "descripción  UND  cantidad" ──
       // Ej: "TUBO CONDUIT EMT 3/4" X 3 M    UND    100"
       //     "CURVA CONDUIT EMT DE 1"    UND    50"
-      const tablaM = /^(.+?)\s{2,}(UND|ML|M2|KG|JGO|GLB|PZA)\s+(\d+(?:[.,]\d+)?)\s*$/i.exec(line);
+      const tablaM = _DUC_RE.exec(line);
       if (tablaM) {
         const desc = _normalizarDimensiones(tablaM[1].trim());
-        const unidad   = tablaM[2].toUpperCase();
-        const cantidad = Math.round(parseFloat(tablaM[3].replace(',', '.'))) || 1;
-        if (desc) rows.push({ descripcion: desc, unidad, cantidad, con_tapa: false, espesor_tapa: null });
+        const unidad = tablaM[2].toUpperCase().replace(/\.$/, '');
+        const n = Math.round(parseFloat(tablaM[3].replace(',', '.')));
+        if (desc && !isNaN(n) && n > 0) rows.push({ descripcion: desc, unidad, cantidad: n, con_tapa: false, espesor_tapa: null });
       }
       continue;
     }
@@ -437,6 +437,39 @@ function _parseCantUndDesc(lines) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 2e. Parser DESC + UND + CANT  (listas de Word/PDF con 1+ espacios)
+//     Ej: "TUBO CONDUIT EMT 3/4   UND   20"
+// ──────────────────────────────────────────────────────────────
+
+// ── Patrón: DESCRIPCION + espacio(s) + UND[.]|ML|... + espacio(s) + CANTIDAD ──
+// Cubre listas pegadas desde Word/PDF con 1 o más espacios entre columnas.
+// El punto opcional (\.?) acepta variantes como "und." o "UND."
+const _DUC_RE = /^(.+?)\s+(UND|ML|MTS|MT|M2|KG|JGO|GLB|PZA)\.?\s+(\d+(?:[.,]\d+)?)\s*$/i;
+
+function _isDescUndCantFormat(lines) {
+  const nonEmpty = lines.filter(l => l.trim());
+  if (nonEmpty.length < 1) return false;
+  const hits = nonEmpty.filter(l => _DUC_RE.test(l.trim()));
+  return hits.length / nonEmpty.length >= 0.6;
+}
+
+function _parseDescUndCant(lines) {
+  const rows = [];
+  for (const line of lines) {
+    const m = _DUC_RE.exec(line.trim());
+    if (!m) continue;
+    const desc = _normalizarDimensiones(m[1].trim());
+    if (!desc) continue;
+    let unidad = m[2].toUpperCase().replace(/\.$/, '');
+    if (unidad === 'MTS' || unidad === 'MT') unidad = 'ML';
+    const n = Math.round(parseFloat(m[3].replace(',', '.')));
+    if (isNaN(n) || n <= 0) continue;
+    rows.push({ descripcion: desc, unidad, cantidad: n });
+  }
+  return rows;
+}
+
+// ──────────────────────────────────────────────────────────────
 // 2c. Parser TSV con auto-detección de encabezados
 // ──────────────────────────────────────────────────────────────
 
@@ -444,6 +477,11 @@ function _parseTSV(text) {
   const rawLines = text.trim().split('\n');
 
   const cleanLines = rawLines.map(l => l.trim()).filter(l => l.length > 0);
+
+  // ── DESC · UND · CANT (con 1+ espacio, líneas sin dígito inicial) ──
+  if (_isDescUndCantFormat(cleanLines)) {
+    return _parseDescUndCant(cleanLines);
+  }
 
   // ── Detectar formato CANT → UND → DESC antes que nada ──
   if (_isCantUndDescFormat(cleanLines)) {
@@ -592,9 +630,10 @@ async function procesarTexto() {
     return;
   }
 
-  const items = _importarModo === 'libre' ? _parseTextoLibre(text) : _parseTSV(text);
+  let items = _parseTSV(text);
+  if (!items.length) items = _parseTextoLibre(text);
   if (!items.length) {
-    toast(_importarModo === 'libre' ? 'No se encontraron productos en el texto' : 'No se encontraron filas en la tabla', 'error');
+    toast('No se encontraron productos en el texto', 'error');
     return;
   }
 

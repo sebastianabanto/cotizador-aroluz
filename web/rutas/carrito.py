@@ -20,8 +20,10 @@ from web.database import (
     update_cantidad_carrito_db,
     update_item_precio_carrito_db,
     update_item_campos_carrito_db,
+    update_item_completo_carrito_db,
     delete_item_carrito_db,
     clear_carrito_db,
+    mover_item_carrito_db,
     cargar_config,
 )
 from web.motor import (
@@ -275,6 +277,10 @@ async def api_editar_item(
     descripcion_calculada: Optional[str] = Form(None),
 ):
     """Edita descripción, unidad, precio y opcionalmente ítem programa de un item."""
+    carrito = get_carrito(usuario["u"])
+    item = next((i for i in carrito if i["id"] == item_id), None)
+    if not item:
+        return JSONResponse({"ok": False, "error": "Item no encontrado"}, status_code=404)
     updated = update_item_campos_carrito_db(
         item_id, usuario["u"],
         descripcion.strip(), unidad.strip(),
@@ -282,7 +288,20 @@ async def api_editar_item(
         descripcion_calculada.strip() if descripcion_calculada else None,
     )
     if updated:
-        return JSONResponse({"ok": True})
+        return JSONResponse({
+            "ok": True,
+            "cuerpo": {
+                "id": item_id,
+                "descripcion": descripcion.strip(),
+                "unidad": unidad.strip(),
+                "tipo_galvanizado": item["tipo_galvanizado"],
+                "porcentaje_ganancia": item["porcentaje_ganancia"],
+                "precio_unitario": precio_unitario,
+                "peso_unitario": item.get("peso_unitario", 0),
+                "descripcion_calculada": descripcion_calculada.strip() if descripcion_calculada else None,
+                "tipo": item.get("tipo"),
+            },
+        })
     return JSONResponse({"ok": False, "error": "Item no encontrado"}, status_code=404)
 
 
@@ -326,6 +345,383 @@ async def api_resumen_carrito(usuario: dict = Depends(require_login)):
     return JSONResponse({
         "cantidad_items": len(carrito),
         "total": round(total, 2),
+    })
+
+
+@router.post("/mover/{item_id}")
+async def api_mover_item(
+    item_id: int,
+    usuario: dict = Depends(require_login),
+    direccion: str = Form(...),
+):
+    """Mueve un ítem arriba o abajo en la tabla del carrito."""
+    if direccion not in ("arriba", "abajo"):
+        return JSONResponse({"ok": False, "error": "Dirección inválida"}, status_code=400)
+    moved = mover_item_carrito_db(item_id, usuario["u"], direccion)
+    return JSONResponse({"ok": moved})
+
+
+@router.post("/recalcular/{item_id}")
+async def api_recalcular_item(
+    item_id: int,
+    usuario: dict = Depends(require_login),
+    descripcion: str = Form(...),
+    ganancia: str = Form("30"),
+    espesor_cuerpo: float = Form(1.5),
+    espesor_tapa: float = Form(1.5),
+    unidad: str = Form("UND"),
+    con_tapa: str = Form("si"),  # "si" | "no"
+):
+    """Recalcula precio y peso de un ítem con nuevos parámetros."""
+    carrito = get_carrito(usuario["u"])
+    item = next((i for i in carrito if i["id"] == item_id), None)
+    if not item:
+        return JSONResponse({"ok": False, "error": "Ítem no encontrado"}, status_code=404)
+
+    # Items manuales o de catálogo: solo guardar texto/precio/unidad
+    if item["tipo_galvanizado"] == "N/A":
+        updated = update_item_campos_carrito_db(
+            item_id, usuario["u"], descripcion.strip(), unidad.strip(),
+            item["precio_unitario"], item.get("descripcion_calculada"),
+        )
+        return JSONResponse({
+            "ok": updated,
+            "cuerpo": {
+                "id": item_id,
+                "descripcion": descripcion.strip(),
+                "unidad": unidad.strip(),
+                "tipo_galvanizado": item["tipo_galvanizado"],
+                "porcentaje_ganancia": item["porcentaje_ganancia"],
+                "precio_unitario": item["precio_unitario"],
+                "peso_unitario": item.get("peso_unitario", 0),
+                "descripcion_calculada": item.get("descripcion_calculada"),
+                "tipo": item.get("tipo"),
+            },
+        })
+
+    config = cargar_config()
+
+    # ── Tapa separada: recalcular usando el cuerpo como referencia ──
+    if item.get("tapa_para_id"):
+        cuerpo_item = next((i for i in carrito if i["id"] == item["tapa_para_id"]), None)
+        if not cuerpo_item:
+            return JSONResponse({"ok": False, "error": "Cuerpo del ítem no encontrado"}, status_code=404)
+        parsed_c = parsear_descripcion(cuerpo_item["descripcion"])
+        if not parsed_c.get("tipo"):
+            return JSONResponse({"ok": False, "error": "No se reconoció el tipo del cuerpo"}, status_code=400)
+        parsed_c["espesor_explicito"] = False  # forzar override del espesor
+        galvanizado_c = cuerpo_item["tipo_galvanizado"]
+        mm_vals_c = [float(m) for m in re.findall(r'(\d+\.\d+)MM', cuerpo_item["descripcion"].upper())]
+        _validos = {1.2, 1.5, 2.0}
+        esp_c = mm_vals_c[0] if mm_vals_c and mm_vals_c[0] in _validos else parsed_c.get("espesor", 1.5)
+        ganancia_c = cuerpo_item["porcentaje_ganancia"]  # bloqueada al cuerpo
+        ov_t = {
+            "galvanizado_global": galvanizado_c,
+            "espesor_cuerpo_global": esp_c,
+            "espesor_tapa_global": espesor_tapa,
+            "ganancia_global": ganancia_c,
+        }
+        es_ml_c = (cuerpo_item["unidad"] == "ML" and parsed_c.get("tipo") == "B")
+        res_t = calcular_precio_importado(
+            parsed_c, config, ov_t,
+            con_tapa=True,
+            es_metro_lineal=es_ml_c,
+            espesor_tapa_item=espesor_tapa,
+        )
+        if res_t is None or not res_t.get("tapa"):
+            return JSONResponse({"ok": False, "error": "No se pudo calcular el precio de la tapa"}, status_code=400)
+        td = res_t["tapa"]
+        updated = update_item_completo_carrito_db(
+            item_id, usuario["u"],
+            td[2], item["unidad"],
+            round(td[0], 4), round(td[1], 6),
+            galvanizado_c, ganancia_c,
+            td[2],
+        )
+        return JSONResponse({
+            "ok": updated,
+            "cuerpo": {
+                "id": item_id,
+                "descripcion": td[2],
+                "unidad": item["unidad"],
+                "tipo_galvanizado": galvanizado_c,
+                "porcentaje_ganancia": ganancia_c,
+                "precio_unitario": round(td[0], 4),
+                "peso_unitario": round(td[1], 6),
+                "descripcion_calculada": td[2],
+                "tipo": item.get("tipo"),
+            },
+        })
+
+    parsed = parsear_descripcion(descripcion)
+    if not parsed.get("tipo"):
+        return JSONResponse({"ok": False, "error": "No se reconoció el tipo de producto"}, status_code=400)
+
+    # El formulario manda el espesor explícitamente — ignorar el parseado de la descripción
+    # para que el override espesor_cuerpo_global siempre se aplique
+    parsed["espesor_explicito"] = False
+
+    incluir_tapa = (con_tapa == "si")
+
+    galvanizado = item["tipo_galvanizado"] if not parsed.get("galvanizado_explicito") else parsed["galvanizado"]
+    overrides = {
+        "galvanizado_global": galvanizado,
+        "espesor_cuerpo_global": espesor_cuerpo,
+        "espesor_tapa_global": espesor_tapa,
+        "ganancia_global": ganancia,
+    }
+
+    es_ml = unidad == "ML" and parsed.get("tipo") == "B"
+
+    # Detectar tapa vinculada (ítem separado que apunta a este cuerpo)
+    tapa_vinculada = next((i for i in carrito if i.get("tapa_para_id") == item_id), None)
+
+    # Calcular con tapa siempre que haya una vinculada (para poder recalcular su precio)
+    calcular_con_tapa = incluir_tapa or (tapa_vinculada is not None)
+    resultado = calcular_precio_importado(
+        parsed, config, overrides,
+        con_tapa=calcular_con_tapa,
+        es_metro_lineal=es_ml,
+        espesor_tapa_item=espesor_tapa,
+    )
+    if resultado is None:
+        return JSONResponse({"ok": False, "error": "No se pudo calcular el precio con esos parámetros"}, status_code=400)
+
+    cuerpo = resultado["cuerpo"]
+    tapa   = resultado.get("tapa")
+
+    # Precio del cuerpo: combinado solo si no hay tapa vinculada (modo junto)
+    if tapa and incluir_tapa and tapa_vinculada is None:
+        nuevo_precio    = round(cuerpo[0] + tapa[0], 4)
+        nuevo_peso      = round(cuerpo[1] + tapa[1], 6)
+        nueva_desc_calc = f"{cuerpo[2]} + {tapa[2]}"
+    else:
+        nuevo_precio    = round(cuerpo[0], 4)
+        nuevo_peso      = round(cuerpo[1], 6)
+        nueva_desc_calc = cuerpo[2]
+
+    nueva_descripcion = _reemplazar_espesor(descripcion.strip(), espesor_cuerpo)
+    updated = update_item_completo_carrito_db(
+        item_id, usuario["u"],
+        nueva_descripcion, unidad.strip(),
+        nuevo_precio, nuevo_peso,
+        galvanizado, ganancia,
+        nueva_desc_calc,
+    )
+
+    # Propagar cambios a la tapa vinculada
+    if tapa_vinculada:
+        if not incluir_tapa:
+            # Usuario eligió "Sin tapa" → eliminar tapa vinculada
+            import sqlite3 as _sq
+            from web.database import DB_PATH as _DB
+            _c = _sq.connect(str(_DB), timeout=10)
+            _c.execute("DELETE FROM carrito_items WHERE id=? AND username=?",
+                       (tapa_vinculada["id"], usuario["u"]))
+            _c.commit()
+            _c.close()
+        elif tapa:
+            # Recalcular tapa con los nuevos parámetros (ganancia, espesor_tapa)
+            update_item_completo_carrito_db(
+                tapa_vinculada["id"], usuario["u"],
+                tapa[2], unidad.strip(),
+                round(tapa[0], 4), round(tapa[1], 6),
+                galvanizado, ganancia,
+                tapa[2],
+            )
+
+    response = {
+        "ok": updated,
+        "cuerpo": {
+            "id": item_id,
+            "descripcion": nueva_descripcion,
+            "unidad": unidad.strip(),
+            "tipo_galvanizado": galvanizado,
+            "porcentaje_ganancia": ganancia,
+            "precio_unitario": nuevo_precio,
+            "peso_unitario": nuevo_peso,
+            "descripcion_calculada": nueva_desc_calc,
+            "tipo": item.get("tipo"),
+        },
+    }
+    if tapa_vinculada:
+        if not incluir_tapa:
+            response["tapa_action"] = "deleted"
+            response["tapa_id"] = tapa_vinculada["id"]
+        elif tapa:
+            response["tapa_action"] = "updated"
+            response["tapa"] = {
+                "id": tapa_vinculada["id"],
+                "descripcion": tapa[2],
+                "unidad": unidad.strip(),
+                "tipo_galvanizado": galvanizado,
+                "porcentaje_ganancia": ganancia,
+                "precio_unitario": round(tapa[0], 4),
+                "peso_unitario": round(tapa[1], 6),
+                "descripcion_calculada": tapa[2],
+                "tipo": tapa_vinculada.get("tipo"),
+            }
+    return JSONResponse(response)
+
+
+@router.post("/separar_tapas")
+async def api_separar_tapas(usuario: dict = Depends(require_login)):
+    """Separa los ítems combinados cuerpo+tapa en dos filas independientes."""
+    import sqlite3
+    from web.database import DB_PATH
+
+    _TAPA_RE = re.compile(
+        r'\bC[/\\]?TAPA\b|\bCON\s+TAPA\b|\(C/UNI[ÓO]N\s+Y\s+TAPA\)|'
+        r'\+\s*TAPA\b|\bY\s+TAPA\b',
+        re.IGNORECASE,
+    )
+
+    config = cargar_config()
+    carrito = get_carrito(usuario["u"])
+    separados = 0
+    for item in carrito:
+        # Saltar tapas ya separadas
+        if item.get("tapa_para_id"):
+            continue
+        # Saltar ítems manuales/catálogo
+        if item.get("tipo_galvanizado") == "N/A":
+            continue
+
+        desc_calc = item.get("descripcion_calculada") or ""
+        tiene_tapa = (
+            " + TAPA " in desc_calc.upper()
+            or bool(_TAPA_RE.search(item["descripcion"]))
+        )
+        if not tiene_tapa:
+            continue
+
+        # Parsear la descripción original para extraer tipo y dimensiones
+        parsed = parsear_descripcion(item["descripcion"])
+        if not parsed.get("tipo") or parsed["tipo"] == "CP":
+            continue   # Caja de Pase no tiene tapa separable
+
+        galvanizado = item["tipo_galvanizado"]
+        ganancia    = item["porcentaje_ganancia"]
+
+        # Extraer espesores de la descripcion_calculada si existe, si no de la descripcion
+        desc_ref = desc_calc if desc_calc else item["descripcion"]
+        mm_vals = [float(m) for m in re.findall(r'(\d+\.\d+)MM', desc_ref.upper())]
+        validos = {1.2, 1.5, 2.0}
+        esp_c = mm_vals[0] if mm_vals and mm_vals[0] in validos else parsed.get("espesor", 1.5)
+        esp_t = mm_vals[1] if len(mm_vals) > 1 and mm_vals[1] in validos else esp_c
+
+        overrides = {
+            "galvanizado_global": galvanizado,
+            "ganancia_global": ganancia,
+            "espesor_cuerpo_global": esp_c,
+            "espesor_tapa_global": esp_t,
+        }
+
+        resultado = calcular_precio_importado(
+            parsed, config, overrides,
+            con_tapa=True,
+            es_metro_lineal=(item["unidad"] == "ML"),
+            espesor_tapa_item=esp_t,
+        )
+        if resultado is None or not resultado.get("tapa"):
+            continue
+
+        cuerpo_data = resultado["cuerpo"]
+        tapa_data   = resultado["tapa"]
+
+        # Descripción del cuerpo: cambiar "(C/UNIÓN Y TAPA)" → "(C/UNIÓN SIN TAPA)"
+        # Para otros patrones (ej. "+ TAPA"), quitarlos directamente
+        _UNION_Y_TAPA_RE = re.compile(r'\(C/UNI[ÓO]N\s+Y\s+TAPA\)', re.IGNORECASE)
+        if _UNION_Y_TAPA_RE.search(item["descripcion"]):
+            desc_cuerpo = _UNION_Y_TAPA_RE.sub('(C/UNIÓN SIN TAPA)', item["descripcion"]).strip()
+        else:
+            desc_cuerpo = _TAPA_RE.sub('', item["descripcion"]).strip().rstrip(',-').strip()
+
+        # Actualizar el item actual solo como cuerpo
+        update_item_completo_carrito_db(
+            item["id"], usuario["u"],
+            desc_cuerpo, item["unidad"],
+            round(cuerpo_data[0], 4), round(cuerpo_data[1], 6),
+            galvanizado, ganancia,
+            cuerpo_data[2],
+        )
+        # Insertar nueva fila de tapa vinculada
+        tapa_item = {
+            "tipo": item["tipo"],
+            "descripcion": tapa_data[2],
+            "precio_unitario": round(tapa_data[0], 4),
+            "peso_unitario": round(tapa_data[1], 6),
+            "cantidad": item["cantidad"],
+            "unidad": item["unidad"],
+            "tipo_galvanizado": galvanizado,
+            "porcentaje_ganancia": ganancia,
+            "descripcion_calculada": tapa_data[2],
+        }
+        add_item_carrito_db(usuario["u"], tapa_item, tapa_para_id=item["id"])
+        separados += 1
+
+    return JSONResponse({
+        "ok": True,
+        "separados": separados,
+        "carrito": get_carrito(usuario["u"]),
+    })
+
+
+@router.post("/juntar_tapas")
+async def api_juntar_tapas(usuario: dict = Depends(require_login)):
+    """Une tapas separadas con su cuerpo correspondiente en un solo ítem combinado."""
+    import sqlite3
+    from web.database import DB_PATH
+
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    conn.row_factory = sqlite3.Row
+    tapas = conn.execute(
+        "SELECT * FROM carrito_items WHERE username=? AND tapa_para_id IS NOT NULL",
+        (usuario["u"],),
+    ).fetchall()
+
+    juntados = 0
+    c = conn.cursor()
+    for tapa in tapas:
+        tapa = dict(tapa)
+        cuerpo_id = tapa["tapa_para_id"]
+        cuerpo = conn.execute(
+            "SELECT * FROM carrito_items WHERE id=? AND username=?",
+            (cuerpo_id, usuario["u"]),
+        ).fetchone()
+        if not cuerpo:
+            continue
+        cuerpo = dict(cuerpo)
+
+        nuevo_precio = round(cuerpo["precio_unitario"] + tapa["precio_unitario"], 4)
+        nuevo_peso   = round(cuerpo["peso_unitario"]   + tapa["peso_unitario"],   6)
+        cuerpo_calc  = cuerpo.get("descripcion_calculada") or cuerpo["descripcion"]
+        tapa_calc    = tapa.get("descripcion_calculada")   or tapa["descripcion"]
+        nueva_calc   = f"{cuerpo_calc} + {tapa_calc}"
+
+        # Restaurar "(C/UNIÓN SIN TAPA)" → "(C/UNIÓN Y TAPA)" en la descripción del cuerpo
+        _SIN_TAPA_RE = re.compile(r'\(C/UNI[ÓO]N\s+SIN\s+TAPA\)', re.IGNORECASE)
+        desc_cuerpo_orig = cuerpo["descripcion"]
+        if _SIN_TAPA_RE.search(desc_cuerpo_orig):
+            nueva_desc = _SIN_TAPA_RE.sub('(C/UNIÓN Y TAPA)', desc_cuerpo_orig).strip()
+        else:
+            nueva_desc = desc_cuerpo_orig
+
+        c.execute(
+            """UPDATE carrito_items
+               SET precio_unitario=?, peso_unitario=?, descripcion_calculada=?, descripcion=?
+               WHERE id=? AND username=?""",
+            (nuevo_precio, nuevo_peso, nueva_calc, nueva_desc, cuerpo_id, usuario["u"]),
+        )
+        c.execute("DELETE FROM carrito_items WHERE id=? AND username=?", (tapa["id"], usuario["u"]))
+        juntados += 1
+
+    conn.commit()
+    conn.close()
+    return JSONResponse({
+        "ok": True,
+        "juntados": juntados,
+        "carrito": get_carrito(usuario["u"]),
     })
 
 
@@ -393,15 +789,20 @@ def _normalizar_para_match(texto: str) -> set:
     # Quitar acentos (NFD → ASCII)
     nfd = unicodedata.normalize("NFD", texto.lower())
     ascii_str = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+    # Sinónimos: equiparar vocabulario de listas externas con el del catálogo
+    ascii_str = re.sub(r'\btuberia\b', 'tubo', ascii_str)
+    ascii_str = re.sub(r'\bconduit\b', 'emt', ascii_str)
     # Normalizar pulgadas compuestas antes de reemplazar chars especiales
-    # "1 1/4\"" → "1_1_4pul"
+    # Con comillas: "1 1/4\"" → "1_1_4pul"
     ascii_str = re.sub(r'(\d+)\s+(\d+)/(\d+)\s*"', r'\1_\2_\3pul', ascii_str)
+    # Sin comillas: "1 1/2" → "1_1_2pul" (texto pegado desde tablas sin símbolo ")
+    ascii_str = re.sub(r'(\d+)\s+(\d+)/(\d+)', r'\1_\2_\3pul', ascii_str)
     # "3/4\"" → "3_4pul"
     ascii_str = re.sub(r'(\d+)/(\d+)\s*"', r'\1_\2pul', ascii_str)
     # "4\"" → "4pul"
     ascii_str = re.sub(r'(\d+)\s*"', r'\1pul', ascii_str)
-    # Preservar fracciones sin pulgadas: "3/4" → "3_4"
-    ascii_str = re.sub(r'(\d+)/(\d+)', r'\1_\2', ascii_str)
+    # Fracciones sin comillas: "3/4" → "3_4pul" (mismo token que "3/4\"")
+    ascii_str = re.sub(r'(\d+)/(\d+)', r'\1_\2pul', ascii_str)
     # Reemplazar caracteres no alfanuméricos por espacios
     limpio = re.sub(r"[^a-z0-9_]", " ", ascii_str)
     tokens = set(limpio.split())

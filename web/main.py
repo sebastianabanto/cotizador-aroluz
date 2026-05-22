@@ -770,11 +770,12 @@ async def cfg_agregar_cliente(
     nombre: str = Form(""),
     ruc: str = Form(""),
     ubicacion: str = Form(""),
+    abreviacion: str = Form(""),
 ):
     import re as _re
     if ruc and not _re.fullmatch(r'\d{11}', ruc):
         return JSONResponse({"ok": False, "error": "El RUC debe tener exactamente 11 dígitos numéricos"}, status_code=422)
-    ok = agregar_cliente(codigo, nombre, ruc, ubicacion)
+    ok = agregar_cliente(codigo, nombre, ruc, ubicacion, abreviacion)
     return JSONResponse({"ok": ok})
 
 
@@ -796,6 +797,7 @@ async def api_nuevo_cliente(
     nombre: str = Form(""),
     ruc: str = Form(""),
     ubicacion: str = Form(""),
+    abreviacion: str = Form(""),
 ):
     import re as _re
     if ruc and not _re.fullmatch(r'\d{11}', ruc):
@@ -809,7 +811,7 @@ async def api_nuevo_cliente(
         while f"{cod}{i}" in codigos_existentes:
             i += 1
         cod = f"{cod}{i}"
-    ok = agregar_cliente(cod, nombre, ruc, ubicacion)
+    ok = agregar_cliente(cod, nombre, ruc, ubicacion, abreviacion)
     return JSONResponse({"ok": ok, "codigo": cod})
 
 
@@ -831,11 +833,12 @@ async def cfg_editar_cliente(
     nombre: str = Form(...),
     ruc: str = Form(""),
     ubicacion: str = Form(""),
+    abreviacion: str = Form(""),
 ):
     import re as _re
     if ruc and not _re.fullmatch(r'\d{11}', ruc):
         return JSONResponse({"ok": False, "error": "El RUC debe tener exactamente 11 dígitos numéricos"}, status_code=422)
-    ok = editar_cliente(codigo, nombre, ruc, ubicacion)
+    ok = editar_cliente(codigo, nombre, ruc, ubicacion, abreviacion)
     return JSONResponse({"ok": ok})
 
 

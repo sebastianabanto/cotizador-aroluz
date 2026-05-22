@@ -391,8 +391,13 @@ def _short_label(tipo: str, dims: dict, es_tapa: bool) -> str:
 def _desarrollos_item(
     tipo: str, dims: dict, es_tapa: bool,
     carrito_cant: int, label: str, color: str,
+    largo_mm: int = 2400,
 ) -> List[Pieza]:
-    """Calcula los desarrollos rectangulares de plancha para un ítem del carrito."""
+    """Calcula los desarrollos rectangulares de plancha para un ítem del carrito.
+
+    `largo_mm` solo aplica a bandejas (tipo B); el resto de productos usa sus
+    dimensiones internas tal cual.
+    """
     # parts: [(nombre_pieza, ancho_mm, alto_mm), ...]
     parts: list = []
 
@@ -400,11 +405,11 @@ def _desarrollos_item(
         ancho, alto = dims["ancho"], dims["alto"]
         if es_tapa:
             parts = [
-                ("Tapa",  ancho + 50,      2400),
+                ("Tapa",  ancho + 50,      largo_mm),
             ]
         else:
             parts = [
-                ("Cuerpo", ancho + alto * 2, 2400),
+                ("Cuerpo", ancho + alto * 2, largo_mm),
                 ("Unión",  ancho + alto * 2, 100),
             ]
 
@@ -542,33 +547,96 @@ async def api_planchas_desde_carrito(usuario: dict = Depends(require_login)):
                 items_ignorados.append(item["descripcion"])
                 continue
 
-            cant = item.get("cantidad", 1)
+            cant_raw = item.get("cantidad", 1) or 1
+            unidad   = (item.get("unidad", "UND") or "UND").upper()
             desc = item.get("descripcion_calculada") or item.get("descripcion", "")
+            desc_upper = desc.upper()
 
-            es_tapa = "TAPA" in desc.upper()
-            dims    = _parsear_dims(desc, tipo)
-            if dims is None:
+            # Detectar qué partes hay que generar.
+            # Flujos posibles:
+            #   1) Combinado por concatenación (importar.js): "...CUERPO... + ...TAPA..."
+            #   2) Combinado implícito (cotizar.html): una sola descripción con "(C/UNIÓN Y TAPA)"
+            #   3) Solo tapa: descripción empieza con "TAPA " (después de "GO - " o "GC - ")
+            #   4) Solo cuerpo: cualquier otro
+            es_combinado_implicito = (
+                "C/UNIÓN Y TAPA" in desc_upper
+                or "C/UNION Y TAPA" in desc_upper
+            )
+            if " + " in desc:
+                partes_iter = [
+                    (p.strip(), "TAPA" in p.upper())
+                    for p in desc.split(" + ")
+                ]
+            elif es_combinado_implicito:
+                # Una sola descripción que representa cuerpo + tapa con mismas dimensiones
+                partes_iter = [(desc, False), (desc, True)]
+            else:
+                # Determinar si es solo tapa: empieza con "TAPA " tras el prefijo de galvanizado
+                m_galv = re.match(r'^(?:GO|GC)\s*-\s*', desc_upper)
+                prod_text = desc_upper[m_galv.end():] if m_galv else desc_upper
+                es_solo_tapa = prod_text.lstrip().startswith("TAPA ")
+                partes_iter = [(desc, es_solo_tapa)]
+
+            procesado_algo = False
+            for parte_desc, parte_es_tapa in partes_iter:
+                parte_dims    = _parsear_dims(parte_desc, tipo)
+                parte_espesor = _extraer_espesor_str(parte_desc)
+                if parte_dims is None or parte_espesor is None:
+                    continue
+
+                color = _PALETTE[color_idx % len(_PALETTE)]
+                color_idx += 1
+                label = _short_label(tipo, parte_dims, parte_es_tapa)
+                leyenda.append({"color": color, "label": label, "id": item["id"]})
+
+                # Para bandejas en ML: dividir en piezas de 2400mm + sobrante
+                # Resto: ceil(cantidad) piezas con largo nominal del tipo
+                piezas: List[Pieza] = []
+                if tipo == "B" and unidad == "ML":
+                    metros = float(cant_raw)
+                    piezas_completas = int(metros // 2.4)
+                    sobrante_mm = int(round((metros - piezas_completas * 2.4) * 1000))
+                    cant_total = 0
+                    if piezas_completas > 0:
+                        piezas.extend(_desarrollos_item(
+                            tipo, parte_dims, parte_es_tapa, piezas_completas, label, color,
+                            largo_mm=2400,
+                        ))
+                        cant_total += piezas_completas
+                    # Sobrante: ignorar fragmentos < 10mm (ruido de redondeo)
+                    if sobrante_mm >= 10:
+                        piezas.extend(_desarrollos_item(
+                            tipo, parte_dims, parte_es_tapa, 1, f"{label} {sobrante_mm}mm", color,
+                            largo_mm=sobrante_mm,
+                        ))
+                        cant_total += 1
+                    # Si todo el pedido es menor que 10mm, generar al menos 1 pieza completa
+                    if cant_total == 0:
+                        piezas.extend(_desarrollos_item(
+                            tipo, parte_dims, parte_es_tapa, 1, label, color, largo_mm=2400,
+                        ))
+                        cant_total = 1
+                    cant_para_resumen = cant_total
+                else:
+                    cant = max(1, int(math.ceil(float(cant_raw))))
+                    piezas = _desarrollos_item(tipo, parte_dims, parte_es_tapa, cant, label, color)
+                    cant_para_resumen = cant
+
+                # Sufijo en el resumen del grupo para distinguir cuerpo/tapa cuando vienen juntos
+                sufijo = ""
+                if len(partes_iter) > 1:
+                    sufijo = " — Tapa" if parte_es_tapa else " — Cuerpo"
+
+                key = (parte_espesor, galv)
+                grupos.setdefault(key, []).extend(piezas)
+                items_por_grupo.setdefault(key, []).append({
+                    "descripcion": item.get("descripcion", "") + sufijo,
+                    "cantidad": cant_para_resumen,
+                })
+                procesado_algo = True
+
+            if not procesado_algo:
                 items_ignorados.append(item["descripcion"])
-                continue
-
-            espesor_str = _extraer_espesor_str(desc)
-            if espesor_str is None:
-                items_ignorados.append(item["descripcion"])
-                continue
-
-            color = _PALETTE[color_idx % len(_PALETTE)]
-            color_idx += 1
-            label = _short_label(tipo, dims, es_tapa)
-
-            leyenda.append({"color": color, "label": label, "id": item["id"]})
-
-            piezas = _desarrollos_item(tipo, dims, es_tapa, cant, label, color)
-            key = (espesor_str, galv)
-            grupos.setdefault(key, []).extend(piezas)
-            items_por_grupo.setdefault(key, []).append({
-                "descripcion": item.get("descripcion", ""),
-                "cantidad": int(cant),
-            })
 
         grupos_json = []
         for (espesor_str, galv), piezas in grupos.items():

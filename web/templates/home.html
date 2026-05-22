@@ -1541,7 +1541,11 @@
     const q       = inp.value.trim().toLowerCase();
     const lista   = inp.closest('.kc-cliente-ac').querySelector('.kc-cliente-lista');
     const filtrados = q
-      ? CLIENTES_CAT.filter(c => c.nombre.toLowerCase().includes(q) || c.codigo.toLowerCase().includes(q))
+      ? CLIENTES_CAT.filter(c =>
+          c.nombre.toLowerCase().includes(q) ||
+          c.codigo.toLowerCase().includes(q) ||
+          (c.abreviacion || '').toLowerCase().includes(q)
+        )
       : CLIENTES_CAT;
     _kcRenderClienteLista(lista, filtrados);
   };
@@ -1656,7 +1660,7 @@
     } else {
       lista.innerHTML = filtrados.map(c =>
         `<div class="ac-item" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">` +
-        (c.codigo ? `<span class="ac-code">${c.codigo}</span><span class="ac-name"> — ${c.nombre}</span>` : `<span>${c.nombre}</span>`) +
+        (c.codigo ? `<span class="ac-code">${c.abreviacion || c.codigo}</span><span class="ac-name"> — ${c.nombre}</span>` : `<span>${c.nombre}</span>`) +
         `</div>`
       ).join('');
       lista.querySelectorAll('.ac-item').forEach(el => {
