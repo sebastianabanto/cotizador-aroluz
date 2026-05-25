@@ -479,6 +479,51 @@ async def api_recalcular_item(
     # para que el override espesor_cuerpo_global siempre se aplique
     parsed["espesor_explicito"] = False
 
+    # ── Tapa independiente: ítem sin tapa_para_id pero descripción de tapa ──
+    # Ocurre cuando el usuario agregó el producto con "tapa aparte ON" desde el formulario.
+    # El motor generó dos ítems separados; la tapa tiene tapa_para_id=None porque no pasó
+    # por api_separar_tapas. Al recalcular, hay que devolver r[1] (tapa), no r[0] (cuerpo).
+    if item.get("tapa_para_id") is None and bool(_ES_TAPA_IND_RE.search(descripcion)):
+        galvanizado_t = item["tipo_galvanizado"] if not parsed.get("galvanizado_explicito") else parsed["galvanizado"]
+        ov_t = {
+            "galvanizado_global": galvanizado_t,
+            "espesor_cuerpo_global": espesor_cuerpo,
+            "espesor_tapa_global": espesor_tapa,
+            "ganancia_global": ganancia,
+        }
+        es_ml_t = (unidad == "ML" and parsed.get("tipo") == "B")
+        res_t = calcular_precio_importado(
+            parsed, config, ov_t,
+            con_tapa=True,
+            es_metro_lineal=es_ml_t,
+            espesor_tapa_item=espesor_tapa,
+        )
+        if res_t is None or not res_t.get("tapa"):
+            return JSONResponse({"ok": False, "error": "No se pudo calcular el precio de la tapa"}, status_code=400)
+        td = res_t["tapa"]
+        nueva_descripcion = _reemplazar_espesor(descripcion.strip(), espesor_tapa)
+        updated = update_item_completo_carrito_db(
+            item_id, usuario["u"],
+            nueva_descripcion, unidad.strip(),
+            round(td[0], 4), round(td[1], 6),
+            galvanizado_t, ganancia,
+            td[2],
+        )
+        return JSONResponse({
+            "ok": updated,
+            "cuerpo": {
+                "id": item_id,
+                "descripcion": nueva_descripcion,
+                "unidad": unidad.strip(),
+                "tipo_galvanizado": galvanizado_t,
+                "porcentaje_ganancia": ganancia,
+                "precio_unitario": round(td[0], 4),
+                "peso_unitario": round(td[1], 6),
+                "descripcion_calculada": td[2],
+                "tipo": item.get("tipo"),
+            },
+        })
+
     incluir_tapa = (con_tapa == "si")
 
     galvanizado = item["tipo_galvanizado"] if not parsed.get("galvanizado_explicito") else parsed["galvanizado"]
@@ -892,6 +937,12 @@ _CP_DIMS_MM_RE = re.compile(r'\b(\d+)\s*[xX×]\s*(\d+)\s*[xX×]\s*(\d+)\s*MM\b',
 _FRAC_ESPESOR = {"1/20": 1.2, "1/16": 1.5}
 _FRAC_ESP_RE = re.compile(r'1/(?:20|16)', re.IGNORECASE)
 
+# Detecta tapas independientes (añadidas desde el formulario con "tapa aparte ON")
+# cuya descripción empieza con "TAPA <tipo>" pero no tienen tapa_para_id vinculado
+_ES_TAPA_IND_RE = re.compile(
+    r'\bTAPA\s+(?:BANDEJA|CURVA|TEE|CRUZ|REDUCCION)\b', re.IGNORECASE
+)
+
 
 def parsear_descripcion(desc_raw: str) -> dict:
     """Extrae tipo, dimensiones, espesor, galvanizado y superficie de la descripción."""
@@ -1087,12 +1138,14 @@ def calcular_precio_importado(
     precio_pl = float(precios.get(esp_str, fallback_pl))
     precio_pl_tapa = float(precios.get(esp_tapa_str, fallback_pl))
 
+    factores = config.get("factores_ganancia", {}).get(ganancia, {})
     cfg = PricingConfig(
         tipo_galvanizado=galvanizado,
         dolar=dolar,
         precio_galvanizado_kg=usd_kg_productos,
         porcentaje_ganancia=ganancia,
         usd_kg_cajas=usd_kg_cajas,
+        factores_ganancia=factores,
     )
 
     try:
