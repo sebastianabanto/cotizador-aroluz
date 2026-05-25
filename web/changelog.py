@@ -4,6 +4,17 @@
 
 VERSIONES = [
     {
+        "version": "1.8",
+        "fecha": "2026-05-25",
+        "titulo": "Drag-and-drop táctil + correcciones de precios en el carrito",
+        "cambios": [
+            ("nueva",      "Reordenamiento del carrito por drag-and-drop táctil en móviles (long-press + arrastrar)"),
+            ("mejora",     "Layout del carrito compacto en mobile con CSS Grid: ítems más legibles en pantallas pequeñas"),
+            ("corrección", "Factores de ganancia correctos al recalcular ítems: CH, Curvas V, Tee y Reducción usaban el factor de Bandeja (0.70) en lugar del propio — afectaba separar/juntar tapas y el modal lápiz"),
+            ("corrección", "Modal lápiz sobre tapa independiente ahora devuelve el precio de la tapa, no del cuerpo"),
+        ],
+    },
+    {
         "version": "1.7",
         "fecha": "2026-05-21",
         "titulo": "Abreviaciones en clientes + edición avanzada del carrito",
