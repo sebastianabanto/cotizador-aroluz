@@ -73,7 +73,7 @@
         </div>
       </div>
       <label class="sr-only" for="fil-desc">Buscar en descripción</label>
-      <input type="text" id="fil-desc" placeholder="Ej: 400x100, ESCALERILLA, GC…" class="form-control"
+      <input type="text" id="fil-desc" placeholder="Ej: 400x100 — o con comas: 100x100x50, 3/4 (mismo ítem)" class="form-control"
              style="flex:1; min-width:200px;" autocorrect="off" autocapitalize="off" spellcheck="false"
              oninput="triggerFetch()">
     </div>
@@ -1000,6 +1000,7 @@ async function agregarItemsAlCarrito() {
     fd.append('unidad', item.unidad);
     fd.append('tipo_galvanizado', item.tipo_galvanizado);
     fd.append('porcentaje_ganancia', item.porcentaje_ganancia);
+    fd.append('precio_manual', item.precio_manual ? '1' : '0');
     const res = await apiFetch('/api/carrito/agregar', {method: 'POST', body: fd});
     if (res && res.ok !== false) ok++;
   }

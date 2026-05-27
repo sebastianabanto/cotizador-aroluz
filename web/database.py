@@ -259,6 +259,8 @@ def init_db():
     _add_column_if_missing(conn, "carrito_items", "descripcion_calculada", "TEXT DEFAULT NULL")
     _add_column_if_missing(conn, "carrito_items", "posicion", "REAL DEFAULT NULL")
     _add_column_if_missing(conn, "carrito_items", "tapa_para_id", "INTEGER DEFAULT NULL")
+    _add_column_if_missing(conn, "carrito_items", "precio_manual", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "cotizacion_items", "precio_manual", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "email_importados", "pdf_hash", "TEXT NOT NULL DEFAULT ''")
     _migrate_cantidad_to_real(conn)
     _add_column_if_missing(conn, "cotizaciones", "origen", "TEXT NOT NULL DEFAULT 'web'")
@@ -926,8 +928,8 @@ def add_item_carrito_db(username: str, item: Dict, tapa_para_id: Optional[int] =
         """INSERT INTO carrito_items
            (username, tipo, descripcion, precio_unitario, peso_unitario,
             cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, descripcion_calculada,
-            posicion, tapa_para_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            posicion, tapa_para_id, precio_manual)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             username,
             item.get("tipo", ""),
@@ -941,6 +943,7 @@ def add_item_carrito_db(username: str, item: Dict, tapa_para_id: Optional[int] =
             item.get("descripcion_calculada") or None,
             new_pos,
             tapa_para_id,
+            1 if item.get("precio_manual") else 0,
         ),
     )
     item_id = c.lastrowid
@@ -969,17 +972,18 @@ def update_item_precio_carrito_db(
     descripcion: str, descripcion_calculada: Optional[str] = None,
 ) -> bool:
     """Actualiza precio, peso y descripción de un item del carrito.
-    Si se pasa descripcion_calculada, actualiza ese campo en vez de descripcion."""
+    Si se pasa descripcion_calculada, actualiza ese campo en vez de descripcion.
+    Siempre resetea precio_manual a 0 (precio recalculado automáticamente)."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     if descripcion_calculada is not None:
         c.execute(
-            "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion_calculada=? WHERE id=? AND username=?",
+            "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion_calculada=?, precio_manual=0 WHERE id=? AND username=?",
             (round(precio_unitario, 4), round(peso_unitario, 6), descripcion_calculada, item_id, username),
         )
     else:
         c.execute(
-            "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion=? WHERE id=? AND username=?",
+            "UPDATE carrito_items SET precio_unitario=?, peso_unitario=?, descripcion=?, precio_manual=0 WHERE id=? AND username=?",
             (round(precio_unitario, 4), round(peso_unitario, 6), descripcion, item_id, username),
         )
     updated = c.rowcount > 0
@@ -1095,6 +1099,7 @@ def update_item_completo_carrito_db(
     precio_unitario: float, peso_unitario: float,
     tipo_galvanizado: str, porcentaje_ganancia: str,
     descripcion_calculada: Optional[str] = None,
+    precio_manual: bool = False,
 ) -> bool:
     """Actualiza todos los campos calculables de un item."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -1102,11 +1107,13 @@ def update_item_completo_carrito_db(
     c.execute(
         """UPDATE carrito_items
            SET descripcion=?, unidad=?, precio_unitario=?, peso_unitario=?,
-               tipo_galvanizado=?, porcentaje_ganancia=?, descripcion_calculada=?
+               tipo_galvanizado=?, porcentaje_ganancia=?, descripcion_calculada=?,
+               precio_manual=?
            WHERE id=? AND username=?""",
         (descripcion, unidad, round(precio_unitario, 4), round(peso_unitario, 6),
          tipo_galvanizado, porcentaje_ganancia,
-         descripcion_calculada or None, item_id, username),
+         descripcion_calculada or None, 1 if precio_manual else 0,
+         item_id, username),
     )
     updated = c.rowcount > 0
     conn.commit()
@@ -1150,13 +1157,14 @@ def cargar_cotizacion_al_carrito_db(cotizacion_id: int, username: str, require_o
         conn.execute(
             """INSERT INTO carrito_items
                (username, tipo, descripcion, precio_unitario, peso_unitario,
-                cantidad, unidad, tipo_galvanizado, porcentaje_ganancia)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+                cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, precio_manual)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (
                 username, item["tipo"], item["descripcion"],
                 item["precio_unitario"], item["peso_unitario"],
                 item["cantidad"], item["unidad"],
                 item["tipo_galvanizado"], item["porcentaje_ganancia"],
+                item["precio_manual"] if "precio_manual" in item.keys() else 0,
             ),
         )
     conn.commit()
@@ -1222,8 +1230,8 @@ def guardar_cotizacion_db(
         c.execute(
             """INSERT INTO cotizacion_items
                (cotizacion_id, tipo, descripcion, precio_unitario, peso_unitario,
-                cantidad, unidad, tipo_galvanizado, porcentaje_ganancia)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, precio_manual)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 cotizacion_id,
                 item.get("tipo", ""),
@@ -1234,6 +1242,7 @@ def guardar_cotizacion_db(
                 item.get("unidad", "UND"),
                 item.get("tipo_galvanizado", "N/A"),
                 item.get("porcentaje_ganancia", "N/A"),
+                1 if item.get("precio_manual") else 0,
             ),
         )
     conn.commit()
@@ -1285,8 +1294,8 @@ def guardar_cotizacion_importada_db(
         c.execute(
             """INSERT INTO cotizacion_items
                (cotizacion_id, tipo, descripcion, precio_unitario, peso_unitario,
-                cantidad, unidad, tipo_galvanizado, porcentaje_ganancia)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                cantidad, unidad, tipo_galvanizado, porcentaje_ganancia, precio_manual)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 cotizacion_id,
                 item.get("tipo", "MANUAL"),
@@ -1297,6 +1306,7 @@ def guardar_cotizacion_importada_db(
                 item.get("unidad", "UND"),
                 item.get("tipo_galvanizado", "N/A"),
                 item.get("porcentaje_ganancia", "N/A"),
+                1 if item.get("precio_manual") else 0,
             ),
         )
     conn.commit()
@@ -1343,11 +1353,16 @@ def listar_cotizaciones_db(
         params.extend(tipos)
 
     if q:
-        conditions.append(
-            "EXISTS (SELECT 1 FROM cotizacion_items ci3"
-            " WHERE ci3.cotizacion_id = c.id AND LOWER(ci3.descripcion) LIKE ?)"
-        )
-        params.append(f"%{q.lower()}%")
+        palabras = [p.strip() for p in q.split(",") if p.strip()]
+        if palabras:
+            like_clauses = " AND ".join(
+                "LOWER(ci3.descripcion) LIKE ?" for _ in palabras
+            )
+            conditions.append(
+                f"EXISTS (SELECT 1 FROM cotizacion_items ci3"
+                f" WHERE ci3.cotizacion_id = c.id AND {like_clauses})"
+            )
+            params.extend(f"%{p.lower()}%" for p in palabras)
 
     if galvanizados:
         placeholders = ",".join("?" * len(galvanizados))

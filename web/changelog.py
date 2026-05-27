@@ -4,6 +4,17 @@
 
 VERSIONES = [
     {
+        "version": "1.9",
+        "fecha": "2026-05-27",
+        "titulo": "Precios manuales en el carrito + búsqueda multi-palabra en historial",
+        "cambios": [
+            ("nueva",      "Precios manuales persistidos en SQLite: editar el precio en el modal lápiz lo guarda como precio_manual y sobrevive a recálculos"),
+            ("mejora",     "Indicador visual en el carrito: precio editado manualmente aparece en ámbar con ícono ✎ para distinguirlo de precios calculados"),
+            ("nueva",      "Búsqueda por palabras separadas por coma en el historial: '100x100x50, 3/4' filtra cotizaciones donde un mismo ítem contiene AMBAS palabras (no en ítems distintos)"),
+            ("mejora",     "Enter en el modal de edición del carrito confirma el guardado (excepto dentro de un textarea sin Ctrl)"),
+        ],
+    },
+    {
         "version": "1.8",
         "fecha": "2026-05-25",
         "titulo": "Drag-and-drop táctil + correcciones de precios en el carrito",

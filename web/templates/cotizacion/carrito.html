@@ -143,7 +143,7 @@
               </div>
             </td>
             <td data-label="Und." style="text-align:center;">{{ item.unidad }}</td>
-            <td data-label="P.U." class="td-num" id="pu-{{ item.id }}" data-precio-soles="{{ item.precio_unitario }}">
+            <td data-label="P.U." class="td-num{% if item.precio_manual %} pu-manual{% endif %}" id="pu-{{ item.id }}" data-precio-soles="{{ item.precio_unitario }}">
               S/ {{ "%.2f"|format(item.precio_unitario) }}
             </td>
             <td data-label="P.T." class="td-num" id="pt-{{ item.id }}">
@@ -763,6 +763,10 @@ tr.dd-dragging { opacity: 0.35; }
 /* ── Tapa separada ── */
 .fila-tapa-sep td { background: #fafbff; }
 .fila-tapa-sep td:first-child { border-left: 3px solid #93c5fd; }
+
+/* ── Precio modificado manualmente ── */
+.pu-manual { color: #b45309 !important; font-weight: 700; }
+.pu-manual::after { content: " ✎"; font-size: 0.7em; opacity: 0.7; }
 </style>
 {% endblock %}
 
@@ -1153,6 +1157,7 @@ function _actualizarFilaCarrito(item) {
   if (puEl) {
     puEl.dataset.precioSoles = itm.precio_unitario;
     puEl.textContent = `${sym()} ${conv(itm.precio_unitario).toFixed(2)}`;
+    puEl.classList.toggle('pu-manual', !!itm.precio_manual);
   }
   const ptEl = document.getElementById(`pt-${item.id}`);
   if (ptEl) {
@@ -1187,6 +1192,7 @@ function _renderFilaCarrito(item, cuerpoIdx) {
   const descStyle = esTapaSep
     ? 'font-size:0.875rem; padding-left:0.75rem; color:var(--texto-suave);'
     : 'font-size:0.875rem;';
+  const puClass = item.precio_manual ? ' pu-manual' : '';
 
   const tr = document.createElement('tr');
   tr.id = `fila-${item.id}`;
@@ -1213,7 +1219,7 @@ function _renderFilaCarrito(item, cuerpoIdx) {
       </div>
     </td>
     <td data-label="Und." style="text-align:center;">${item.unidad}</td>
-    <td data-label="P.U." class="td-num" id="pu-${item.id}" data-precio-soles="${item.precio_unitario}">
+    <td data-label="P.U." class="td-num${puClass}" id="pu-${item.id}" data-precio-soles="${item.precio_unitario}">
       ${s} ${pu.toFixed(2)}
     </td>
     <td data-label="P.T." class="td-num" id="pt-${item.id}">
@@ -1662,6 +1668,8 @@ document.querySelectorAll('input[name="edit-con-tapa"]').forEach(r =>
 
 // Flag para saber si el modal está editando una tapa separada
 let _editandoTapaSep = false;
+// Precio original del ítem al abrir el modal (para detectar cambio manual)
+let _editPrecioOriginal = null;
 
 // Actualiza el textarea readonly de la tapa separada cuando cambia el espesor
 document.querySelectorAll('input[name="edit-esp-tapa"]').forEach(r =>
@@ -1724,9 +1732,11 @@ function abrirModalEditar(itemId) {
 
   // Precio: tapas separadas → sin redondeo al alza (lo calcula el backend)
   const precioEl = document.getElementById('edit-precio');
-  precioEl.value    = esTapaSep
+  const precioMostrado = esTapaSep
     ? parseFloat(item.precio_unitario).toFixed(2)
     : (Math.ceil(item.precio_unitario * 100) / 100).toFixed(2);
+  precioEl.value    = precioMostrado;
+  _editPrecioOriginal = parseFloat(precioMostrado);
   precioEl.readOnly = esTapaSep;
   precioEl.style.color      = esTapaSep ? 'var(--texto-suave,#6b7280)' : '';
   precioEl.style.background = esTapaSep ? 'var(--fondo-tabla,#f4f7fc)' : '';
@@ -1821,6 +1831,16 @@ document.getElementById('modal-editar').addEventListener('click', function(e) {
   if (e.target === this) cerrarModalEditar();
 });
 
+document.getElementById('modal-editar').addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  // Ctrl+Enter desde textarea guarda; Enter simple dentro de textarea inserta salto
+  if (e.target.tagName === 'TEXTAREA' && !e.ctrlKey) return;
+  // No disparar si el foco está en un botón
+  if (e.target.tagName === 'BUTTON') return;
+  e.preventDefault();
+  guardarEdicion();
+});
+
 async function guardarEdicion() {
   const itemId    = document.getElementById('edit-id').value;
   const desc      = document.getElementById('edit-desc').value.trim();
@@ -1854,9 +1874,14 @@ async function guardarEdicion() {
     const espTapa   = document.querySelector('input[name="edit-esp-tapa"]:checked')?.value || espCuerpo;
     const conTapa   = document.querySelector('input[name="edit-con-tapa"]:checked')?.value || 'si';
     const und       = _leerUnidad();
+    const precioActual = parseFloat(document.getElementById('edit-precio').value);
+    const precioOverride = (!isNaN(precioActual) && precioActual >= 0 && _editPrecioOriginal !== null
+      && Math.abs(precioActual - _editPrecioOriginal) > 0.001)
+      ? precioActual : null;
     const fd = formData({
       descripcion: desc, ganancia, espesor_cuerpo: espCuerpo, espesor_tapa: espTapa,
       unidad: und, con_tapa: conTapa,
+      ...(precioOverride !== null ? { precio_override: precioOverride } : {}),
     });
     data = await apiFetch(`/api/carrito/recalcular/${itemId}`, { method: 'POST', body: fd });
   }

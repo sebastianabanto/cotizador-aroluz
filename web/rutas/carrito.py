@@ -73,6 +73,7 @@ async def api_agregar_al_carrito(
     tipo_galvanizado: str = Form("GO"),
     porcentaje_ganancia: str = Form("30"),
     descripcion_calculada: Optional[str] = Form(None),
+    precio_manual: int = Form(0),
 ):
     item = {
         "tipo": tipo,
@@ -84,6 +85,7 @@ async def api_agregar_al_carrito(
         "tipo_galvanizado": tipo_galvanizado,
         "porcentaje_ganancia": porcentaje_ganancia,
         "descripcion_calculada": descripcion_calculada,
+        "precio_manual": precio_manual,
     }
     add_item_carrito_db(usuario["u"], item)
     n = len(get_carrito(usuario["u"]))
@@ -301,6 +303,7 @@ async def api_editar_item(
                 "peso_unitario": item.get("peso_unitario", 0),
                 "descripcion_calculada": descripcion_calculada.strip() if descripcion_calculada else None,
                 "tipo": item.get("tipo"),
+                "precio_manual": bool(item.get("precio_manual", 0)),
             },
         })
     return JSONResponse({"ok": False, "error": "Item no encontrado"}, status_code=404)
@@ -389,6 +392,7 @@ async def api_recalcular_item(
     espesor_tapa: float = Form(1.5),
     unidad: str = Form("UND"),
     con_tapa: str = Form("si"),  # "si" | "no"
+    precio_override: Optional[float] = Form(None),  # precio manual del usuario
 ):
     """Recalcula precio y peso de un ítem con nuevos parámetros."""
     carrito = get_carrito(usuario["u"])
@@ -398,9 +402,14 @@ async def api_recalcular_item(
 
     # Items manuales o de catálogo: solo guardar texto/precio/unidad
     if item["tipo_galvanizado"] == "N/A":
+        precio_final = item["precio_unitario"]
+        precio_es_manual = bool(item.get("precio_manual", 0))
+        if precio_override is not None and abs(precio_override - float(item["precio_unitario"])) > 0.001:
+            precio_final = precio_override
+            precio_es_manual = True
         updated = update_item_campos_carrito_db(
             item_id, usuario["u"], descripcion.strip(), unidad.strip(),
-            item["precio_unitario"], item.get("descripcion_calculada"),
+            precio_final, item.get("descripcion_calculada"),
         )
         return JSONResponse({
             "ok": updated,
@@ -410,10 +419,11 @@ async def api_recalcular_item(
                 "unidad": unidad.strip(),
                 "tipo_galvanizado": item["tipo_galvanizado"],
                 "porcentaje_ganancia": item["porcentaje_ganancia"],
-                "precio_unitario": item["precio_unitario"],
+                "precio_unitario": precio_final,
                 "peso_unitario": item.get("peso_unitario", 0),
                 "descripcion_calculada": item.get("descripcion_calculada"),
                 "tipo": item.get("tipo"),
+                "precio_manual": precio_es_manual,
             },
         })
 
@@ -455,6 +465,7 @@ async def api_recalcular_item(
             round(td[0], 4), round(td[1], 6),
             galvanizado_c, ganancia_c,
             td[2],
+            precio_manual=False,
         )
         return JSONResponse({
             "ok": updated,
@@ -468,6 +479,7 @@ async def api_recalcular_item(
                 "peso_unitario": round(td[1], 6),
                 "descripcion_calculada": td[2],
                 "tipo": item.get("tipo"),
+                "precio_manual": False,
             },
         })
 
@@ -502,12 +514,18 @@ async def api_recalcular_item(
             return JSONResponse({"ok": False, "error": "No se pudo calcular el precio de la tapa"}, status_code=400)
         td = res_t["tapa"]
         nueva_descripcion = _reemplazar_espesor(descripcion.strip(), espesor_tapa)
+        precio_tapa_final = round(td[0], 4)
+        precio_tapa_es_manual = False
+        if precio_override is not None and abs(precio_override - precio_tapa_final) > 0.001:
+            precio_tapa_final = precio_override
+            precio_tapa_es_manual = True
         updated = update_item_completo_carrito_db(
             item_id, usuario["u"],
             nueva_descripcion, unidad.strip(),
-            round(td[0], 4), round(td[1], 6),
+            precio_tapa_final, round(td[1], 6),
             galvanizado_t, ganancia,
             td[2],
+            precio_manual=precio_tapa_es_manual,
         )
         return JSONResponse({
             "ok": updated,
@@ -517,10 +535,11 @@ async def api_recalcular_item(
                 "unidad": unidad.strip(),
                 "tipo_galvanizado": galvanizado_t,
                 "porcentaje_ganancia": ganancia,
-                "precio_unitario": round(td[0], 4),
+                "precio_unitario": precio_tapa_final,
                 "peso_unitario": round(td[1], 6),
                 "descripcion_calculada": td[2],
                 "tipo": item.get("tipo"),
+                "precio_manual": precio_tapa_es_manual,
             },
         })
 
@@ -564,12 +583,17 @@ async def api_recalcular_item(
         nueva_desc_calc = cuerpo[2]
 
     nueva_descripcion = _reemplazar_espesor(descripcion.strip(), espesor_cuerpo)
+    precio_es_manual = False
+    if precio_override is not None and abs(precio_override - nuevo_precio) > 0.001:
+        nuevo_precio = precio_override
+        precio_es_manual = True
     updated = update_item_completo_carrito_db(
         item_id, usuario["u"],
         nueva_descripcion, unidad.strip(),
         nuevo_precio, nuevo_peso,
         galvanizado, ganancia,
         nueva_desc_calc,
+        precio_manual=precio_es_manual,
     )
 
     # Propagar cambios a la tapa vinculada
@@ -605,6 +629,7 @@ async def api_recalcular_item(
             "peso_unitario": nuevo_peso,
             "descripcion_calculada": nueva_desc_calc,
             "tipo": item.get("tipo"),
+            "precio_manual": precio_es_manual,
         },
     }
     if tapa_vinculada:
@@ -623,6 +648,7 @@ async def api_recalcular_item(
                 "peso_unitario": round(tapa[1], 6),
                 "descripcion_calculada": tapa[2],
                 "tipo": tapa_vinculada.get("tipo"),
+                "precio_manual": False,
             }
     return JSONResponse(response)
 
