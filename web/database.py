@@ -1552,7 +1552,7 @@ def detectar_duplicados_db() -> List[Dict]:
         FROM cotizaciones c
         LEFT JOIN cotizacion_items ci ON ci.cotizacion_id = c.id
         GROUP BY c.id
-        ORDER BY c.id DESC
+        ORDER BY c.id ASC
     """).fetchall()
 
     item_rows = conn.execute("""

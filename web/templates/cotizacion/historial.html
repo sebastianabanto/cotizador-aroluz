@@ -1700,13 +1700,13 @@ function dupActualizarConteo() {
 }
 
 function dupSeleccionarSugeridos() {
-  // Desmarca todos, luego marca los que NO son la primera de su grupo (ci !== 0)
+  // Conservar el más antiguo (primer elemento, menor id); marcar el resto para eliminar
   document.querySelectorAll('.dup-cb').forEach(cb => {
     const gi = parseInt(cb.dataset.gi);
     const grupo = _dupGrupos[gi];
     if (!grupo) return;
-    const esPrimero = grupo.cotizaciones[0].id == parseInt(cb.dataset.id);
-    cb.checked = !esPrimero;
+    const esMasAntiguo = grupo.cotizaciones[0].id == parseInt(cb.dataset.id);
+    cb.checked = !esMasAntiguo;
   });
   dupActualizarConteo();
 }
