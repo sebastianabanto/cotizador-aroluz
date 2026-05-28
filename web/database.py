@@ -1510,6 +1510,127 @@ def eliminar_cotizacion_db(cotizacion_id: int, username: Optional[str]) -> bool:
     return deleted
 
 
+def eliminar_cotizaciones_bulk_db(ids: List[int]) -> int:
+    """Elimina múltiples cotizaciones (admin). Retorna cantidad eliminada."""
+    if not ids:
+        return 0
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA foreign_keys = ON")
+    placeholders = ",".join("?" * len(ids))
+    c = conn.cursor()
+    c.execute(f"DELETE FROM cotizaciones WHERE id IN ({placeholders})", ids)
+    deleted = c.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def _fp_items(items: list) -> str:
+    """Fingerprint estable de una lista de ítems: hash MD5 de (descripcion, cantidad) ordenados."""
+    import hashlib
+    normalized = sorted(
+        (str(i.get("descripcion", "")).strip().lower(),
+         round(float(i.get("cantidad") or 1), 4))
+        for i in items
+    )
+    raw = "|".join(f"{d}:{c}" for d, c in normalized)
+    return hashlib.md5(raw.encode()).hexdigest()[:12]
+
+
+def detectar_duplicados_db() -> List[Dict]:
+    """
+    Agrupa cotizaciones por (cliente_norm, proyecto_norm, total_redondeado, items_fp)
+    y retorna solo los grupos con 2+ entradas. Ignora filas sin cliente y sin proyecto.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+
+    rows = conn.execute("""
+        SELECT c.id, c.username, c.fecha, c.cliente, c.proyecto, c.moneda,
+               c.cliente_nombre, c.total_precio, c.dolar_rate, c.origen,
+               COUNT(ci.id) AS total_items
+        FROM cotizaciones c
+        LEFT JOIN cotizacion_items ci ON ci.cotizacion_id = c.id
+        GROUP BY c.id
+        ORDER BY c.id DESC
+    """).fetchall()
+
+    item_rows = conn.execute("""
+        SELECT cotizacion_id, descripcion, cantidad
+        FROM cotizacion_items
+    """).fetchall()
+    conn.close()
+
+    from collections import defaultdict
+    items_by_cot: Dict[int, list] = defaultdict(list)
+    for ir in item_rows:
+        items_by_cot[ir["cotizacion_id"]].append({
+            "descripcion": ir["descripcion"],
+            "cantidad":    ir["cantidad"],
+        })
+
+    grupos: Dict[tuple, list] = defaultdict(list)
+    for r in rows:
+        cliente_n  = (r["cliente_nombre"] or r["cliente"] or "").strip().lower()
+        proyecto_n = (r["proyecto"] or "").strip().lower()
+        if not cliente_n and not proyecto_n:
+            continue
+        total_norm = round(float(r["total_precio"] or 0), 2)
+        items_fp   = _fp_items(items_by_cot.get(r["id"], []))
+        clave = (cliente_n, proyecto_n, total_norm, items_fp)
+        grupos[clave].append(dict(r))
+
+    return [
+        {
+            "cliente":  grupo[0].get("cliente_nombre") or grupo[0].get("cliente") or "",
+            "proyecto": grupo[0].get("proyecto") or "",
+            "total":    round(float(grupo[0].get("total_precio") or 0), 2),
+            "cotizaciones": grupo,
+        }
+        for grupo in grupos.values()
+        if len(grupo) >= 2
+    ]
+
+
+def fingerprints_cotizaciones_db() -> Dict[str, List[int]]:
+    """
+    Retorna dict fingerprint → [ids] para todas las cotizaciones.
+    Fingerprint = 'cliente_norm|proyecto_norm|total_redondeado|items_fp'.
+    Usado para detectar posibles duplicados durante la importación de PDFs.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+
+    rows = conn.execute("""
+        SELECT id, cliente_nombre, cliente, proyecto, total_precio
+        FROM cotizaciones
+    """).fetchall()
+
+    item_rows = conn.execute("""
+        SELECT cotizacion_id, descripcion, cantidad
+        FROM cotizacion_items
+    """).fetchall()
+    conn.close()
+
+    from collections import defaultdict
+    items_by_cot: Dict[int, list] = defaultdict(list)
+    for ir in item_rows:
+        items_by_cot[ir["cotizacion_id"]].append({
+            "descripcion": ir["descripcion"],
+            "cantidad":    ir["cantidad"],
+        })
+
+    result: Dict[str, List[int]] = {}
+    for r in rows:
+        cliente  = (r["cliente_nombre"] or r["cliente"] or "").strip().lower()
+        proyecto = (r["proyecto"] or "").strip().lower()
+        total    = round(float(r["total_precio"] or 0), 2)
+        items_fp = _fp_items(items_by_cot.get(r["id"], []))
+        fp = f"{cliente}|{proyecto}|{total}|{items_fp}"
+        result.setdefault(fp, []).append(r["id"])
+    return result
+
+
 # ─────────────────────────────────────────────
 # Proyectos (Kanban de obras)
 # ─────────────────────────────────────────────

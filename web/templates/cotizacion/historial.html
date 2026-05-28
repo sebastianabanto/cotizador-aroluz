@@ -340,79 +340,156 @@
   </div>
 </div>
 <!-- ═══════════════════════════════════════════════════════
-     Modal: Importar PDFs
+     Modal: Importar PDFs + Gestionar Duplicados
 ═══════════════════════════════════════════════════════ -->
 <div id="modal-importar" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
      z-index:1200; align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto;">
-  <div class="modal-inner" style="max-width:720px; width:100%; margin:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <h2 id="imp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Importar cotizaciones desde PDF</h2>
+  <div class="modal-inner" style="max-width:760px; width:100%; margin:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
+      <h2 id="imp-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Importar / Duplicados</h2>
       <button onclick="cerrarModalImportar()" aria-label="Cerrar"
               style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--texto-suave);
                      min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">✕</button>
     </div>
 
-    <!-- PASO 1: Upload -->
-    <div id="imp-paso-upload">
-      <p style="margin:0 0 0.75rem; font-size:0.875rem; color:var(--texto-suave);">
-        Seleccioná uno o más PDFs generados con el template AROLUZ. Los datos se extraerán para
-        previsualizar antes de importar. Los PDFs <strong>no se guardan</strong> en el servidor.
-      </p>
-      <div style="border:2px dashed var(--gris-borde); border-radius:8px; padding:2rem; text-align:center; cursor:pointer;"
-           onclick="document.getElementById('imp-file-input').click()">
-        <div style="font-size:2rem; margin-bottom:0.5rem;">📄</div>
-        <div style="color:var(--texto-suave); font-size:0.875rem;">
-          Hacé clic para seleccionar PDFs<br>
-          <span style="font-size:0.75rem;">o arrastrá y soltá aquí</span>
+    <!-- Pestañas -->
+    <div style="display:flex; gap:0; border-bottom:2px solid var(--gris-borde); margin-bottom:1rem;">
+      <button id="imp-tab-importar" onclick="cambiarTabImportar('importar')"
+              style="padding:0.45rem 1.1rem; font-size:0.875rem; font-weight:600; border:none;
+                     border-bottom:3px solid var(--azul); margin-bottom:-2px; background:none;
+                     color:var(--azul); cursor:pointer;">
+        ⬆ Importar PDFs
+      </button>
+      <button id="imp-tab-duplicados" onclick="cambiarTabImportar('duplicados')"
+              style="padding:0.45rem 1.1rem; font-size:0.875rem; font-weight:600; border:none;
+                     border-bottom:3px solid transparent; margin-bottom:-2px; background:none;
+                     color:var(--texto-suave); cursor:pointer;">
+        🔍 Gestionar Duplicados
+      </button>
+    </div>
+
+    <!-- ── TAB: Importar PDFs ── -->
+    <div id="imp-tab-content-importar">
+
+      <!-- PASO 1: Upload -->
+      <div id="imp-paso-upload">
+        <p style="margin:0 0 0.75rem; font-size:0.875rem; color:var(--texto-suave);">
+          Seleccioná uno o más PDFs generados con el template AROLUZ. Los datos se extraerán para
+          previsualizar antes de importar. Los PDFs <strong>no se guardan</strong> en el servidor.
+        </p>
+        <div style="border:2px dashed var(--gris-borde); border-radius:8px; padding:2rem; text-align:center; cursor:pointer;"
+             onclick="document.getElementById('imp-file-input').click()">
+          <div style="font-size:2rem; margin-bottom:0.5rem;">📄</div>
+          <div style="color:var(--texto-suave); font-size:0.875rem;">
+            Hacé clic para seleccionar PDFs<br>
+            <span style="font-size:0.75rem;">o arrastrá y soltá aquí</span>
+          </div>
+          <input type="file" id="imp-file-input" multiple accept=".pdf"
+                 style="display:none" onchange="onImpFileChange(event)">
         </div>
-        <input type="file" id="imp-file-input" multiple accept=".pdf"
-               style="display:none" onchange="onImpFileChange(event)">
+        <div id="imp-archivos-lista" style="margin-top:0.75rem; font-size:0.8rem; color:var(--texto-suave);"></div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+          <button class="btn btn-secondary" onclick="cerrarModalImportar()">Cancelar</button>
+          <button class="btn btn-primary" id="imp-btn-analizar" onclick="analizarPdfs()" disabled>Analizar</button>
+        </div>
       </div>
-      <div id="imp-archivos-lista" style="margin-top:0.75rem; font-size:0.8rem; color:var(--texto-suave);"></div>
-      <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-        <button class="btn btn-secondary" onclick="cerrarModalImportar()">Cancelar</button>
-        <button class="btn btn-primary" id="imp-btn-analizar" onclick="analizarPdfs()" disabled>Analizar</button>
-      </div>
-    </div>
 
-    <!-- PASO 2: Preview -->
-    <div id="imp-paso-preview" style="display:none;">
-      <p style="margin:0 0 0.75rem; font-size:0.875rem; color:var(--texto-suave);">
-        Revisá los datos extraídos. Deseleccioná las que no quieras importar.
+      <!-- PASO 2: Preview -->
+      <div id="imp-paso-preview" style="display:none;">
+        <p style="margin:0 0 0.75rem; font-size:0.875rem; color:var(--texto-suave);">
+          Revisá los datos extraídos. Deseleccioná las que no quieras importar.
+        </p>
+        <div id="imp-advertencias" style="display:none; background:#fff3cd; border:1px solid #ffc107;
+             border-radius:6px; padding:0.6rem 0.85rem; margin-bottom:0.75rem; font-size:0.8rem;"></div>
+        <div id="imp-aviso-dup" style="display:none; background:#fde8e8; border:1px solid #e57373;
+             border-radius:6px; padding:0.6rem 0.85rem; margin-bottom:0.75rem; font-size:0.8rem;">
+          ⚠️ Uno o más PDFs ya podrían estar importados en el historial (indicados con 🔁).
+          Podés importarlos igual o deseleccionarlos.
+        </div>
+        <div class="table-container">
+          <table style="font-size:0.82rem;">
+            <thead>
+              <tr>
+                <th style="width:36px; text-align:center;">
+                  <input type="checkbox" id="imp-sel-todas" onchange="seleccionarTodasImp(this.checked)"
+                         title="Seleccionar / deseleccionar todas">
+                </th>
+                <th>Archivo</th>
+                <th>Cliente</th>
+                <th>Proyecto</th>
+                <th style="width:86px;">Fecha</th>
+                <th style="width:46px; text-align:center;">Ítems</th>
+                <th style="width:106px; text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="imp-tbody-preview"></tbody>
+          </table>
+        </div>
+        <div id="imp-errores-lista" style="margin-top:0.5rem;"></div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+          <button class="btn btn-secondary" onclick="volverUpload()">← Volver</button>
+          <button class="btn btn-primary" id="imp-btn-confirmar" onclick="confirmarImportacion()">Importar seleccionadas</button>
+        </div>
+      </div>
+
+      <!-- PASO 3: Resultado -->
+      <div id="imp-paso-resultado" style="display:none; text-align:center; padding:1.5rem 0;">
+        <div id="imp-resultado-icono" style="font-size:3rem; margin-bottom:0.75rem;">✅</div>
+        <p id="imp-resultado-texto" style="font-size:1rem; color:var(--texto);"></p>
+        <div style="display:flex; gap:0.75rem; justify-content:center; margin-top:1rem; flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="cambiarTabImportar('duplicados')">🔍 Ver duplicados</button>
+          <button class="btn btn-primary" onclick="cerrarYRefrescar()">Cerrar y actualizar historial</button>
+        </div>
+      </div>
+
+    </div><!-- /tab importar -->
+
+    <!-- ── TAB: Gestionar Duplicados ── -->
+    <div id="imp-tab-content-duplicados" style="display:none;">
+      <p style="margin:0 0 0.85rem; font-size:0.875rem; color:var(--texto-suave);">
+        Se muestran grupos de cotizaciones con el mismo cliente, proyecto y fecha.
+        Marcá las que querés <strong>eliminar</strong> (una fila queda siempre marcada para conservar).
       </p>
-      <div id="imp-advertencias" style="display:none; background:#fff3cd; border:1px solid #ffc107;
-           border-radius:6px; padding:0.6rem 0.85rem; margin-bottom:0.75rem; font-size:0.8rem;"></div>
-      <div class="table-container">
-        <table style="font-size:0.82rem;">
-          <thead>
-            <tr>
-              <th style="width:36px; text-align:center;">
-                <input type="checkbox" id="imp-sel-todas" onchange="seleccionarTodasImp(this.checked)"
-                       title="Seleccionar / deseleccionar todas">
-              </th>
-              <th>Archivo</th>
-              <th>Cliente</th>
-              <th>Proyecto</th>
-              <th style="width:90px;">Fecha</th>
-              <th style="width:50px; text-align:center;">Ítems</th>
-              <th style="width:110px; text-align:right;">Total</th>
-            </tr>
-          </thead>
-          <tbody id="imp-tbody-preview"></tbody>
-        </table>
-      </div>
-      <div id="imp-errores-lista" style="margin-top:0.5rem;"></div>
-      <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-        <button class="btn btn-secondary" onclick="volverUpload()">← Volver</button>
-        <button class="btn btn-primary" id="imp-btn-confirmar" onclick="confirmarImportacion()">Importar seleccionadas</button>
-      </div>
-    </div>
 
-    <!-- PASO 3: Resultado -->
-    <div id="imp-paso-resultado" style="display:none; text-align:center; padding:1.5rem 0;">
-      <div id="imp-resultado-icono" style="font-size:3rem; margin-bottom:0.75rem;">✅</div>
-      <p id="imp-resultado-texto" style="font-size:1rem; color:var(--texto);"></p>
-      <button class="btn btn-primary" style="margin-top:1rem;" onclick="cerrarYRefrescar()">Cerrar y actualizar historial</button>
+      <div id="dup-loading" style="text-align:center; padding:2rem; color:var(--texto-suave);">
+        Buscando duplicados… ⏳
+      </div>
+      <div id="dup-vacio" style="display:none; text-align:center; padding:2.5rem 0; color:var(--texto-suave);">
+        ✅ No se encontraron cotizaciones duplicadas.
+      </div>
+
+      <div id="dup-content" style="display:none;">
+        <!-- barra de acción global -->
+        <div id="dup-barra" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+             background:var(--gris-fondo); border-radius:6px; padding:0.55rem 0.85rem; margin-bottom:0.85rem; font-size:0.82rem;">
+          <span id="dup-cnt" style="font-weight:600; color:var(--texto);"></span>
+          <button class="btn btn-secondary btn-sm" onclick="dupSeleccionarSugeridos()">
+            Marcar sugeridos para eliminar
+          </button>
+          <button class="btn btn-danger btn-sm" id="dup-btn-eliminar" onclick="dupConfirmarEliminar()" disabled>
+            Eliminar seleccionados
+          </button>
+        </div>
+        <div id="dup-grupos"></div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:1rem;">
+        <button class="btn btn-secondary" onclick="cerrarModalImportar()">Cerrar</button>
+      </div>
+    </div><!-- /tab duplicados -->
+
+  </div>
+</div>
+
+<!-- Sub-modal: confirmar eliminación de duplicados -->
+<div id="modal-dup-confirm" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6);
+     z-index:1400; align-items:center; justify-content:center; padding:1rem;">
+  <div class="modal-inner" style="max-width:420px;">
+    <h2 style="margin:0 0 0.75rem; font-size:1.05rem; color:var(--rojo,#d32f2f);">Confirmar eliminación</h2>
+    <p id="dup-confirm-texto" style="margin:0 0 1.25rem; font-size:0.875rem;"></p>
+    <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-dup-confirm').style.display='none'">Cancelar</button>
+      <button class="btn btn-danger" id="dup-confirm-btn-ok" onclick="dupEjecutarEliminar()">Sí, eliminar</button>
     </div>
   </div>
 </div>
@@ -923,6 +1000,11 @@ function formatearFecha(fechaIso) {
 }
 
 async function verDetalle(id) {
+  // Si hay otro modal abierto encima (ej. gestionar duplicados z-index:1200), subir por encima
+  const overlay = document.getElementById('modal-overlay');
+  const importarAbierto = document.getElementById('modal-importar').style.display !== 'none';
+  overlay.style.zIndex = importarAbierto ? '1350' : '1000';
+
   const data = await apiFetch(`/api/historial/${id}`);
   if (!data.ok) { toast('Error al cargar detalle', 'error'); return; }
   const c = data.cotizacion;
@@ -975,7 +1057,9 @@ async function verDetalle(id) {
 }
 
 function cerrarModal() {
-  document.getElementById('modal-overlay').style.display = 'none';
+  const overlay = document.getElementById('modal-overlay');
+  overlay.style.display = 'none';
+  overlay.style.zIndex  = '1000';
 }
 
 function seleccionarTodosModal(checked) {
@@ -1248,15 +1332,38 @@ async function compararCotizaciones() {
 cargarHistorial();
 
 // ═══════════════════════════════════════════════════════
-// Importar PDFs
+// Importar PDFs + Gestionar Duplicados
 // ═══════════════════════════════════════════════════════
-let _impArchivos   = [];   // FileList seleccionados
-let _impResultados = [];   // datos parseados del servidor
+let _impArchivos      = [];
+let _impResultados    = [];
+let _dupGrupos        = [];        // grupos detectados
+let _dupIdsEliminar   = [];        // ids a eliminar en siguiente paso
+
+// ── Tabs del modal ──
+function cambiarTabImportar(tab) {
+  const esImportar   = tab === 'importar';
+  document.getElementById('imp-tab-content-importar').style.display   = esImportar   ? '' : 'none';
+  document.getElementById('imp-tab-content-duplicados').style.display = !esImportar  ? '' : 'none';
+
+  const btnImp = document.getElementById('imp-tab-importar');
+  const btnDup = document.getElementById('imp-tab-duplicados');
+  btnImp.style.borderBottomColor = esImportar  ? 'var(--azul)' : 'transparent';
+  btnImp.style.color             = esImportar  ? 'var(--azul)' : 'var(--texto-suave)';
+  btnDup.style.borderBottomColor = !esImportar ? 'var(--azul)' : 'transparent';
+  btnDup.style.color             = !esImportar ? 'var(--azul)' : 'var(--texto-suave)';
+
+  document.getElementById('imp-titulo').textContent = esImportar
+    ? 'Importar cotizaciones desde PDF'
+    : 'Gestionar Duplicados';
+
+  if (!esImportar) cargarDuplicados();
+}
 
 function abrirModalImportar() {
   _impArchivos   = [];
   _impResultados = [];
   irPasoUpload();
+  cambiarTabImportar('importar');
   document.getElementById('modal-importar').style.display = 'flex';
 }
 
@@ -1267,7 +1374,6 @@ function cerrarModalImportar() {
 function cerrarYRefrescar() {
   cerrarModalImportar();
   fetchLista(false);
-  // Si la tabla estaba oculta (historial vacío), volver a cargar completo
   if (document.getElementById('historial-vacio').style.display !== 'none') {
     cargarHistorial();
   }
@@ -1278,19 +1384,16 @@ document.getElementById('modal-importar').addEventListener('click', function(e) 
 });
 
 function irPasoUpload() {
-  document.getElementById('imp-paso-upload').style.display   = 'block';
-  document.getElementById('imp-paso-preview').style.display  = 'none';
+  document.getElementById('imp-paso-upload').style.display    = 'block';
+  document.getElementById('imp-paso-preview').style.display   = 'none';
   document.getElementById('imp-paso-resultado').style.display = 'none';
-  document.getElementById('imp-titulo').textContent = 'Importar cotizaciones desde PDF';
   document.getElementById('imp-file-input').value = '';
   document.getElementById('imp-archivos-lista').textContent = '';
   document.getElementById('imp-btn-analizar').disabled = true;
   _impArchivos = [];
 }
 
-function volverUpload() {
-  irPasoUpload();
-}
+function volverUpload() { irPasoUpload(); }
 
 function onImpFileChange(event) {
   _impArchivos = Array.from(event.target.files);
@@ -1306,7 +1409,7 @@ function onImpFileChange(event) {
   document.getElementById('imp-btn-analizar').disabled = false;
 }
 
-// Soporte drag & drop
+// Drag & drop
 (function() {
   const zona = document.querySelector('#imp-paso-upload > div[onclick]');
   if (!zona) return;
@@ -1331,39 +1434,31 @@ async function analizarPdfs() {
   const btn = document.getElementById('imp-btn-analizar');
   btn.disabled = true;
   btn.textContent = 'Analizando…';
-
   const form = new FormData();
   for (const f of _impArchivos) form.append('archivos', f, f.name);
-
   try {
     const resp = await fetch('/api/importar/parsear', { method: 'POST', body: form });
     const data = await resp.json();
-
     if (!data.ok) {
       toast(data.error || 'Error al analizar los PDFs', 'error');
-      btn.disabled = false;
-      btn.textContent = 'Analizar';
-      return;
+      btn.disabled = false; btn.textContent = 'Analizar'; return;
     }
-
     _impResultados = data.resultados;
     mostrarPreview(_impResultados);
-
   } catch (e) {
     toast('Error de red al analizar los PDFs', 'error');
-    btn.disabled = false;
-    btn.textContent = 'Analizar';
+    btn.disabled = false; btn.textContent = 'Analizar';
   }
 }
 
 function mostrarPreview(resultados) {
   document.getElementById('imp-paso-upload').style.display   = 'none';
   document.getElementById('imp-paso-preview').style.display  = 'block';
-  document.getElementById('imp-titulo').textContent = 'Previsualización de datos extraídos';
 
   const tbody  = document.getElementById('imp-tbody-preview');
   const divErr = document.getElementById('imp-errores-lista');
   const divAdv = document.getElementById('imp-advertencias');
+  const divDup = document.getElementById('imp-aviso-dup');
 
   tbody.innerHTML  = '';
   divErr.innerHTML = '';
@@ -1371,7 +1466,6 @@ function mostrarPreview(resultados) {
   const errores = resultados.filter(r => !r.ok);
   const ok      = resultados.filter(r => r.ok);
 
-  // Advertencias
   const todasAdv = resultados.flatMap(r => r.advertencias || []);
   if (todasAdv.length) {
     divAdv.style.display = 'block';
@@ -1380,7 +1474,6 @@ function mostrarPreview(resultados) {
     divAdv.style.display = 'none';
   }
 
-  // Errores por archivo
   if (errores.length) {
     divErr.innerHTML = errores.map(r =>
       `<div style="color:var(--rojo);font-size:0.8rem;margin-top:0.25rem;">
@@ -1389,7 +1482,7 @@ function mostrarPreview(resultados) {
     ).join('');
   }
 
-  // Filas de PDFs exitosos
+  let hayDuplicados = false;
   ok.forEach((r, idx) => {
     const d   = r.datos;
     const sym = d.moneda === 'DOLARES' ? '$' : 'S/';
@@ -1397,15 +1490,23 @@ function mostrarPreview(resultados) {
       ? `$ ${(d.total_precio / 3.8).toFixed(2)}`
       : `S/ ${d.total_precio.toFixed(2)}`;
     const fecha = d.fecha ? d.fecha.slice(0, 10) : '—';
+    const dups  = d.posibles_duplicados || [];
+    if (dups.length) hayDuplicados = true;
+    const dupBadge = dups.length
+      ? `<span title="Posible duplicado de cotizaciones: #${dups.join(', #')}"
+               style="background:#e57373;color:white;border-radius:4px;font-size:0.65rem;
+                      padding:1px 5px;vertical-align:middle;cursor:help;">🔁 Dup #${dups.join(', #')}</span> `
+      : '';
 
     const tr = document.createElement('tr');
+    if (dups.length) tr.style.background = '#fff5f5';
     tr.dataset.idx = idx;
     tr.innerHTML = `
       <td style="text-align:center;">
         <input type="checkbox" class="imp-cb" data-idx="${idx}" checked>
       </td>
       <td style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
-          title="${r.nombre_archivo}">${r.nombre_archivo}</td>
+          title="${r.nombre_archivo}">${dupBadge}${r.nombre_archivo}</td>
       <td>${d.cliente_nombre || '<span style="color:var(--texto-suave);">—</span>'}</td>
       <td>${d.proyecto || '<span style="color:var(--texto-suave);">—</span>'}</td>
       <td>${fecha}</td>
@@ -1415,7 +1516,8 @@ function mostrarPreview(resultados) {
     tbody.appendChild(tr);
   });
 
-  // Sin PDFs válidos
+  divDup.style.display = hayDuplicados ? 'block' : 'none';
+
   if (!ok.length) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:1rem; color:var(--texto-suave);">
       Ningún PDF pudo procesarse correctamente.</td></tr>`;
@@ -1423,7 +1525,6 @@ function mostrarPreview(resultados) {
   } else {
     document.getElementById('imp-btn-confirmar').disabled = false;
   }
-
   document.getElementById('imp-sel-todas').checked = true;
 }
 
@@ -1436,7 +1537,6 @@ async function confirmarImportacion() {
   btn.disabled = true;
   btn.textContent = 'Importando…';
 
-  // Solo las seleccionadas (checkbox marcado)
   const seleccionadas = [];
   document.querySelectorAll('.imp-cb:checked').forEach(cb => {
     const idx = parseInt(cb.dataset.idx);
@@ -1446,16 +1546,14 @@ async function confirmarImportacion() {
 
   if (!seleccionadas.length) {
     toast('No hay cotizaciones seleccionadas', 'error');
-    btn.disabled = false;
-    btn.textContent = 'Importar seleccionadas';
-    return;
+    btn.disabled = false; btn.textContent = 'Importar seleccionadas'; return;
   }
 
   try {
     const resp = await fetch('/api/importar/confirmar', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ cotizaciones: seleccionadas }),
+      body: JSON.stringify({ cotizaciones: seleccionadas }),
     });
     const data = await resp.json();
 
@@ -1474,12 +1572,202 @@ async function confirmarImportacion() {
       document.getElementById('imp-resultado-texto').textContent =
         `No se pudo importar ninguna cotización. Errores: ${errNum}`;
     }
-
   } catch (e) {
     toast('Error de red al confirmar la importación', 'error');
-    btn.disabled = false;
-    btn.textContent = 'Importar seleccionadas';
+    btn.disabled = false; btn.textContent = 'Importar seleccionadas';
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// Gestionar Duplicados
+// ═══════════════════════════════════════════════════════
+async function cargarDuplicados() {
+  document.getElementById('dup-loading').style.display  = 'block';
+  document.getElementById('dup-vacio').style.display    = 'none';
+  document.getElementById('dup-content').style.display  = 'none';
+  _dupGrupos = [];
+
+  try {
+    const data = await apiFetch('/api/importar/duplicados');
+    document.getElementById('dup-loading').style.display = 'none';
+    if (!data.ok || !data.grupos.length) {
+      document.getElementById('dup-vacio').style.display = 'block';
+      return;
+    }
+    _dupGrupos = data.grupos;
+    renderDuplicados();
+    document.getElementById('dup-content').style.display = 'block';
+  } catch (e) {
+    document.getElementById('dup-loading').style.display = 'none';
+    toast('Error al cargar duplicados', 'error');
+  }
+}
+
+function _fmtFecha(iso) {
+  if (!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+}
+
+function renderDuplicados() {
+  const cont = document.getElementById('dup-grupos');
+  cont.innerHTML = '';
+
+  _dupGrupos.forEach((grupo, gi) => {
+    const cots = grupo.cotizaciones;
+    // El primero (mayor id) se sugiere conservar
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'border:1px solid var(--gris-borde); border-radius:8px; margin-bottom:1rem; overflow:hidden;';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'background:var(--gris-fondo); padding:0.55rem 0.85rem; font-size:0.82rem; font-weight:600; color:var(--navy);';
+    const clienteLabel  = grupo.cliente  || '(sin cliente)';
+    const proyectoLabel = grupo.proyecto || '(sin proyecto)';
+    const totalLabel    = grupo.total != null ? `S/ ${Number(grupo.total).toFixed(2)}` : '—';
+    header.textContent = `👥 ${clienteLabel}  —  ${proyectoLabel}  —  Total: ${totalLabel}  (${cots.length} cotizaciones)`;
+    wrapper.appendChild(header);
+
+    const tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%; font-size:0.81rem; border-collapse:collapse;';
+    tbl.innerHTML = `<thead>
+      <tr style="background:var(--azul); color:white;">
+        <th style="padding:5px 8px; width:38px; text-align:center;">
+          <span title="Marcar para ELIMINAR">Elim.</span>
+        </th>
+        <th style="padding:5px 8px; width:46px;">#</th>
+        <th style="padding:5px 8px; width:130px;">Fecha</th>
+        <th style="padding:5px 8px;">Proyecto</th>
+        <th style="padding:5px 8px; width:50px; text-align:center;">Ítems</th>
+        <th style="padding:5px 8px; width:110px; text-align:right;">Total</th>
+        <th style="padding:5px 8px; width:80px;">Usuario</th>
+        <th style="padding:5px 8px; width:55px; text-align:center;">Origen</th>
+        <th style="padding:5px 8px; width:46px; text-align:center;">PDF</th>
+      </tr>
+    </thead>`;
+    const tbody = document.createElement('tbody');
+    cots.forEach((c, ci) => {
+      const tr = document.createElement('tr');
+      tr.style.borderTop = '1px solid var(--gris-borde)';
+      if (ci === 0) tr.style.background = '#f0fff4'; // sugerido para conservar
+      const esUSD = c.moneda === 'DOLARES';
+      const dr = parseFloat(c.dolar_rate) || 3.8;
+      const total = esUSD
+        ? (parseFloat(c.total_precio) / dr).toFixed(2)
+        : parseFloat(c.total_precio).toFixed(2);
+      const sym = esUSD ? '$' : 'S/';
+      const origenBadge = c.origen === 'pdf_import'
+        ? '<span style="background:#e8751a;color:white;border-radius:4px;font-size:0.65rem;padding:1px 4px;">PDF</span>'
+        : '<span style="background:var(--azul-claro);color:white;border-radius:4px;font-size:0.65rem;padding:1px 4px;">WEB</span>';
+      const conservarLabel = ci === 0
+        ? '<span style="font-size:0.65rem;color:#2e7d32;font-weight:600;">★ sugerido</span>'
+        : '';
+      tr.innerHTML = `
+        <td style="text-align:center; padding:4px 8px;">
+          <input type="checkbox" class="dup-cb" data-id="${c.id}" data-gi="${gi}"
+                 ${ci === 0 ? '' : 'checked'}
+                 onchange="dupActualizarConteo()">
+        </td>
+        <td style="padding:4px 8px; color:var(--texto-suave);">#${c.id} ${conservarLabel}</td>
+        <td style="padding:4px 8px;">${formatearFecha(c.fecha)}</td>
+        <td style="padding:4px 8px;">${c.proyecto || '—'}</td>
+        <td style="text-align:center; padding:4px 8px;">${c.total_items || '?'}</td>
+        <td style="text-align:right; padding:4px 8px; font-weight:600;">${sym} ${total}</td>
+        <td style="padding:4px 8px; color:var(--texto-suave);">${c.username || '—'}</td>
+        <td style="text-align:center; padding:4px 8px;">${origenBadge}</td>
+        <td style="text-align:center; padding:4px 8px;">
+          <button onclick="verDetalle(${c.id})" title="Ver detalle de cotización #${c.id}"
+                  class="btn btn-secondary btn-sm">
+            Ver
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrapper.appendChild(tbl);
+    cont.appendChild(wrapper);
+  });
+
+  dupActualizarConteo();
+}
+
+function dupActualizarConteo() {
+  const checks = document.querySelectorAll('.dup-cb:checked');
+  const n = checks.length;
+  document.getElementById('dup-cnt').textContent =
+    n > 0 ? `${n} cotización${n !== 1 ? 'es' : ''} marcada${n !== 1 ? 's' : ''} para eliminar` : 'Ninguna seleccionada';
+  document.getElementById('dup-btn-eliminar').disabled = n === 0;
+}
+
+function dupSeleccionarSugeridos() {
+  // Desmarca todos, luego marca los que NO son la primera de su grupo (ci !== 0)
+  document.querySelectorAll('.dup-cb').forEach(cb => {
+    const gi = parseInt(cb.dataset.gi);
+    const grupo = _dupGrupos[gi];
+    if (!grupo) return;
+    const esPrimero = grupo.cotizaciones[0].id == parseInt(cb.dataset.id);
+    cb.checked = !esPrimero;
+  });
+  dupActualizarConteo();
+}
+
+function dupConfirmarEliminar() {
+  const checks = [...document.querySelectorAll('.dup-cb:checked')];
+  if (!checks.length) return;
+  _dupIdsEliminar = checks.map(cb => parseInt(cb.dataset.id));
+
+  // Validar que en cada grupo quede al menos 1 sin marcar
+  const porGrupo = {};
+  document.querySelectorAll('.dup-cb').forEach(cb => {
+    const gi = parseInt(cb.dataset.gi);
+    if (!porGrupo[gi]) porGrupo[gi] = { total: 0, marcadas: 0 };
+    porGrupo[gi].total++;
+    if (cb.checked) porGrupo[gi].marcadas++;
+  });
+  const gruposSinConservar = Object.entries(porGrupo)
+    .filter(([, v]) => v.marcadas >= v.total)
+    .map(([gi]) => parseInt(gi));
+
+  if (gruposSinConservar.length) {
+    const nombres = gruposSinConservar.map(gi => {
+      const g = _dupGrupos[gi];
+      return `"${g.cliente || '—'} / ${g.proyecto || '—'}"`;
+    }).join(', ');
+    toast(`En el grupo ${nombres} no queda ninguna cotización para conservar. Desmarcá al menos una.`, 'error');
+    return;
+  }
+
+  const n = _dupIdsEliminar.length;
+  document.getElementById('dup-confirm-texto').innerHTML =
+    `Se eliminarán <strong>${n}</strong> cotización${n !== 1 ? 'es' : ''} del historial de forma permanente.<br>
+    <span style="font-size:0.8rem; color:var(--texto-suave);">IDs: #${_dupIdsEliminar.join(', #')}</span>`;
+  document.getElementById('modal-dup-confirm').style.display = 'flex';
+}
+
+async function dupEjecutarEliminar() {
+  document.getElementById('modal-dup-confirm').style.display = 'none';
+  const btn = document.getElementById('dup-btn-eliminar');
+  btn.disabled = true; btn.textContent = 'Eliminando…';
+
+  try {
+    const resp = await fetch('/api/importar/eliminar_duplicados', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: _dupIdsEliminar }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      toast(`${data.eliminadas} cotización${data.eliminadas !== 1 ? 'es eliminadas' : ' eliminada'} correctamente`, 'success');
+      await fetchLista(false);   // refrescar historial
+      await cargarDuplicados();  // refrescar lista de duplicados
+    } else {
+      toast(data.error || 'Error al eliminar', 'error');
+    }
+  } catch (e) {
+    toast('Error de red al eliminar duplicados', 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Eliminar seleccionados';
+  _dupIdsEliminar = [];
 }
 </script>
 {% endblock %}

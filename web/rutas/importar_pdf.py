@@ -1,8 +1,10 @@
 """
 rutas/importar_pdf.py — Endpoints para importar cotizaciones desde PDF
 
-POST /api/importar/parsear   — recibe PDFs, retorna preview de datos extraídos
-POST /api/importar/confirmar — recibe datos confirmados y los guarda en historial
+POST /api/importar/parsear              — recibe PDFs, retorna preview de datos extraídos
+POST /api/importar/confirmar            — recibe datos confirmados y los guarda en historial
+GET  /api/importar/duplicados           — detecta grupos de cotizaciones duplicadas en historial
+POST /api/importar/eliminar_duplicados  — elimina cotizaciones duplicadas (admin)
 """
 
 from fastapi import APIRouter, UploadFile, File, Depends, Request
@@ -11,7 +13,14 @@ from typing import List
 
 from web.auth import require_admin
 from web.importar_pdf import parsear_pdf
-from web.database import guardar_cotizacion_importada_db, obtener_catalogo
+from web.database import (
+    guardar_cotizacion_importada_db,
+    obtener_catalogo,
+    detectar_duplicados_db,
+    eliminar_cotizaciones_bulk_db,
+    fingerprints_cotizaciones_db,
+    _fp_items,
+)
 
 
 def _cruzar_cliente_con_bd(nombre_pdf: str, clientes: list) -> dict | None:
@@ -50,8 +59,10 @@ async def importar_parsear(
     """
     Recibe una lista de PDFs, los parsea y retorna un preview de los datos
     extraídos para que el usuario pueda revisar antes de confirmar.
+    Incluye `posibles_duplicados` por cada resultado para alertar si ya existe.
     """
-    clientes_bd = obtener_catalogo().get("clientes", [])
+    clientes_bd  = obtener_catalogo().get("clientes", [])
+    fps_existentes = fingerprints_cotizaciones_db()
 
     resultados = []
     for archivo in archivos:
@@ -62,11 +73,19 @@ async def importar_parsear(
             datos = resultado["datos"]
             cliente_bd = _cruzar_cliente_con_bd(datos.get("cliente_nombre", ""), clientes_bd)
             if cliente_bd:
-                # Nombre, RUC y ubicación desde la BD (fuente de verdad)
                 datos["cliente_nombre"]    = cliente_bd["nombre"]
                 datos["cliente_ruc"]       = cliente_bd.get("ruc", "") or ""
                 datos["cliente_ubicacion"] = cliente_bd.get("ubicacion", "") or ""
-            # atencion y atencion_email se quedan con lo extraído del PDF (vacío si no se encontró)
+            # Detectar posibles duplicados contra el historial existente
+            cliente_n  = (datos.get("cliente_nombre") or "").strip().lower()
+            proyecto_n = (datos.get("proyecto") or "").strip().lower()
+            total      = round(float(datos.get("total_precio") or 0), 2)
+            items_fp   = _fp_items(datos.get("items") or [])
+            fp = f"{cliente_n}|{proyecto_n}|{total}|{items_fp}"
+            if fp in fps_existentes:
+                datos["posibles_duplicados"] = fps_existentes[fp]
+            else:
+                datos["posibles_duplicados"] = []
         # Rechazar cotizaciones en blanco (sin cliente, proyecto ni atención)
         if resultado.get("ok") and resultado.get("datos"):
             d = resultado["datos"]
@@ -82,6 +101,29 @@ async def importar_parsear(
         })
 
     return JSONResponse({"ok": True, "resultados": resultados})
+
+
+@router.get("/api/importar/duplicados")
+async def importar_duplicados(
+    session: dict = Depends(require_admin),
+):
+    """Detecta grupos de cotizaciones duplicadas en el historial."""
+    grupos = detectar_duplicados_db()
+    return JSONResponse({"ok": True, "grupos": grupos})
+
+
+@router.post("/api/importar/eliminar_duplicados")
+async def importar_eliminar_duplicados(
+    request: Request,
+    session: dict = Depends(require_admin),
+):
+    """Elimina múltiples cotizaciones identificadas como duplicados (admin)."""
+    body = await request.json()
+    ids  = body.get("ids", [])
+    if not ids:
+        return JSONResponse({"ok": False, "error": "Sin IDs"}, status_code=400)
+    eliminadas = eliminar_cotizaciones_bulk_db([int(i) for i in ids])
+    return JSONResponse({"ok": True, "eliminadas": eliminadas})
 
 
 @router.post("/api/importar/confirmar")
