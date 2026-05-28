@@ -4,6 +4,21 @@
 
 VERSIONES = [
     {
+        "version": "2.0",
+        "fecha": "2026-05-28",
+        "titulo": "Gestor de duplicados en importación de PDFs",
+        "cambios": [
+            ("nueva",      "Modal de importar PDFs reorganizado en dos pestañas: 'Importar PDFs' y 'Gestionar Duplicados'"),
+            ("nueva",      "Detección de duplicados durante el parseo: badge 🔁 en la previsualización cuando el PDF ya existe en el historial (mismo cliente + proyecto + total + ítems exactos)"),
+            ("nueva",      "Pestaña 'Gestionar Duplicados': agrupa cotizaciones del historial por cliente, proyecto, monto total e ítems idénticos"),
+            ("nueva",      "Selección de qué cotizaciones conservar y cuáles eliminar, con validación que impide borrar todo un grupo"),
+            ("nueva",      "Botón 'Marcar sugeridos' pre-selecciona los duplicados más antiguos para eliminar con un solo clic"),
+            ("nueva",      "Eliminación masiva de duplicados con confirmación explícita (muestra IDs a eliminar)"),
+            ("mejora",     "Botón 'Ver' en cada fila del gestor abre el modal de detalle de cotización (no descarga el PDF)"),
+            ("mejora",     "Modal de detalle se posiciona por encima del modal de gestión de duplicados al abrirse"),
+        ],
+    },
+    {
         "version": "1.9",
         "fecha": "2026-05-27",
         "titulo": "Precios manuales en el carrito + búsqueda multi-palabra en historial",
