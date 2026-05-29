@@ -135,7 +135,7 @@
             <td data-label="Cant.">
               <div class="cantidad-ctrl">
                 <button onclick="cambiarCant({{ item.id }}, -1)" aria-label="Restar cantidad de {{ item.descripcion }}">−</button>
-                <input type="number" id="cant-{{ item.id }}" value="{{ item.cantidad }}"
+                <input type="number" id="cant-{{ item.id }}" value="{{ item.cantidad|int if item.cantidad == item.cantidad|int else item.cantidad }}"
                   min="0.01" max="999" step="any" onchange="actualizarCant({{ item.id }})"
                   inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                   aria-label="Cantidad de {{ item.descripcion }}">
@@ -1080,7 +1080,7 @@ document.addEventListener('click', e => {
 // ── Carrito ──
 function cambiarCant(itemId, delta) {
   const inp = document.getElementById(`cant-${itemId}`);
-  inp.value = Math.max(0.01, parseFloat(inp.value || 1) + delta);
+  inp.value = fmtCant(Math.max(0.01, parseFloat(inp.value || 1) + delta));
   actualizarCant(itemId);
 }
 
@@ -1212,7 +1212,7 @@ function _renderFilaCarrito(item, cuerpoIdx) {
     <td data-label="Cant.">
       <div class="cantidad-ctrl">
         <button onclick="cambiarCant(${item.id}, -1)" aria-label="Restar cantidad">−</button>
-        <input type="number" id="cant-${item.id}" value="${item.cantidad}" min="0.01" max="999" step="any"
+        <input type="number" id="cant-${item.id}" value="${fmtCant(item.cantidad)}" min="0.01" max="999" step="any"
                onchange="actualizarCant(${item.id})" aria-label="Cantidad"
                inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button onclick="cambiarCant(${item.id}, 1)" aria-label="Sumar cantidad">+</button>
@@ -1321,7 +1321,7 @@ async function agregarManual() {
     <td data-label="Cant.">
       <div class="cantidad-ctrl">
         <button onclick="cambiarCant(${item.id}, -1)" aria-label="Restar cantidad">−</button>
-        <input type="number" id="cant-${item.id}" value="${item.cantidad}" min="0.01" max="999" step="any"
+        <input type="number" id="cant-${item.id}" value="${fmtCant(item.cantidad)}" min="0.01" max="999" step="any"
                onchange="actualizarCant(${item.id})" aria-label="Cantidad"
                inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button onclick="cambiarCant(${item.id}, 1)" aria-label="Sumar cantidad">+</button>

@@ -1818,19 +1818,17 @@ details[open] summary { margin-bottom: 0.75rem; }
     font-size: 0.8rem;
     padding-bottom: 0.18rem;
     min-width: 0;
-    overflow: hidden;
   }
   .table-carrito td:nth-child(3) > div:first-child {
     font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
   .table-carrito td:nth-child(3) > div:last-child {
     font-size: 0.7rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
   }
 
   /* td 4: cantidad ctrl — fila 2, col 2 */
@@ -1849,11 +1847,8 @@ details[open] summary { margin-bottom: 0.75rem; }
     align-self: center;
   }
 
-  /* td 6: P.U. — ocultar */
-  .table-carrito td:nth-child(6) { display: none; }
-
-  /* td 7: P.T. — fila 2, col 4 */
-  .table-carrito td:nth-child(7) {
+  /* td 6: P.U. — fila 2, col 4 (en móvil mostramos PU, no PT) */
+  .table-carrito td:nth-child(6) {
     grid-column: 4;
     grid-row: 2;
     font-weight: 700;
@@ -1862,6 +1857,9 @@ details[open] summary { margin-bottom: 0.75rem; }
     align-self: center;
     white-space: nowrap;
   }
+
+  /* td 7: P.T. — ocultar en móvil */
+  .table-carrito td:nth-child(7) { display: none; }
 
   /* td 8: acciones — col 5, abarca 2 filas */
   .table-carrito td:nth-child(8) {
@@ -1907,17 +1905,17 @@ details[open] summary { margin-bottom: 0.75rem; }
     gap: 1px;
   }
   .table-carrito .cantidad-ctrl button {
-    min-width: 26px;
-    min-height: 26px;
-    font-size: 0.95rem;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 1rem;
     padding: 0;
     line-height: 1;
   }
   .table-carrito .cantidad-ctrl input {
-    width: 38px;
-    min-height: 26px;
-    font-size: 0.78rem;
-    padding: 2px 3px;
+    width: 52px;
+    min-height: 32px;
+    font-size: 0.85rem;
+    padding: 2px 4px;
     text-align: center;
   }
 
@@ -2698,6 +2696,8 @@ details[open] summary { margin-bottom: 0.75rem; }
      aseguramos también el input de cantidad v2 */
   .cant-ctrl-v2 input {
     font-size: 16px;
+    min-height: 44px;
+    width: 58px;
   }
 
   /* Botones de adjuntar en kanban */

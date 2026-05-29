@@ -592,32 +592,6 @@ document.addEventListener('input', e => {
   e.target.value = digitos === '' ? '' : Math.max(1, parseInt(digitos, 10));
 });
 
-// ── Countdown + redirección al carrito ──
-function contarYRedirigir(msg) {
-  const c = document.getElementById('toast-container');
-  while (c.children.length >= 3) c.firstChild.remove();
-  const t = document.createElement('div');
-  t.className = 'toast toast-info';
-  c.appendChild(t);
-
-  let seg = 3;
-  const actualizar = () => {
-    t.innerHTML = `<span>ℹ</span> ${msg} — redirigiendo al carrito en ${seg}…`;
-  };
-  actualizar();
-
-  const iv = setInterval(() => {
-    seg--;
-    if (seg <= 0) {
-      clearInterval(iv);
-      t.remove();
-      _navegandoInternamente = true;
-      window.location.href = '/carrito';
-    } else {
-      actualizar();
-    }
-  }, 1000);
-}
 
 // ── Agregar al carrito ──
 async function agregarAlCarrito(btn) {
@@ -658,7 +632,7 @@ async function agregarAlCarrito(btn) {
           badge.style.display = d.cantidad_items > 0 ? '' : 'none';
         }
       });
-      contarYRedirigir(`✓ "${label}" agregado — S/ ${parseFloat(precio).toFixed(2)} ${comision}`);
+      toast(`✓ "${label}" agregado al carrito (S/ ${parseFloat(precio).toFixed(2)} ${comision})`, 'ok');
     } else {
       toast(d.error || 'Error al agregar', 'error');
     }

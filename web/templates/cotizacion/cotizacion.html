@@ -887,7 +887,7 @@ function actualizarQtyMode() {
 function cambiarCant(cual, delta) {
   const ids = { prod: 'cant-prod', tapa: 'cant-tapa', main: 'cant-main' };
   const inp = document.getElementById(ids[cual]);
-  if (inp) inp.value = Math.max(0.01, (parseFloat(inp.value) || 1) + delta);
+  if (inp) inp.value = fmtCant(Math.max(0.01, (parseFloat(inp.value) || 1) + delta));
   actualizarSubtotales();
 }
 

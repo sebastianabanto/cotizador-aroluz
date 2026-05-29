@@ -4,6 +4,19 @@
 
 VERSIONES = [
     {
+        "version": "2.1",
+        "fecha": "2026-05-29",
+        "titulo": "Mejoras de usabilidad móvil en carrito, cotizar y catálogo",
+        "cambios": [
+            ("mejora",     "Carrito móvil: muestra precio unitario (P.U.) en lugar del precio total por ítem — el total global sigue visible abajo"),
+            ("mejora",     "Carrito móvil: nombre completo del ítem sin truncar — se expande en las líneas que necesite"),
+            ("mejora",     "Controles de cantidad más anchos en móvil: botones +/− de 32 px y campo de texto de 52 px en el carrito; 44 px y 58 px en Cotizar y Catálogo"),
+            ("mejora",     "Al tocar o hacer clic en cualquier campo de cantidad se selecciona el contenido automáticamente — sin borrar manualmente"),
+            ("mejora",     "Catálogo: ya no redirige al carrito al agregar un producto — solo muestra un mensaje de confirmación y permite seguir agregando"),
+            ("mejora",     "Cantidades enteras se muestran sin decimales innecesarios: '6' en lugar de '6.0', tanto en carga inicial como al usar los botones +/−"),
+        ],
+    },
+    {
         "version": "2.0",
         "fecha": "2026-05-28",
         "titulo": "Gestor de duplicados en importación de PDFs",

@@ -207,6 +207,21 @@ document.addEventListener('click', e => {
   }
 })();
 
+// ── Formatea una cantidad: sin decimales si es entero (6.0 → 6, 2.5 → 2.5) ──
+function fmtCant(n) {
+  const f = parseFloat(n);
+  return f % 1 === 0 ? Math.round(f) : f;
+}
+
+// ── Seleccionar contenido al enfocar inputs de cantidad ──
+document.addEventListener('focusin', e => {
+  const inp = e.target;
+  if (inp.tagName !== 'INPUT') return;
+  if (inp.closest('.cant-ctrl-v2') || inp.closest('.cantidad-ctrl') || inp.classList.contains('inp-cantidad')) {
+    inp.select();
+  }
+});
+
 // ── Navegación global por teclado (Alt+Letra) ──
 document.addEventListener('keydown', e => {
   if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
