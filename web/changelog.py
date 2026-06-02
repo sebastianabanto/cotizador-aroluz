@@ -4,6 +4,16 @@
 
 VERSIONES = [
     {
+        "version": "2.3",
+        "fecha": "2026-06-02",
+        "titulo": "Corrección del gráfico de tendencias de precios",
+        "cambios": [
+            ("corrección", "Gráfico de tendencias no se renderizaba: canvas recién insertado tenía dimensiones 0×0 al momento de que Chart.js intentaba dibujar"),
+            ("corrección", "Eliminada la recreación del canvas en cada render — Chart.js 4 limpia el canvas correctamente con destroy()"),
+            ("mejora",     "Canvas dimensionado explícitamente con el tamaño real del contenedor visible antes de crear el gráfico"),
+        ],
+    },
+    {
         "version": "2.2",
         "fecha": "2026-06-02",
         "titulo": "Tendencias de precios por cliente e ítem",
