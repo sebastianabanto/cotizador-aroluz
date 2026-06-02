@@ -620,22 +620,9 @@
 
     <hr style="border:none; border-top:1px solid var(--gris-borde); margin:0 0 0.55rem;">
 
-    <!-- Fila 3: Filtros chips (igual que barra del historial) -->
-    <div class="fil-row fil-row-tipo" style="margin-bottom:0.5rem; flex-wrap:wrap;">
+    <!-- Fila 3: Filtros chips -->
+    <div class="fil-row fil-row-tipo" style="margin-bottom:0.45rem; flex-wrap:wrap;">
       <div class="fil-tipo-wrap">
-        <span class="fil-tipo-title">Tipo:</span>
-        <div class="fil-tipo-grid">
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="B"   onchange="triggerTendencias()"> Bandeja</label>
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CH"  onchange="triggerTendencias()"> Curva H</label>
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CVE" onchange="triggerTendencias()"> Curva VE</label>
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CVI" onchange="triggerTendencias()"> Curva VI</label>
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="T"   onchange="triggerTendencias()"> Tee</label>
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="C"   onchange="triggerTendencias()"> Cruz</label>
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="R"   onchange="triggerTendencias()"> Reducción</label>
-          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CP"  onchange="triggerTendencias()"> Caja Pase</label>
-        </div>
-      </div>
-      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.6rem;">
         <span class="fil-tipo-title">Espesor:</span>
         <div class="fil-tipo-grid">
           <label class="fil-tipo-label" title="1/20 — 1.2 mm"><input type="checkbox" class="tend-esp" value="1.2" onchange="triggerTendencias()"> 1.2</label>
@@ -666,15 +653,18 @@
       </div>
     </div>
 
-    <!-- Barra de navegación por período (3 meses) -->
-    <div id="tend-nav-row" style="display:none; align-items:center; justify-content:center; gap:0.75rem;
-         padding:0.2rem 0 0.45rem; border-top:1px solid var(--gris-borde); margin-top:0.1rem;">
-      <button id="tend-btn-prev" class="btn btn-secondary btn-sm" onclick="tendNavPrev()"
-              style="padding:0.18rem 0.7rem; min-height:26px;" disabled>← Anterior</button>
-      <span id="tend-periodo-label"
-            style="font-size:0.8rem; color:var(--texto-suave); min-width:200px; text-align:center; font-weight:600;"></span>
-      <button id="tend-btn-next" class="btn btn-secondary btn-sm" onclick="tendNavNext()"
-              style="padding:0.18rem 0.7rem; min-height:26px;" disabled>Siguiente →</button>
+    <!-- Rango de fechas -->
+    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.45rem; flex-wrap:wrap;">
+      <span class="fil-tipo-title">Período:</span>
+      <input type="date" id="tend-fecha-desde" class="form-control"
+             style="width:148px; font-size:0.82rem; padding:0.22rem 0.4rem;"
+             onchange="triggerTendencias()" title="Fecha desde">
+      <span style="font-size:0.82rem; color:var(--texto-suave);">—</span>
+      <input type="date" id="tend-fecha-hasta" class="form-control"
+             style="width:148px; font-size:0.82rem; padding:0.22rem 0.4rem;"
+             onchange="triggerTendencias()" title="Fecha hasta">
+      <button class="btn btn-secondary btn-sm" onclick="tendLimpiarFechas()"
+              style="font-size:0.78rem; padding:0.2rem 0.55rem; min-height:28px;">Todas las fechas</button>
     </div>
 
     <!-- Área principal: panel de ítems (izquierda) + gráfico (derecha) -->
@@ -1352,8 +1342,6 @@ let _tendChart          = null;
 let _tendDebounce       = null;
 let _tendSeries         = [];
 let _tendAllDates       = [];
-let _tendWindowDates    = [];   // fechas visibles en la página actual
-let _tendPage           = 0;    // 0 = período más reciente
 let TEND_CLIENTES       = [];
 let _tendCliActual      = ['', ''];
 let _tendItemsFrecuentes = [];
@@ -1365,10 +1353,7 @@ const TEND_PALETA = [
 
 function cerrarStats() {
   document.getElementById('modal-stats').style.display = 'none';
-  _tendPage = 0;  // reset al cerrar para que la próxima apertura empiece en el período más reciente
   _destruirChart();
-  const navRow = document.getElementById('tend-nav-row');
-  if (navRow) navRow.style.display = 'none';
 }
 document.getElementById('modal-stats').addEventListener('click', function(e) {
   if (e.target === this) { cerrarStats(); return; }
@@ -1547,58 +1532,17 @@ function toggleModoComparacion() {
   triggerTendencias();
 }
 
-// ── Ventana de 3 meses (paginación del gráfico) ──
-function _getWindowDates() {
-  if (!_tendAllDates.length) return { dates: [], label: '', hasPrev: false, hasNext: false };
-
-  const latest  = _tendAllDates[_tendAllDates.length - 1]; // 'YYYY-MM-DD'
-  const [ly, lm] = latest.split('-').map(Number);
-
-  // anchorIdx: índice de mes base-0 del último mes de la ventana actual
-  const anchorIdx = ly * 12 + (lm - 1) - _tendPage * 3;
-  const endY  = Math.floor(anchorIdx / 12);
-  const endM  = (anchorIdx % 12) + 1;          // 1-12
-  const sIdx  = anchorIdx - 2;
-  const startY = Math.floor(sIdx / 12);
-  const startM = (sIdx % 12) + 1;              // 1-12
-
-  const startStr = `${String(startY).padStart(4,'0')}-${String(startM).padStart(2,'0')}-01`;
-  const endStr   = `${String(endY).padStart(4,'0')}-${String(endM).padStart(2,'0')}-31`;
-
-  const dates = _tendAllDates.filter(d => d >= startStr && d <= endStr);
-
-  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const label = `${MESES[startM-1]} ${startY} — ${MESES[endM-1]} ${endY}`;
-
-  const hasPrev = _tendAllDates.some(d => d < startStr);
-  const hasNext = _tendPage > 0;
-
-  return { dates, label, hasPrev, hasNext };
+// ── Rango de fechas del gráfico ──
+function _getFilteredDates() {
+  const desde = (document.getElementById('tend-fecha-desde').value || '').trim();
+  const hasta = (document.getElementById('tend-fecha-hasta').value || '').trim();
+  return _tendAllDates.filter(d => (!desde || d >= desde) && (!hasta || d <= hasta));
 }
 
-function _actualizarNavPeriodo() {
-  const { dates, label, hasPrev, hasNext } = _getWindowDates();
-  _tendWindowDates = dates;
-  const navRow  = document.getElementById('tend-nav-row');
-  const lblEl   = document.getElementById('tend-periodo-label');
-  const btnPrev = document.getElementById('tend-btn-prev');
-  const btnNext = document.getElementById('tend-btn-next');
-  if (navRow)  navRow.style.display  = _tendAllDates.length ? 'flex' : 'none';
-  if (lblEl)   lblEl.textContent     = label;
-  if (btnPrev) btnPrev.disabled      = !hasPrev;
-  if (btnNext) btnNext.disabled      = !hasNext;
-}
-
-function tendNavPrev() {
-  _tendPage++;
-  _renderTendChart(_tendSeries, _tendCliActual[0], _tendCliActual[1] || '');
-}
-
-function tendNavNext() {
-  if (_tendPage > 0) {
-    _tendPage--;
-    _renderTendChart(_tendSeries, _tendCliActual[0], _tendCliActual[1] || '');
-  }
+function tendLimpiarFechas() {
+  document.getElementById('tend-fecha-desde').value = '';
+  document.getElementById('tend-fecha-hasta').value = '';
+  triggerTendencias();
 }
 
 // ── Debounce central ──
@@ -1651,7 +1595,6 @@ async function cargarTendencias() {
   const cli2    = _tendCliActual[1] || document.getElementById('tend-c2-input').value.trim();
   const proy    = document.getElementById('tend-proyecto').value.trim();
   const q       = document.getElementById('tend-q-input').value.trim();
-  const tipos   = [...document.querySelectorAll('.tend-tipo:checked')].map(cb => cb.value);
   const galvs   = [...document.querySelectorAll('.tend-galv:checked')].map(cb => cb.value);
   const esps    = [...document.querySelectorAll('.tend-esp:checked')].map(cb => cb.value);
   const gans    = [...document.querySelectorAll('.tend-gan:checked')].map(cb => cb.value);
@@ -1679,7 +1622,6 @@ async function cargarTendencias() {
   tendLoading.style.display   = '';
 
   const params = new URLSearchParams({ cliente: cli1, cliente2: cli2, proyecto: proy, q });
-  tipos.forEach(t => params.append('tipo', t));
   galvs.forEach(g => params.append('galvanizado', g));
   esps.forEach(e => params.append('espesor', e));
   gans.forEach(g => params.append('ganancia', g));
@@ -1694,7 +1636,6 @@ async function cargarTendencias() {
     return;
   }
 
-  _tendPage = 0;  // siempre arrancar en el período más reciente al recargar datos
   tendChartWrap.style.display = '';
   tendHint.style.display      = '';
   // Dos rAFs: primero para que el cambio de display surta efecto,
@@ -1706,11 +1647,8 @@ async function cargarTendencias() {
 
 function _destruirChart() {
   if (_tendChart) { _tendChart.destroy(); _tendChart = null; }
-  _tendSeries      = [];
-  _tendAllDates    = [];
-  _tendWindowDates = [];
-  // _tendPage NO se resetea aquí para que la navegación prev/next funcione;
-  // se resetea en cerrarStats() y en cargarTendencias() explícitamente.
+  _tendSeries   = [];
+  _tendAllDates = [];
 }
 
 function _fmtFechaCorta(iso) {
@@ -1736,16 +1674,15 @@ function _renderTendChart(series, cli1Label, cli2Label) {
   series.forEach(s => s.puntos.forEach(p => fechasSet.add(p.fecha)));
   _tendAllDates = [...fechasSet].sort();
 
-  // Actualizar nav de período y obtener la ventana de 3 meses actual
-  _actualizarNavPeriodo();
-  const windowDates = _tendWindowDates;
+  // Aplicar filtro de rango de fechas (side-client, sin re-fetch)
+  const windowDates = _getFilteredDates();
 
-  // Si no hay datos en la ventana, mostrar estado vacío con nav visible
+  // Si no hay datos en el rango, mostrar estado vacío
   if (!windowDates.length) {
     tendChartWrap.style.display = 'none';
     if (tendNoData) {
       tendNoData.style.display = '';
-      tendNoData.querySelector('p').textContent = 'Sin datos en este período.';
+      tendNoData.querySelector('p').textContent = 'Sin datos en el rango seleccionado.';
     }
     return;
   }

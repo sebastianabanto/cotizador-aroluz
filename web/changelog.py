@@ -4,6 +4,15 @@
 
 VERSIONES = [
     {
+        "version": "2.8",
+        "fecha": "2026-06-02",
+        "titulo": "Selector de rango de fechas en tendencias + simplificación de filtros",
+        "cambios": [
+            ("mejora",     "Paginación de 3 meses reemplazada por selector de rango libre (fecha desde / hasta) — sin recarga de datos"),
+            ("corrección", "Filtros de Tipo eliminados del modal de tendencias (no se usaban)"),
+        ],
+    },
+    {
         "version": "2.7",
         "fecha": "2026-06-02",
         "titulo": "Paginación por período (3 meses) + filtro de precios inválidos",
