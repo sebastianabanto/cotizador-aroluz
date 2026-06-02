@@ -174,6 +174,11 @@ async def logout(request: Request):
     return response
 
 
+@app.get("/api/heartbeat")
+async def heartbeat(usuario = Depends(get_session)):
+    return {"ok": True}
+
+
 # ─────────────────────────────────────────────
 # Redirect raíz
 # ─────────────────────────────────────────────

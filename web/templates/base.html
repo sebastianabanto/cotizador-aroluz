@@ -240,6 +240,12 @@ document.addEventListener('keydown', e => {
     window.location.href = dest;
   }
 });
+
+// ── Heartbeat: mantener sesión activa (ping cada 4 min) ──
+setInterval(() => {
+  fetch('/api/heartbeat', { method: 'GET', credentials: 'include' })
+    .catch(() => {}); // Ignorar errores silenciosamente
+}, 4 * 60 * 1000); // 4 minutos
 </script>
 </body>
 </html>
