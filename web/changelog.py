@@ -8,7 +8,7 @@ VERSIONES = [
         "fecha": "2026-06-02",
         "titulo": "Corrección crítica: Chart.js bloqueado por CSP",
         "cambios": [
-            ("corrección", "Chart.js se cargaba desde cdn.jsdelivr.net, bloqueado por el Content-Security-Policy que solo permite cdnjs.cloudflare.com — cambiado a cdnjs (v4.4.4)"),
+            ("corrección", "Chart.js se cargaba desde cdn.jsdelivr.net, bloqueado por el Content-Security-Policy que solo permite cdnjs.cloudflare.com — cambiado a cdnjs v4.5.0"),
         ],
     },
     {
