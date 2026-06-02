@@ -4,6 +4,23 @@
 
 VERSIONES = [
     {
+        "version": "2.2",
+        "fecha": "2026-06-02",
+        "titulo": "Tendencias de precios por cliente e ítem",
+        "cambios": [
+            ("nueva",      "Modal 'Estadísticas' del historial reemplazado por gráfico lineal de precio unitario (S/) vs fecha de cotización"),
+            ("nueva",      "Panel izquierdo de ítems más cotizados: lista persistente ordenada por frecuencia, clickeable para filtrar el gráfico"),
+            ("nueva",      "Búsqueda de ítems con comas (multi-término AND): 'Bandeja, 400x100' filtra ítems que contengan ambas palabras"),
+            ("nueva",      "Modo comparación: dos clientes en el mismo gráfico — cliente 1 con línea sólida, cliente 2 con línea discontinua"),
+            ("nueva",      "Filtros de chip en el modal: Tipo, Galvanizado, Ganancia y Moneda afectan el gráfico en tiempo real"),
+            ("nueva",      "Clic en un punto del gráfico abre el modal 'Ver' de esa cotización específica"),
+            ("corrección", "Cotizaciones importadas (pdf_import) ahora se incluyen en tendencias e ítems frecuentes — antes se excluían por filtro de origen"),
+            ("corrección", "Gráfico invisible por canvas de tamaño 0: el wrap ahora se muestra antes de que Chart.js renderice"),
+            ("mejora",     "Panel de ítems recarga al cambiar el filtro de proyecto"),
+            ("mejora",     "Manejo de errores en carga de ítems frecuentes — ya no queda 'Abriendo historial…' congelado si falla el fetch"),
+        ],
+    },
+    {
         "version": "2.1",
         "fecha": "2026-05-29",
         "titulo": "Mejoras de usabilidad móvil en carrito, cotizar y catálogo",

@@ -235,6 +235,7 @@ A backup is kept at `cotizador_config_backup.json`.
 - **Never touch `gui/logica.py`** — web logic lives exclusively in `web/motor.py`.
 - **Install packages** always via `venv\Scripts\python.exe -m pip install <package>` (never `pip.exe` directly).
 - **NUNCA cambiar el formato/diseño del PDF exportado** — la plantilla oficial es `web/templates/cotizacion_pdf.html`. Si hay un problema técnico con el generador de PDF (Playwright, WeasyPrint, etc.), se debe cambiar el motor de renderizado, NUNCA el diseño/estructura del template ni sustituirlo por otra implementación (ej. ReportLab programático). El aspecto visual del PDF es decisión exclusiva del usuario.
+- **SIEMPRE actualizar `web/changelog.py` antes de hacer deploy** — agregar una nueva entrada en `VERSIONES[]` (al inicio de la lista) con `version`, `fecha` (YYYY-MM-DD), `titulo` y `cambios` (lista de tuplas `(categoría, descripción)`). Categorías válidas: `"nueva"`, `"mejora"`, `"corrección"`, `"seguridad"`, `"rendimiento"`. El número de versión sigue el esquema `mayor.menor` (ej: 2.2 → 2.3). Sin esta actualización, no hacer deploy.
 
 ---
 
