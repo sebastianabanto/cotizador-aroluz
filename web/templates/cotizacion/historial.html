@@ -1365,7 +1365,10 @@ const TEND_PALETA = [
 
 function cerrarStats() {
   document.getElementById('modal-stats').style.display = 'none';
+  _tendPage = 0;  // reset al cerrar para que la próxima apertura empiece en el período más reciente
   _destruirChart();
+  const navRow = document.getElementById('tend-nav-row');
+  if (navRow) navRow.style.display = 'none';
 }
 document.getElementById('modal-stats').addEventListener('click', function(e) {
   if (e.target === this) { cerrarStats(); return; }
@@ -1706,9 +1709,8 @@ function _destruirChart() {
   _tendSeries      = [];
   _tendAllDates    = [];
   _tendWindowDates = [];
-  _tendPage        = 0;
-  const navRow = document.getElementById('tend-nav-row');
-  if (navRow) navRow.style.display = 'none';
+  // _tendPage NO se resetea aquí para que la navegación prev/next funcione;
+  // se resetea en cerrarStats() y en cargarTendencias() explícitamente.
 }
 
 function _fmtFechaCorta(iso) {
