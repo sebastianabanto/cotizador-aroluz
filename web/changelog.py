@@ -4,6 +4,16 @@
 
 VERSIONES = [
     {
+        "version": "2.6",
+        "fecha": "2026-06-02",
+        "titulo": "Filtros de espesor y galvanizado en tendencias de precios",
+        "cambios": [
+            ("nueva",  "Chips de Espesor en el modal de tendencias: 1.2mm / 1.5mm / 2.0mm (incluye equivalencias 1/20 y 1/16)"),
+            ("mejora", "Tooltip del gráfico muestra espesor (e=1.5mm) y galvanizado (GO/GC) de cada punto"),
+            ("mejora", "Backend extrae espesor de la descripción del ítem y lo filtra en el servidor"),
+        ],
+    },
+    {
         "version": "2.5",
         "fecha": "2026-06-02",
         "titulo": "Corrección crítica: Chart.js bloqueado por CSP",

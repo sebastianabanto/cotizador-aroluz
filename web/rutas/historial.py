@@ -181,6 +181,7 @@ async def api_tendencias(
     galvanizado: List[str] = Query(default=[]),
     ganancia: List[str] = Query(default=[]),
     moneda: List[str] = Query(default=[]),
+    espesor: List[str] = Query(default=[]),
 ):
     """Devuelve series de precio unitario (S/) por ítem para graficar tendencias.
 
@@ -205,6 +206,7 @@ async def api_tendencias(
             galvanizados=galvanizado if galvanizado else None,
             ganancias=ganancia if ganancia else None,
             monedas=moneda if moneda else None,
+            espesores=espesor if espesor else None,
         )
 
         grupos: dict = defaultdict(list)
@@ -216,6 +218,8 @@ async def api_tendencias(
                 "precio_soles": row["precio_soles"],
                 "cotizacion_id": row["cotizacion_id"],
                 "proyecto": row["proyecto"] or "",
+                "espesor": row.get("espesor", ""),
+                "galvanizado": row.get("galvanizado", ""),
             })
             cliente_labels[row["cliente_idx"]] = row["cliente_label"]
 

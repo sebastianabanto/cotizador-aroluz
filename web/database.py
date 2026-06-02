@@ -9,6 +9,7 @@ Gestiona:
 import hashlib
 import json
 import os
+import re as _re
 import secrets
 import shutil
 import sqlite3
@@ -1472,6 +1473,21 @@ def get_estadisticas_db(username: Optional[str] = None) -> Dict:
     }
 
 
+def _parse_espesor(desc: str) -> str:
+    """Extrae el espesor nominal (1.2, 1.5, 2.0) de la descripción de un ítem."""
+    d = desc.upper()
+    if "1/20" in d:
+        return "1.2"
+    if "1/16" in d:
+        return "1.5"
+    m = _re.search(r'\b([12]\.\d)\s*MM', d)
+    if m:
+        v = m.group(1)
+        if v in ("1.2", "1.5", "2.0"):
+            return v
+    return ""
+
+
 def get_items_frecuentes_db(
     username: Optional[str] = None,
     cliente: str = "",
@@ -1509,7 +1525,12 @@ def get_items_frecuentes_db(
     params.append(limit)
     rows = conn.execute(sql, params).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["espesor"] = _parse_espesor(d["descripcion"])
+        result.append(d)
+    return result
 
 
 def get_tendencias_items_db(
@@ -1521,6 +1542,7 @@ def get_tendencias_items_db(
     galvanizados: Optional[List[str]] = None,
     ganancias: Optional[List[str]] = None,
     monedas: Optional[List[str]] = None,
+    espesores: Optional[List[str]] = None,
 ) -> List[Dict]:
     """Devuelve puntos de precio por ítem para graficar tendencias.
 
@@ -1589,7 +1611,8 @@ def get_tendencias_items_db(
                 c.dolar_rate,
                 ci.descripcion,
                 ci.precio_unitario,
-                ci.tipo
+                ci.tipo,
+                ci.tipo_galvanizado
             FROM cotizaciones c
             JOIN cotizacion_items ci ON ci.cotizacion_id = c.id
             {"WHERE " + " AND ".join(where_parts) if where_parts else ""}
@@ -1605,8 +1628,12 @@ def get_tendencias_items_db(
                 else d["precio_unitario"] * dolar_rate
             )
             d["precio_soles"] = round(precio_soles, 2)
+            d["espesor"] = _parse_espesor(d["descripcion"])
+            d["galvanizado"] = d.get("tipo_galvanizado", "") or ""
             d["cliente_idx"] = idx
             d["cliente_label"] = d["cliente_nombre"] or d["cliente"] or cli
+            if espesores and d["espesor"] not in espesores:
+                continue
             results.append(d)
 
     conn.close()

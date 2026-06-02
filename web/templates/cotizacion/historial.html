@@ -636,6 +636,14 @@
         </div>
       </div>
       <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.6rem;">
+        <span class="fil-tipo-title">Espesor:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label" title="1/20 — 1.2 mm"><input type="checkbox" class="tend-esp" value="1.2" onchange="triggerTendencias()"> 1.2</label>
+          <label class="fil-tipo-label" title="1/16 — 1.5 mm"><input type="checkbox" class="tend-esp" value="1.5" onchange="triggerTendencias()"> 1.5</label>
+          <label class="fil-tipo-label" title="2.0 mm"><input type="checkbox" class="tend-esp" value="2.0" onchange="triggerTendencias()"> 2.0</label>
+        </div>
+      </div>
+      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.6rem;">
         <span class="fil-tipo-title">Galv.:</span>
         <div class="fil-tipo-grid">
           <label class="fil-tipo-label"><input type="checkbox" class="tend-galv" value="GO" onchange="triggerTendencias()"> GO</label>
@@ -1575,6 +1583,7 @@ async function cargarTendencias() {
   const q       = document.getElementById('tend-q-input').value.trim();
   const tipos   = [...document.querySelectorAll('.tend-tipo:checked')].map(cb => cb.value);
   const galvs   = [...document.querySelectorAll('.tend-galv:checked')].map(cb => cb.value);
+  const esps    = [...document.querySelectorAll('.tend-esp:checked')].map(cb => cb.value);
   const gans    = [...document.querySelectorAll('.tend-gan:checked')].map(cb => cb.value);
   const monedas = [...document.querySelectorAll('.tend-moneda:checked')].map(cb => cb.value);
 
@@ -1602,6 +1611,7 @@ async function cargarTendencias() {
   const params = new URLSearchParams({ cliente: cli1, cliente2: cli2, proyecto: proy, q });
   tipos.forEach(t => params.append('tipo', t));
   galvs.forEach(g => params.append('galvanizado', g));
+  esps.forEach(e => params.append('espesor', e));
   gans.forEach(g => params.append('ganancia', g));
   monedas.forEach(m => params.append('moneda', m));
 
@@ -1700,7 +1710,13 @@ function _renderTendChart(series, cli1Label, cli2Label) {
             label: item => {
               const s = series[item.datasetIndex];
               const p = s.puntos.find(pt => pt.fecha === _tendAllDates[item.dataIndex]);
-              return `S/ ${item.raw.toFixed(2)} P.U.${p && p.proyecto ? '  —  ' + p.proyecto : ''}`;
+              const partes = [`S/ ${item.raw.toFixed(2)} P.U.`];
+              if (p) {
+                if (p.espesor) partes.push(`e=${p.espesor}mm`);
+                if (p.galvanizado && p.galvanizado !== 'N/A') partes.push(p.galvanizado);
+                if (p.proyecto) partes.push(p.proyecto);
+              }
+              return partes.join('  ·  ');
             },
             afterBody: () => ['↵ Clic para ver cotización'],
           },
