@@ -4,6 +4,17 @@
 
 VERSIONES = [
     {
+        "version": "2.4",
+        "fecha": "2026-06-02",
+        "titulo": "Gráfico de tendencias: enfoque estándar Chart.js responsive",
+        "cambios": [
+            ("corrección", "Canvas del gráfico ahora usa responsive:true + width/height:100% CSS — el método estándar de Chart.js que funciona independientemente del layout del contenedor"),
+            ("corrección", "Dos requestAnimationFrame antes de crear el gráfico, garantizando que el contenedor tenga dimensiones computadas"),
+            ("mejora",     "Modal de tendencias con carga lazy: ítems y gráfico solo cargan al seleccionar un cliente, no al abrir el modal"),
+            ("corrección", "Si Chart.js no carga desde CDN, se registra el error en consola en lugar de fallar silenciosamente"),
+        ],
+    },
+    {
         "version": "2.3",
         "fecha": "2026-06-02",
         "titulo": "Corrección del gráfico de tendencias de precios",

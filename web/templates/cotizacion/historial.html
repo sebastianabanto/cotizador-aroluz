@@ -689,7 +689,7 @@
           <p style="margin:0;">No hay cotizaciones que coincidan<br>con los filtros seleccionados.</p>
         </div>
         <div id="tend-chart-wrap" style="display:none; height:340px; padding:0.5rem; position:relative; overflow:hidden;">
-          <canvas id="tend-chart"></canvas>
+          <canvas id="tend-chart" style="display:block;"></canvas>
         </div>
       </div>
 
@@ -1542,21 +1542,29 @@ function triggerTendenciasFull() {
 async function abrirEstadisticas() {
   document.getElementById('modal-stats').style.display = 'flex';
   _buildTendClientes();
-  await cargarItemsFrecuentes();
 
-  // Pre-rellenar con el cliente del filtro principal si coincide
+  if (_tendCliActual[0]) {
+    // Cliente ya seleccionado de la vez anterior — recargar en paralelo
+    await Promise.all([cargarItemsFrecuentes(), cargarTendencias()]);
+    return;
+  }
+
+  // Sin cliente: mostrar placeholder, intentar pre-llenar desde barra de filtros
+  document.getElementById('tend-items-lista').innerHTML =
+    '<div class="tend-items-placeholder">Seleccioná un cliente para ver los ítems</div>';
+
   const filCli = (document.getElementById('fil-cliente').value || '').trim().toLowerCase();
-  if (filCli && !_tendCliActual[0]) {
+  if (filCli) {
     const match = TEND_CLIENTES.find(c =>
       c.nombre.toLowerCase().includes(filCli) || c.codigo.toLowerCase().includes(filCli)
     );
     if (match) {
       document.getElementById('tend-c1-input').value = match.nombre;
       _tendCliActual[0] = match.nombre;
+      await Promise.all([cargarItemsFrecuentes(), cargarTendencias()]);
     }
   }
-
-  await cargarTendencias();
+  // Si no hay cliente, el usuario selecciona uno y seleccionarTendCliente() dispara la carga
 }
 
 // ── Fetch y render ──
@@ -1608,6 +1616,9 @@ async function cargarTendencias() {
 
   tendChartWrap.style.display = '';
   tendHint.style.display      = '';
+  // Dos rAFs: primero para que el cambio de display surta efecto,
+  // segundo para que el navegador compute el layout del contenedor
+  await new Promise(r => requestAnimationFrame(r));
   await new Promise(r => requestAnimationFrame(r));
   _renderTendChart(data.series, cli1, cli2);
 }
@@ -1625,17 +1636,18 @@ function _fmtFechaCorta(iso) {
 }
 
 function _renderTendChart(series, cli1Label, cli2Label) {
+  if (typeof Chart === 'undefined') {
+    console.error('[tendencias] Chart.js no disponible — revisar CDN');
+    return;
+  }
   _destruirChart();
   _tendSeries = series;
 
-  // Dimensionar canvas explícitamente con el tamaño real del contenedor visible.
-  // Chart.js con responsive:false necesita que el canvas tenga px definidos.
-  const wrap   = document.getElementById('tend-chart-wrap');
   const canvas = document.getElementById('tend-chart');
-  const W = Math.max((wrap.clientWidth  || 600) - 16, 200);
-  const H = Math.max((wrap.clientHeight || 340) - 16, 200);
-  canvas.width  = W;
-  canvas.height = H;
+  // Canvas llena su contenedor; Chart.js maneja la resolución internamente
+  canvas.style.display = 'block';
+  canvas.style.width   = '100%';
+  canvas.style.height  = '100%';
 
   const fechasSet = new Set();
   series.forEach(s => s.puntos.forEach(p => fechasSet.add(p.fecha)));
@@ -1677,7 +1689,7 @@ function _renderTendChart(series, cli1Label, cli2Label) {
     type: 'line',
     data: { labels: _tendAllDates.map(_fmtFechaCorta), datasets },
     options: {
-      responsive: false,
+      responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'nearest', intersect: true },
       plugins: {
