@@ -666,6 +666,17 @@
       </div>
     </div>
 
+    <!-- Barra de navegación por período (3 meses) -->
+    <div id="tend-nav-row" style="display:none; align-items:center; justify-content:center; gap:0.75rem;
+         padding:0.2rem 0 0.45rem; border-top:1px solid var(--gris-borde); margin-top:0.1rem;">
+      <button id="tend-btn-prev" class="btn btn-secondary btn-sm" onclick="tendNavPrev()"
+              style="padding:0.18rem 0.7rem; min-height:26px;" disabled>← Anterior</button>
+      <span id="tend-periodo-label"
+            style="font-size:0.8rem; color:var(--texto-suave); min-width:200px; text-align:center; font-weight:600;"></span>
+      <button id="tend-btn-next" class="btn btn-secondary btn-sm" onclick="tendNavNext()"
+              style="padding:0.18rem 0.7rem; min-height:26px;" disabled>Siguiente →</button>
+    </div>
+
     <!-- Área principal: panel de ítems (izquierda) + gráfico (derecha) -->
     <div id="tend-main" style="display:flex; gap:0.6rem; align-items:stretch; min-height:340px;">
 
@@ -1341,6 +1352,8 @@ let _tendChart          = null;
 let _tendDebounce       = null;
 let _tendSeries         = [];
 let _tendAllDates       = [];
+let _tendWindowDates    = [];   // fechas visibles en la página actual
+let _tendPage           = 0;    // 0 = período más reciente
 let TEND_CLIENTES       = [];
 let _tendCliActual      = ['', ''];
 let _tendItemsFrecuentes = [];
@@ -1531,6 +1544,60 @@ function toggleModoComparacion() {
   triggerTendencias();
 }
 
+// ── Ventana de 3 meses (paginación del gráfico) ──
+function _getWindowDates() {
+  if (!_tendAllDates.length) return { dates: [], label: '', hasPrev: false, hasNext: false };
+
+  const latest  = _tendAllDates[_tendAllDates.length - 1]; // 'YYYY-MM-DD'
+  const [ly, lm] = latest.split('-').map(Number);
+
+  // anchorIdx: índice de mes base-0 del último mes de la ventana actual
+  const anchorIdx = ly * 12 + (lm - 1) - _tendPage * 3;
+  const endY  = Math.floor(anchorIdx / 12);
+  const endM  = (anchorIdx % 12) + 1;          // 1-12
+  const sIdx  = anchorIdx - 2;
+  const startY = Math.floor(sIdx / 12);
+  const startM = (sIdx % 12) + 1;              // 1-12
+
+  const startStr = `${String(startY).padStart(4,'0')}-${String(startM).padStart(2,'0')}-01`;
+  const endStr   = `${String(endY).padStart(4,'0')}-${String(endM).padStart(2,'0')}-31`;
+
+  const dates = _tendAllDates.filter(d => d >= startStr && d <= endStr);
+
+  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const label = `${MESES[startM-1]} ${startY} — ${MESES[endM-1]} ${endY}`;
+
+  const hasPrev = _tendAllDates.some(d => d < startStr);
+  const hasNext = _tendPage > 0;
+
+  return { dates, label, hasPrev, hasNext };
+}
+
+function _actualizarNavPeriodo() {
+  const { dates, label, hasPrev, hasNext } = _getWindowDates();
+  _tendWindowDates = dates;
+  const navRow  = document.getElementById('tend-nav-row');
+  const lblEl   = document.getElementById('tend-periodo-label');
+  const btnPrev = document.getElementById('tend-btn-prev');
+  const btnNext = document.getElementById('tend-btn-next');
+  if (navRow)  navRow.style.display  = _tendAllDates.length ? 'flex' : 'none';
+  if (lblEl)   lblEl.textContent     = label;
+  if (btnPrev) btnPrev.disabled      = !hasPrev;
+  if (btnNext) btnNext.disabled      = !hasNext;
+}
+
+function tendNavPrev() {
+  _tendPage++;
+  _renderTendChart(_tendSeries, _tendCliActual[0], _tendCliActual[1] || '');
+}
+
+function tendNavNext() {
+  if (_tendPage > 0) {
+    _tendPage--;
+    _renderTendChart(_tendSeries, _tendCliActual[0], _tendCliActual[1] || '');
+  }
+}
+
 // ── Debounce central ──
 function triggerTendencias() {
   clearTimeout(_tendDebounce);
@@ -1624,6 +1691,7 @@ async function cargarTendencias() {
     return;
   }
 
+  _tendPage = 0;  // siempre arrancar en el período más reciente al recargar datos
   tendChartWrap.style.display = '';
   tendHint.style.display      = '';
   // Dos rAFs: primero para que el cambio de display surta efecto,
@@ -1635,8 +1703,12 @@ async function cargarTendencias() {
 
 function _destruirChart() {
   if (_tendChart) { _tendChart.destroy(); _tendChart = null; }
-  _tendSeries   = [];
-  _tendAllDates = [];
+  _tendSeries      = [];
+  _tendAllDates    = [];
+  _tendWindowDates = [];
+  _tendPage        = 0;
+  const navRow = document.getElementById('tend-nav-row');
+  if (navRow) navRow.style.display = 'none';
 }
 
 function _fmtFechaCorta(iso) {
@@ -1653,15 +1725,36 @@ function _renderTendChart(series, cli1Label, cli2Label) {
   _destruirChart();
   _tendSeries = series;
 
-  const canvas = document.getElementById('tend-chart');
-  // Canvas llena su contenedor; Chart.js maneja la resolución internamente
-  canvas.style.display = 'block';
-  canvas.style.width   = '100%';
-  canvas.style.height  = '100%';
+  const canvas        = document.getElementById('tend-chart');
+  const tendChartWrap = document.getElementById('tend-chart-wrap');
+  const tendNoData    = document.getElementById('tend-no-data');
 
+  // Construir el universo completo de fechas con datos
   const fechasSet = new Set();
   series.forEach(s => s.puntos.forEach(p => fechasSet.add(p.fecha)));
   _tendAllDates = [...fechasSet].sort();
+
+  // Actualizar nav de período y obtener la ventana de 3 meses actual
+  _actualizarNavPeriodo();
+  const windowDates = _tendWindowDates;
+
+  // Si no hay datos en la ventana, mostrar estado vacío con nav visible
+  if (!windowDates.length) {
+    tendChartWrap.style.display = 'none';
+    if (tendNoData) {
+      tendNoData.style.display = '';
+      tendNoData.querySelector('p').textContent = 'Sin datos en este período.';
+    }
+    return;
+  }
+
+  // Hay datos — mostrar canvas, ocultar mensajes
+  if (tendNoData) tendNoData.style.display = 'none';
+  tendChartWrap.style.display = '';
+  canvas.style.display = 'block';
+  canvas.style.width   = '100%';
+  canvas.style.height  = '100%';
+  void canvas.offsetHeight;  // forzar reflow para que Chart.js lea dimensiones correctas
 
   const modoComp    = series.some(s => s.cliente_idx === 1);
   const colorByDesc = new Map();
@@ -1678,7 +1771,7 @@ function _renderTendChart(series, cli1Label, cli2Label) {
 
     return {
       label,
-      data: _tendAllDates.map(fecha => {
+      data: windowDates.map(fecha => {
         const p = s.puntos.find(pt => pt.fecha === fecha);
         return p != null ? p.precio_soles : null;
       }),
@@ -1697,7 +1790,7 @@ function _renderTendChart(series, cli1Label, cli2Label) {
   const ctx = canvas.getContext('2d');
   _tendChart = new Chart(ctx, {
     type: 'line',
-    data: { labels: _tendAllDates.map(_fmtFechaCorta), datasets },
+    data: { labels: windowDates.map(_fmtFechaCorta), datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -1706,10 +1799,10 @@ function _renderTendChart(series, cli1Label, cli2Label) {
         legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 18, padding: 10 } },
         tooltip: {
           callbacks: {
-            title: items => _fmtFechaCorta(_tendAllDates[items[0].dataIndex]),
+            title: items => _fmtFechaCorta(windowDates[items[0].dataIndex]),
             label: item => {
               const s = series[item.datasetIndex];
-              const p = s.puntos.find(pt => pt.fecha === _tendAllDates[item.dataIndex]);
+              const p = s.puntos.find(pt => pt.fecha === windowDates[item.dataIndex]);
               const partes = [`S/ ${item.raw.toFixed(2)} P.U.`];
               if (p) {
                 if (p.espesor) partes.push(`e=${p.espesor}mm`);
@@ -1739,7 +1832,7 @@ function _renderTendChart(series, cli1Label, cli2Label) {
         if (!elements.length) return;
         const el = elements[0];
         const s  = _tendSeries[el.datasetIndex];
-        const p  = s.puntos.find(pt => pt.fecha === _tendAllDates[el.index]);
+        const p  = s.puntos.find(pt => pt.fecha === windowDates[el.index]);
         if (p) verDetalle(p.cotizacion_id);
       },
     },

@@ -1628,6 +1628,9 @@ def get_tendencias_items_db(
                 else d["precio_unitario"] * dolar_rate
             )
             d["precio_soles"] = round(precio_soles, 2)
+            # Filtrar precios inválidos: cero y valores centinela como 999
+            if d["precio_soles"] <= 0 or abs(d["precio_soles"] - 999) < 0.5:
+                continue
             d["espesor"] = _parse_espesor(d["descripcion"])
             d["galvanizado"] = d.get("tipo_galvanizado", "") or ""
             d["cliente_idx"] = idx

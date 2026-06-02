@@ -4,6 +4,16 @@
 
 VERSIONES = [
     {
+        "version": "2.7",
+        "fecha": "2026-06-02",
+        "titulo": "Paginación por período (3 meses) + filtro de precios inválidos",
+        "cambios": [
+            ("nueva",      "Gráfico de tendencias pagina por ventanas de 3 meses: botones ← Anterior / Siguiente → para navegar entre períodos"),
+            ("nueva",      "Etiqueta del período visible con el rango de meses activo (ej: Ene 2026 — Mar 2026)"),
+            ("corrección", "Precios iguales a 0 o a 999 (valores centinela/default) se excluyen del gráfico"),
+        ],
+    },
+    {
         "version": "2.6",
         "fecha": "2026-06-02",
         "titulo": "Filtros de espesor y galvanizado en tendencias de precios",
