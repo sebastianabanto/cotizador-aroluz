@@ -1472,6 +1472,147 @@ def get_estadisticas_db(username: Optional[str] = None) -> Dict:
     }
 
 
+def get_items_frecuentes_db(
+    username: Optional[str] = None,
+    cliente: str = "",
+    proyecto: str = "",
+    limit: int = 40,
+) -> List[Dict]:
+    """Devuelve ítems del historial ordenados por frecuencia de aparición."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+
+    where_parts: List[str] = []
+    params: List = []
+
+    if username:
+        where_parts.append("c.username = ?")
+        params.append(username)
+    if cliente.strip():
+        like = f"%{cliente.strip()}%"
+        where_parts.append("(c.cliente LIKE ? OR c.cliente_nombre LIKE ?)")
+        params.extend([like, like])
+    if proyecto.strip():
+        where_parts.append("c.proyecto LIKE ?")
+        params.append(f"%{proyecto.strip()}%")
+
+    where = "WHERE " + " AND ".join(where_parts) if where_parts else ""
+    sql = f"""
+        SELECT ci.descripcion, ci.tipo, COUNT(*) AS count
+        FROM cotizacion_items ci
+        JOIN cotizaciones c ON c.id = ci.cotizacion_id
+        {where}
+        GROUP BY ci.descripcion
+        ORDER BY count DESC
+        LIMIT ?
+    """
+    params.append(limit)
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_tendencias_items_db(
+    clientes: List[str],
+    proyecto: str = "",
+    q: str = "",
+    username: Optional[str] = None,
+    tipos: Optional[List[str]] = None,
+    galvanizados: Optional[List[str]] = None,
+    ganancias: Optional[List[str]] = None,
+    monedas: Optional[List[str]] = None,
+) -> List[Dict]:
+    """Devuelve puntos de precio por ítem para graficar tendencias.
+
+    Para cada cliente en `clientes` ejecuta una consulta y etiqueta los
+    resultados con `cliente_idx` (0 = primer cliente, 1 = segundo).
+    El precio se normaliza a S/ usando el `dolar_rate` de cada cotización.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    results: List[Dict] = []
+
+    for idx, cli in enumerate(clientes):
+        cli = (cli or "").strip()
+        if not cli:
+            continue
+
+        where_parts: List[str] = []
+        params: List = []
+
+        like_cli = f"%{cli}%"
+        where_parts.append("(c.cliente LIKE ? OR c.cliente_nombre LIKE ?)")
+        params.extend([like_cli, like_cli])
+
+        if username:
+            where_parts.append("c.username = ?")
+            params.append(username)
+
+        if proyecto.strip():
+            where_parts.append("c.proyecto LIKE ?")
+            params.append(f"%{proyecto.strip()}%")
+
+        if q.strip():
+            palabras = [p.strip() for p in q.split(",") if p.strip()]
+            for p in palabras:
+                where_parts.append("LOWER(ci.descripcion) LIKE ?")
+                params.append(f"%{p.lower()}%")
+
+        if tipos:
+            placeholders = ",".join("?" * len(tipos))
+            where_parts.append(f"ci.tipo IN ({placeholders})")
+            params.extend(tipos)
+
+        if galvanizados:
+            placeholders = ",".join("?" * len(galvanizados))
+            where_parts.append(f"ci.tipo_galvanizado IN ({placeholders})")
+            params.extend(galvanizados)
+
+        if ganancias:
+            placeholders = ",".join("?" * len(ganancias))
+            where_parts.append(f"ci.porcentaje_ganancia IN ({placeholders})")
+            params.extend(ganancias)
+
+        if monedas:
+            placeholders = ",".join("?" * len(monedas))
+            where_parts.append(f"c.moneda IN ({placeholders})")
+            params.extend(monedas)
+
+        sql = f"""
+            SELECT
+                c.id AS cotizacion_id,
+                c.fecha,
+                c.cliente,
+                c.cliente_nombre,
+                c.proyecto,
+                c.moneda,
+                c.dolar_rate,
+                ci.descripcion,
+                ci.precio_unitario,
+                ci.tipo
+            FROM cotizaciones c
+            JOIN cotizacion_items ci ON ci.cotizacion_id = c.id
+            {"WHERE " + " AND ".join(where_parts) if where_parts else ""}
+            ORDER BY c.fecha ASC, c.id ASC
+        """
+        rows = conn.execute(sql, params).fetchall()
+        for row in rows:
+            d = dict(row)
+            moneda = d.get("moneda", "SOLES")
+            dolar_rate = float(d.get("dolar_rate") or 3.8)
+            precio_soles = (
+                d["precio_unitario"] if moneda == "SOLES"
+                else d["precio_unitario"] * dolar_rate
+            )
+            d["precio_soles"] = round(precio_soles, 2)
+            d["cliente_idx"] = idx
+            d["cliente_label"] = d["cliente_nombre"] or d["cliente"] or cli
+            results.append(d)
+
+    conn.close()
+    return results
+
+
 def get_cotizacion_db(cotizacion_id: int) -> Optional[Dict]:
     """Devuelve cabecera + items de una cotización guardada."""
     conn = sqlite3.connect(DB_PATH, timeout=10)

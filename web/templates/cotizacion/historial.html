@@ -178,23 +178,97 @@
       #modal-tabla td:first-child { white-space: normal; word-break: break-word; }
     }
 
-    /* ── Estadísticas ─────────────────────────────── */
-    .stats-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-bottom:1.25rem; }
-    .stats-card  { background:var(--azul-claro,#4a90d9); color:white; border-radius:8px; padding:0.85rem 1rem; text-align:center; }
-    .stats-card-value { font-size:1.6rem; font-weight:700; line-height:1.1; }
-    .stats-card-label { font-size:0.72rem; opacity:0.85; margin-top:4px; }
-    @media (max-width:480px) { .stats-cards { grid-template-columns:1fr 1fr; } }
+    /* ── Tendencias de Precios ────────────────────── */
+    .tend-filtros { display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem; }
+    .tend-fila    { display:flex; gap:0.6rem; align-items:flex-end; flex-wrap:wrap; }
+    .tend-fila-cmp { align-items:center; }
+    .tend-grupo   { display:flex; flex-direction:column; gap:3px; flex:1; min-width:130px; }
+    .tend-grupo-q { flex:2; }
+    .tend-label   { font-size:0.72rem; font-weight:600; color:var(--texto-suave); }
+    .tend-filtros input[type="text"] {
+      width:100%; padding:0.35rem 0.6rem; font-size:0.85rem;
+      border:1px solid var(--gris-borde,#dde1e7); border-radius:6px;
+      background:white; color:var(--texto); outline:none;
+    }
+    .tend-filtros input[type="text"]:focus { border-color:var(--azul,#1a3a5c); }
+    .tend-cmp-toggle {
+      display:inline-flex; align-items:center; gap:0.4rem;
+      font-size:0.82rem; font-weight:600; color:var(--texto); cursor:pointer;
+      white-space:nowrap;
+    }
+    .tend-cmp-toggle input { accent-color:var(--navy,#0c2340); width:15px; height:15px; }
 
-    .stats-bar-row   { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem; font-size:0.8rem; }
-    .stats-bar-label { flex:0 0 120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--texto); }
-    .stats-bar-track { flex:1; background:var(--gris-fondo,#f5f7fa); border-radius:4px; height:14px; overflow:hidden; }
-    .stats-bar-fill  { height:100%; background:var(--azul-claro,#4a90d9); border-radius:4px; transition:width 0.4s; }
-    .stats-bar-val   { flex:0 0 55px; text-align:right; color:var(--texto-suave); font-size:0.75rem; }
-
-    .stats-grid2     { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:1rem; }
-    @media (max-width:600px) { .stats-grid2 { grid-template-columns:1fr; } }
-    .stats-section-title { font-size:0.8rem; font-weight:700; color:var(--navy,#0c2340); text-transform:uppercase;
-                           letter-spacing:0.06em; margin:0 0 0.6rem; }
+    /* ── Tendencias: panel ítems + chart ──────────── */
+    .tend-items-panel {
+      display: flex; flex-direction: column;
+      width: 190px; flex-shrink: 0;
+      border: 1px solid var(--gris-borde); border-radius: 8px; overflow: hidden;
+    }
+    .tend-items-hdr {
+      background: var(--gris-fondo,#f5f7fa);
+      border-bottom: 1px solid var(--gris-borde);
+      padding: 0.45rem 0.5rem;
+      display: flex; flex-direction: column; gap: 0.3rem;
+    }
+    .tend-items-title {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--texto-suave); display: block;
+    }
+    .tend-items-search {
+      width: 100%; padding: 0.28rem 0.45rem; font-size: 0.78rem;
+      border: 1px solid var(--gris-borde); border-radius: 5px;
+      background: white; color: var(--texto); outline: none;
+    }
+    .tend-items-search:focus { border-color: var(--azul,#1a3a5c); }
+    .tend-items-lista { flex: 1; overflow-y: auto; max-height: 320px; }
+    .tend-items-placeholder {
+      padding: 0.75rem; font-size: 0.78rem;
+      color: var(--texto-suave); text-align: center;
+    }
+    .tend-item-row {
+      display: flex; align-items: center; gap: 0.35rem;
+      padding: 0.38rem 0.5rem;
+      border-bottom: 1px solid var(--gris-borde);
+      cursor: pointer; font-size: 0.76rem;
+      transition: background 0.1s;
+    }
+    .tend-item-row:last-child { border-bottom: none; }
+    .tend-item-row:hover     { background: rgba(37,99,168,0.07); }
+    .tend-item-row.tend-item-active {
+      background: rgba(26,58,92,0.11);
+      font-weight: 600;
+    }
+    .tend-item-desc {
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      line-height: 1.25;
+    }
+    .tend-item-count {
+      flex-shrink: 0; font-size: 0.65rem; color: var(--texto-suave);
+      background: var(--gris-borde); border-radius: 10px;
+      padding: 1px 5px; white-space: nowrap;
+    }
+    .tend-item-tipo {
+      flex-shrink: 0; font-size: 0.6rem;
+      background: var(--azul,#1a3a5c); color: white;
+      border-radius: 3px; padding: 1px 4px;
+    }
+    .tend-chart-panel {
+      flex: 1; min-width: 0;
+      border: 1px solid var(--gris-borde); border-radius: 8px;
+      display: flex; flex-direction: column;
+    }
+    .tend-state-msg {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1.5rem; text-align: center;
+      color: var(--texto-suave); font-size: 0.88rem;
+    }
+    #tend-chart-wrap { flex: 1; }
+    @media (max-width: 600px) {
+      #tend-main { flex-direction: column; }
+      .tend-items-panel { width: 100%; }
+      .tend-items-lista { max-height: 140px; }
+    }
 
     /* ── Comparar ──────────────────────────────────── */
     .cmp-grid  { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
@@ -495,53 +569,134 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
-     Modal: Estadísticas
+     Modal: Tendencias de Precios
 ═══════════════════════════════════════════════════════ -->
 <div id="modal-stats" role="dialog" aria-modal="true" aria-labelledby="stats-titulo"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1300;
             align-items:flex-start; justify-content:center; padding:2rem 1rem; overflow-y:auto; -webkit-overflow-scrolling:touch;">
-  <div class="modal-inner" style="max-width:760px; width:100%; margin:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 id="stats-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Estadísticas del Historial</h2>
-      <button onclick="cerrarStats()" aria-label="Cerrar estadísticas"
+  <div class="modal-inner" style="max-width:860px; width:100%; margin:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
+      <h2 id="stats-titulo" style="margin:0; font-size:1.1rem; color:var(--azul);">Tendencias de Precios</h2>
+      <button onclick="cerrarStats()" aria-label="Cerrar tendencias"
               style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--texto-suave);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
-    <div id="stats-loading" style="text-align:center; padding:2rem; color:var(--texto-suave);">Cargando…</div>
-    <div id="stats-content" style="display:none;">
-      <!-- Tarjetas resumen -->
-      <div class="stats-cards">
-        <div class="stats-card">
-          <div class="stats-card-value" id="stat-cots">—</div>
-          <div class="stats-card-label">Cotizaciones</div>
-        </div>
-        <div class="stats-card" style="background:var(--navy,#0c2340);">
-          <div class="stats-card-value" id="stat-total">—</div>
-          <div class="stats-card-label">Facturado total (S/)</div>
-        </div>
-        <div class="stats-card" style="background:#2e7d32;">
-          <div class="stats-card-value" id="stat-prom">—</div>
-          <div class="stats-card-label">Promedio por cotización (S/)</div>
+
+    <!-- Fila 1: Cliente + Proyecto -->
+    <div class="tend-fila" style="margin-bottom:0.45rem;">
+      <div class="tend-grupo">
+        <label class="tend-label" for="tend-c1-input">Cliente</label>
+        <div class="ac-wrapper">
+          <input type="text" id="tend-c1-input" class="form-control"
+                 placeholder="Escribir para buscar…" autocomplete="off"
+                 autocorrect="off" autocapitalize="words" spellcheck="false"
+                 oninput="onTendCli(1,'input')" onfocus="onTendCli(1,'focus')" onblur="onTendCli(1,'blur')">
+          <div id="tend-c1-lista" class="ac-lista" style="display:none; z-index:150;"></div>
         </div>
       </div>
-      <!-- Grilla: por mes + top clientes -->
-      <div class="stats-grid2">
-        <div>
-          <p class="stats-section-title">Por mes</p>
-          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
-            <label style="font-size:0.75rem; color:var(--texto-suave); white-space:nowrap;">Período:</label>
-            <select id="stats-mes-select" class="form-control" style="width:auto; font-size:0.8rem;"
-                    onchange="filtrarStatsMes()">
-              <option value="3">Últimos 3 meses</option>
-            </select>
-          </div>
-          <div id="stats-por-mes"></div>
-        </div>
-        <div>
-          <p class="stats-section-title">Top clientes</p>
-          <div id="stats-top-clientes"></div>
+      <div class="tend-grupo">
+        <label class="tend-label" for="tend-proyecto">Proyecto (opcional)</label>
+        <input type="text" id="tend-proyecto" class="form-control"
+               placeholder="Filtrar proyecto…" autocorrect="off" spellcheck="false"
+               oninput="triggerTendenciasFull()">
+      </div>
+    </div>
+
+    <!-- Fila 2: Modo comparación -->
+    <div class="tend-fila tend-fila-cmp" style="margin-bottom:0.6rem;">
+      <label class="tend-cmp-toggle" title="Comparar dos clientes en el mismo gráfico">
+        <input type="checkbox" id="tend-modo-cmp" onchange="toggleModoComparacion()">
+        <span>Modo comparación</span>
+      </label>
+      <div id="tend-cmp-cliente2-wrap" style="display:none; flex:1; min-width:180px;">
+        <div class="ac-wrapper">
+          <input type="text" id="tend-c2-input" class="form-control"
+                 placeholder="Segundo cliente…" autocomplete="off"
+                 autocorrect="off" autocapitalize="words" spellcheck="false"
+                 oninput="onTendCli(2,'input')" onfocus="onTendCli(2,'focus')" onblur="onTendCli(2,'blur')">
+          <div id="tend-c2-lista" class="ac-lista" style="display:none; z-index:150;"></div>
         </div>
       </div>
     </div>
+
+    <hr style="border:none; border-top:1px solid var(--gris-borde); margin:0 0 0.55rem;">
+
+    <!-- Fila 3: Filtros chips (igual que barra del historial) -->
+    <div class="fil-row fil-row-tipo" style="margin-bottom:0.5rem; flex-wrap:wrap;">
+      <div class="fil-tipo-wrap">
+        <span class="fil-tipo-title">Tipo:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="B"   onchange="triggerTendencias()"> Bandeja</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CH"  onchange="triggerTendencias()"> Curva H</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CVE" onchange="triggerTendencias()"> Curva VE</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CVI" onchange="triggerTendencias()"> Curva VI</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="T"   onchange="triggerTendencias()"> Tee</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="C"   onchange="triggerTendencias()"> Cruz</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="R"   onchange="triggerTendencias()"> Reducción</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-tipo" value="CP"  onchange="triggerTendencias()"> Caja Pase</label>
+        </div>
+      </div>
+      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.6rem;">
+        <span class="fil-tipo-title">Galv.:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-galv" value="GO" onchange="triggerTendencias()"> GO</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-galv" value="GC" onchange="triggerTendencias()"> GC</label>
+        </div>
+      </div>
+      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.6rem;">
+        <span class="fil-tipo-title">Ganancia:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-gan" value="30" onchange="triggerTendencias()"> 30%</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-gan" value="35" onchange="triggerTendencias()"> 35%</label>
+        </div>
+      </div>
+      <div class="fil-tipo-wrap" style="border-left:1px solid var(--gris-borde); padding-left:0.6rem;">
+        <span class="fil-tipo-title">Moneda:</span>
+        <div class="fil-tipo-grid">
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-moneda" value="SOLES"   onchange="triggerTendencias()"> S/</label>
+          <label class="fil-tipo-label"><input type="checkbox" class="tend-moneda" value="DOLARES" onchange="triggerTendencias()"> USD</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Área principal: panel de ítems (izquierda) + gráfico (derecha) -->
+    <div id="tend-main" style="display:flex; gap:0.6rem; align-items:stretch; min-height:340px;">
+
+      <!-- Panel izquierdo: ítems más cotizados -->
+      <div class="tend-items-panel">
+        <div class="tend-items-hdr">
+          <span class="tend-items-title">Más cotizados</span>
+          <input type="text" id="tend-q-input"
+                 class="tend-items-search"
+                 placeholder="Buscar ítem…"
+                 autocorrect="off" spellcheck="false"
+                 oninput="onTendItemSearch()">
+        </div>
+        <div id="tend-items-lista" class="tend-items-lista">
+          <div class="tend-items-placeholder">Abriendo historial…</div>
+        </div>
+      </div>
+
+      <!-- Panel derecho: estados + gráfico -->
+      <div class="tend-chart-panel">
+        <div id="tend-empty" class="tend-state-msg">
+          <div style="font-size:2rem; margin-bottom:0.5rem; line-height:1;">📈</div>
+          <p style="margin:0; font-size:0.88rem;">Seleccioná un cliente para ver<br>las tendencias de precios</p>
+        </div>
+        <div id="tend-loading" class="tend-state-msg" style="display:none;">
+          <p style="margin:0;">Cargando…</p>
+        </div>
+        <div id="tend-no-data" class="tend-state-msg" style="display:none;">
+          <p style="margin:0;">No hay cotizaciones que coincidan<br>con los filtros seleccionados.</p>
+        </div>
+        <div id="tend-chart-wrap" style="display:none; height:340px; padding:0.5rem; position:relative;">
+          <canvas id="tend-chart"></canvas>
+        </div>
+      </div>
+
+    </div>
+    <p id="tend-hint" style="display:none; font-size:0.72rem; color:var(--texto-suave); text-align:center; margin:0.3rem 0 0;">
+      Hacé clic en un punto para ver el detalle de esa cotización
+    </p>
   </div>
 </div>
 
@@ -580,7 +735,6 @@ let importadasFiltradas   = [];
 let paginaActual          = 1;
 const POR_PAGINA          = 8;
 let fetchDebounce         = null;
-let _statsPorMes          = [];
 let _importadasAbiertas   = false;
 
 // ── Fetch desde servidor (aplica filtros tipo + q) ──
@@ -1000,10 +1154,11 @@ function formatearFecha(fechaIso) {
 }
 
 async function verDetalle(id) {
-  // Si hay otro modal abierto encima (ej. gestionar duplicados z-index:1200), subir por encima
+  // Subir z-index del modal detalle si hay otros modales abiertos encima
   const overlay = document.getElementById('modal-overlay');
   const importarAbierto = document.getElementById('modal-importar').style.display !== 'none';
-  overlay.style.zIndex = importarAbierto ? '1350' : '1000';
+  const statsAbierto    = document.getElementById('modal-stats').style.display    !== 'none';
+  overlay.style.zIndex  = importarAbierto ? '1350' : (statsAbierto ? '1400' : '1000');
 
   const data = await apiFetch(`/api/historial/${id}`);
   if (!data.ok) { toast('Error al cargar detalle', 'error'); return; }
@@ -1173,87 +1328,389 @@ async function confirmarEditar() {
   }
 }
 
-// ── Estadísticas ──
+// ── Tendencias de Precios ──
+let _tendChart          = null;
+let _tendDebounce       = null;
+let _tendSeries         = [];
+let _tendAllDates       = [];
+let TEND_CLIENTES       = [];
+let _tendCliActual      = ['', ''];
+let _tendItemsFrecuentes = [];
+
+const TEND_PALETA = [
+  '#1a3a5c', '#e8751a', '#2e7d32', '#7b1fa2',
+  '#00838f', '#c62828', '#558b2f', '#4527a0',
+];
+
 function cerrarStats() {
   document.getElementById('modal-stats').style.display = 'none';
+  _destruirChart();
 }
 document.getElementById('modal-stats').addEventListener('click', function(e) {
-  if (e.target === this) cerrarStats();
+  if (e.target === this) { cerrarStats(); return; }
+  if (!e.target.closest('.ac-wrapper')) {
+    ['tend-c1-lista','tend-c2-lista'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
 });
 
-function _statsBar(items, labelKey, valKey, maxVal, suffix = '') {
-  if (!items.length) return '<p style="color:var(--texto-suave);font-size:0.8rem;">Sin datos</p>';
-  return items.map(it => {
-    const pct = maxVal > 0 ? Math.round((it[valKey] / maxVal) * 100) : 0;
-    return `<div class="stats-bar-row">
-      <span class="stats-bar-label" title="${it[labelKey]}">${it[labelKey]}</span>
-      <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
-      <span class="stats-bar-val">${it[valKey]}${suffix}</span>
+// ── AC: helpers genéricos de teclado ──
+function _tendAcKey(e, listaId, onSelect) {
+  const lista = document.getElementById(listaId);
+  if (!lista || lista.style.display === 'none') return;
+  const items = [...lista.querySelectorAll('.ac-item')];
+  const active = lista.querySelector('.ac-active');
+  let idx = active ? items.indexOf(active) : -1;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (active) active.classList.remove('ac-active');
+    idx = Math.min(idx + 1, items.length - 1);
+    if (items[idx]) { items[idx].classList.add('ac-active'); items[idx].scrollIntoView({block:'nearest'}); }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (active) active.classList.remove('ac-active');
+    idx = Math.max(idx - 1, 0);
+    if (items[idx]) { items[idx].classList.add('ac-active'); items[idx].scrollIntoView({block:'nearest'}); }
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (active) onSelect(active);
+  } else if (e.key === 'Escape') {
+    lista.style.display = 'none';
+  }
+}
+
+// ── AC: Clientes ──
+function _buildTendClientes() {
+  const seen = new Set();
+  TEND_CLIENTES = [];
+  todasCotizaciones.forEach(c => {
+    const nombre = (c.cliente_nombre || c.cliente || '').trim();
+    const codigo = (c.cliente || '').trim();
+    if (nombre && !seen.has(nombre)) {
+      seen.add(nombre);
+      TEND_CLIENTES.push({ nombre, codigo });
+    }
+  });
+  TEND_CLIENTES.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+function _renderTendCliLista(n, filtrados) {
+  const lista = document.getElementById(`tend-c${n}-lista`);
+  const vacio = `<div class="ac-item ac-item-vacio" data-nombre=""><span class="ac-name ac-vacio-label">— Sin cliente —</span></div>`;
+  if (!filtrados.length) {
+    lista.innerHTML = vacio + '<div class="ac-sin-resultado">Sin resultados</div>';
+  } else {
+    lista.innerHTML = vacio + filtrados.slice(0, 60).map(c => {
+      const codigoPart = c.codigo ? `<span class="ac-code">${c.codigo}</span><span class="ac-name"> — ${c.nombre}</span>`
+                                  : `<span class="ac-name">${c.nombre}</span>`;
+      return `<div class="ac-item" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">${codigoPart}</div>`;
+    }).join('');
+    lista.querySelectorAll('.ac-item').forEach(el =>
+      el.addEventListener('mousedown', () => seleccionarTendCliente(n, el.dataset.nombre))
+    );
+  }
+  lista.style.display = 'block';
+}
+
+function onTendCli(n, action) {
+  const inp = document.getElementById(`tend-c${n}-input`);
+  const listaId = `tend-c${n}-lista`;
+  if (action === 'input') {
+    _tendCliActual[n-1] = '';
+    const q = inp.value.trim().toLowerCase();
+    const filtrados = q ? TEND_CLIENTES.filter(c =>
+      c.nombre.toLowerCase().includes(q) || c.codigo.toLowerCase().includes(q)
+    ) : TEND_CLIENTES;
+    _renderTendCliLista(n, filtrados);
+    triggerTendencias();
+  } else if (action === 'focus') {
+    inp.value = '';
+    _renderTendCliLista(n, TEND_CLIENTES);
+  } else if (action === 'blur') {
+    setTimeout(() => {
+      document.getElementById(listaId).style.display = 'none';
+      if (!inp.value.trim() && _tendCliActual[n-1])
+        inp.value = _tendCliActual[n-1];
+    }, 200);
+  }
+}
+
+function seleccionarTendCliente(n, nombre) {
+  _tendCliActual[n-1] = nombre;
+  document.getElementById(`tend-c${n}-input`).value = nombre;
+  document.getElementById(`tend-c${n}-lista`).style.display = 'none';
+  if (n === 1) cargarItemsFrecuentes();
+  triggerTendencias();
+}
+
+document.getElementById('tend-c1-input').addEventListener('keydown', e =>
+  _tendAcKey(e, 'tend-c1-lista', el => seleccionarTendCliente(1, el.dataset.nombre))
+);
+document.getElementById('tend-c2-input').addEventListener('keydown', e =>
+  _tendAcKey(e, 'tend-c2-lista', el => seleccionarTendCliente(2, el.dataset.nombre))
+);
+
+// ── Panel izquierdo: ítems más cotizados ──
+function renderTendItemsPanel(items) {
+  const lista = document.getElementById('tend-items-lista');
+  if (!items.length) {
+    lista.innerHTML = '<div class="tend-items-placeholder">Sin ítems en el historial</div>';
+    return;
+  }
+  const qActual = document.getElementById('tend-q-input').value.trim();
+  lista.innerHTML = items.slice(0, 60).map(it => {
+    const isActive = qActual && it.descripcion === qActual;
+    const badge    = it.tipo ? `<span class="tend-item-tipo">${it.tipo}</span>` : '';
+    const desc     = it.descripcion.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="tend-item-row${isActive ? ' tend-item-active' : ''}"
+                 data-desc="${it.descripcion.replace(/"/g,'&quot;')}"
+                 onclick="seleccionarTendItem(this.dataset.desc)">
+      ${badge}<span class="tend-item-desc" title="${desc}">${desc}</span>
+      <span class="tend-item-count">${it.count}×</span>
     </div>`;
   }).join('');
 }
 
-function _fmt(n) {
-  return Number(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+function seleccionarTendItem(desc) {
+  const inp     = document.getElementById('tend-q-input');
+  const esToggle = inp.value === desc;
+  inp.value     = esToggle ? '' : desc;
+  // Re-renderizar panel con nuevo estado activo
+  const q = inp.value.trim().toLowerCase();
+  renderTendItemsPanel(q
+    ? _tendItemsFrecuentes.filter(it => it.descripcion.toLowerCase().includes(q))
+    : _tendItemsFrecuentes
+  );
+  triggerTendencias();
 }
 
-async function abrirEstadisticas() {
-  document.getElementById('stats-loading').style.display = 'block';
-  document.getElementById('stats-content').style.display  = 'none';
-  document.getElementById('modal-stats').style.display    = 'flex';
-
-  const data = await apiFetch('/api/historial/estadisticas');
-  if (!data.ok) { toast('Error al cargar estadísticas', 'error'); cerrarStats(); return; }
-  const s = data.stats;
-
-  const totalCots  = s.total_cotizaciones;
-  const totalSoles = s.total_facturado_soles;
-  const prom       = totalCots > 0 ? totalSoles / totalCots : 0;
-
-  document.getElementById('stat-cots').textContent  = totalCots;
-  document.getElementById('stat-total').textContent = 'S/ ' + _fmt(totalSoles);
-  document.getElementById('stat-prom').textContent  = 'S/ ' + _fmt(prom);
-
-  // Por mes: construir items con mes ISO para filtrado
-  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  _statsPorMes = (s.por_mes || []).map(r => {
-    const [y, m] = r.mes.split('-');
-    return { mes: r.mes, label: `${meses[parseInt(m)-1]} ${y.slice(2)}`, cantidad: r.cantidad, total: r.total };
-  });
-
-  // Poblar dropdown con "Últimos 3 meses" + cada mes disponible (más reciente primero)
-  const sel = document.getElementById('stats-mes-select');
-  sel.innerHTML = '<option value="3">Últimos 3 meses</option>';
-  _statsPorMes.slice().reverse().forEach(r => {
-    const opt = document.createElement('option');
-    opt.value = r.mes;
-    opt.textContent = r.label;
-    sel.appendChild(opt);
-  });
-  sel.value = '3';
-  filtrarStatsMes();
-
-  // Top clientes
-  const topCli = s.top_clientes || [];
-  const maxCli = Math.max(...topCli.map(r => r.cantidad), 1);
-  document.getElementById('stats-top-clientes').innerHTML =
-    _statsBar(topCli.map(r => ({label: r.nombre, val: r.cantidad})), 'label', 'val', maxCli, ' cots');
-
-  document.getElementById('stats-loading').style.display = 'none';
-  document.getElementById('stats-content').style.display  = 'block';
+function onTendItemSearch() {
+  const q = document.getElementById('tend-q-input').value.trim().toLowerCase();
+  renderTendItemsPanel(q
+    ? _tendItemsFrecuentes.filter(it => it.descripcion.toLowerCase().includes(q))
+    : _tendItemsFrecuentes
+  );
+  triggerTendencias();
 }
 
-function filtrarStatsMes() {
-  const val = document.getElementById('stats-mes-select').value;
-  let items;
-  if (val === '3') {
-    items = _statsPorMes.slice(-3);
-  } else {
-    items = _statsPorMes.filter(r => r.mes === val);
+// ── Cargar ítems frecuentes desde API y renderizar panel ──
+async function cargarItemsFrecuentes() {
+  const lista = document.getElementById('tend-items-lista');
+  lista.innerHTML = '<div class="tend-items-placeholder">Cargando…</div>';
+  try {
+    const cli  = _tendCliActual[0] || '';
+    const proy = (document.getElementById('tend-proyecto').value || '').trim();
+    const params = new URLSearchParams({ cliente: cli, proyecto: proy, limit: 60 });
+    const data = await apiFetch('/api/historial/items-frecuentes?' + params.toString());
+    _tendItemsFrecuentes = (data && data.ok && Array.isArray(data.items)) ? data.items : [];
+    renderTendItemsPanel(_tendItemsFrecuentes);
+  } catch (e) {
+    _tendItemsFrecuentes = [];
+    lista.innerHTML = '<div class="tend-items-placeholder">Error al cargar ítems</div>';
   }
-  const maxMes = Math.max(...items.map(r => r.cantidad), 1);
-  document.getElementById('stats-por-mes').innerHTML =
-    _statsBar(items.map(r => ({ label: r.label, val: r.cantidad })), 'label', 'val', maxMes, ' cots');
+}
+
+// ── Modo comparación ──
+function toggleModoComparacion() {
+  const on = document.getElementById('tend-modo-cmp').checked;
+  document.getElementById('tend-cmp-cliente2-wrap').style.display = on ? 'flex' : 'none';
+  if (!on) {
+    document.getElementById('tend-c2-input').value = '';
+    _tendCliActual[1] = '';
+  }
+  triggerTendencias();
+}
+
+// ── Debounce central ──
+function triggerTendencias() {
+  clearTimeout(_tendDebounce);
+  _tendDebounce = setTimeout(cargarTendencias, 380);
+}
+
+// Igual que triggerTendencias pero también recarga el panel de ítems (p.ej. al cambiar proyecto)
+function triggerTendenciasFull() {
+  clearTimeout(_tendDebounce);
+  _tendDebounce = setTimeout(async () => {
+    await cargarItemsFrecuentes();
+    cargarTendencias();
+  }, 380);
+}
+
+// ── Abrir modal ──
+async function abrirEstadisticas() {
+  document.getElementById('modal-stats').style.display = 'flex';
+  _buildTendClientes();
+  await cargarItemsFrecuentes();
+
+  // Pre-rellenar con el cliente del filtro principal si coincide
+  const filCli = (document.getElementById('fil-cliente').value || '').trim().toLowerCase();
+  if (filCli && !_tendCliActual[0]) {
+    const match = TEND_CLIENTES.find(c =>
+      c.nombre.toLowerCase().includes(filCli) || c.codigo.toLowerCase().includes(filCli)
+    );
+    if (match) {
+      document.getElementById('tend-c1-input').value = match.nombre;
+      _tendCliActual[0] = match.nombre;
+    }
+  }
+
+  await cargarTendencias();
+}
+
+// ── Fetch y render ──
+async function cargarTendencias() {
+  const cli1    = _tendCliActual[0] || document.getElementById('tend-c1-input').value.trim();
+  const cli2    = _tendCliActual[1] || document.getElementById('tend-c2-input').value.trim();
+  const proy    = document.getElementById('tend-proyecto').value.trim();
+  const q       = document.getElementById('tend-q-input').value.trim();
+  const tipos   = [...document.querySelectorAll('.tend-tipo:checked')].map(cb => cb.value);
+  const galvs   = [...document.querySelectorAll('.tend-galv:checked')].map(cb => cb.value);
+  const gans    = [...document.querySelectorAll('.tend-gan:checked')].map(cb => cb.value);
+  const monedas = [...document.querySelectorAll('.tend-moneda:checked')].map(cb => cb.value);
+
+  const tendEmpty     = document.getElementById('tend-empty');
+  const tendLoading   = document.getElementById('tend-loading');
+  const tendNoData    = document.getElementById('tend-no-data');
+  const tendChartWrap = document.getElementById('tend-chart-wrap');
+  const tendHint      = document.getElementById('tend-hint');
+
+  if (!cli1) {
+    tendEmpty.style.display     = '';
+    tendLoading.style.display   = 'none';
+    tendNoData.style.display    = 'none';
+    tendChartWrap.style.display = 'none';
+    tendHint.style.display      = 'none';
+    return;
+  }
+
+  tendEmpty.style.display     = 'none';
+  tendNoData.style.display    = 'none';
+  tendChartWrap.style.display = 'none';
+  tendHint.style.display      = 'none';
+  tendLoading.style.display   = '';
+
+  const params = new URLSearchParams({ cliente: cli1, cliente2: cli2, proyecto: proy, q });
+  tipos.forEach(t => params.append('tipo', t));
+  galvs.forEach(g => params.append('galvanizado', g));
+  gans.forEach(g => params.append('ganancia', g));
+  monedas.forEach(m => params.append('moneda', m));
+
+  const data = await apiFetch('/api/historial/tendencias?' + params.toString());
+  tendLoading.style.display = 'none';
+
+  if (!data.ok || !data.series || !data.series.length) {
+    tendNoData.style.display = '';
+    _destruirChart();
+    return;
+  }
+
+  tendChartWrap.style.display = '';
+  tendHint.style.display      = '';
+  await new Promise(r => requestAnimationFrame(r));
+  _renderTendChart(data.series, cli1, cli2);
+}
+
+function _destruirChart() {
+  if (_tendChart) { _tendChart.destroy(); _tendChart = null; }
+  _tendSeries   = [];
+  _tendAllDates = [];
+  const wrap = document.getElementById('tend-chart-wrap');
+  if (wrap) {
+    wrap.innerHTML = '<canvas id="tend-chart" style="width:100%;height:100%;"></canvas>';
+  }
+}
+
+function _fmtFechaCorta(iso) {
+  if (!iso || iso.length < 10) return iso;
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+function _renderTendChart(series, cli1Label, cli2Label) {
+  _destruirChart();
+  _tendSeries = series;
+
+  const fechasSet = new Set();
+  series.forEach(s => s.puntos.forEach(p => fechasSet.add(p.fecha)));
+  _tendAllDates = [...fechasSet].sort();
+
+  const modoComp = series.some(s => s.cliente_idx === 1);
+  const colorByDesc = new Map();
+  let colorCounter  = 0;
+
+  const datasets = series.map(s => {
+    const esCli2 = s.cliente_idx === 1;
+    if (!colorByDesc.has(s.descripcion))
+      colorByDesc.set(s.descripcion, TEND_PALETA[colorCounter++ % TEND_PALETA.length]);
+    const color = colorByDesc.get(s.descripcion);
+    const label = modoComp
+      ? `${s.descripcion} (${s.cliente || (esCli2 ? cli2Label : cli1Label)})`
+      : s.descripcion;
+
+    return {
+      label,
+      data: _tendAllDates.map(fecha => {
+        const p = s.puntos.find(pt => pt.fecha === fecha);
+        return p != null ? p.precio_soles : null;
+      }),
+      borderColor: color,
+      backgroundColor: color + '22',
+      borderDash: esCli2 ? [6, 4] : [],
+      borderWidth: 2,
+      pointRadius: 6,
+      pointHoverRadius: 9,
+      pointBackgroundColor: color,
+      spanGaps: false,
+      tension: 0.15,
+    };
+  });
+
+  const ctx = document.getElementById('tend-chart').getContext('2d');
+  _tendChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: _tendAllDates.map(_fmtFechaCorta), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: true },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 18, padding: 10 } },
+        tooltip: {
+          callbacks: {
+            title: items => _fmtFechaCorta(_tendAllDates[items[0].dataIndex]),
+            label: item => {
+              const s = series[item.datasetIndex];
+              const p = s.puntos.find(pt => pt.fecha === _tendAllDates[item.dataIndex]);
+              return `S/ ${item.raw.toFixed(2)} P.U.${p && p.proyecto ? '  —  ' + p.proyecto : ''}`;
+            },
+            afterBody: () => ['↵ Clic para ver cotización'],
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Fecha', font: { size: 11 } },
+          ticks: { maxRotation: 45, font: { size: 10 } },
+        },
+        y: {
+          title: { display: true, text: 'P.U. (S/)', font: { size: 11 } },
+          ticks: {
+            font: { size: 10 },
+            callback: v => 'S/ ' + Number(v).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2}),
+          },
+        },
+      },
+      onClick: (event, elements) => {
+        if (!elements.length) return;
+        const el = elements[0];
+        const s  = _tendSeries[el.datasetIndex];
+        const p  = s.puntos.find(pt => pt.fecha === _tendAllDates[el.index]);
+        if (p) verDetalle(p.cotizacion_id);
+      },
+    },
+  });
 }
 
 // ── Comparar cotizaciones ──
@@ -1770,4 +2227,5 @@ async function dupEjecutarEliminar() {
   _dupIdsEliminar = [];
 }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 {% endblock %}

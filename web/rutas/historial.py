@@ -25,6 +25,8 @@ from web.database import (
     listar_cotizaciones_db,
     get_cotizacion_db,
     get_estadisticas_db,
+    get_tendencias_items_db,
+    get_items_frecuentes_db,
     eliminar_cotizacion_db,
     cargar_cotizacion_al_carrito_db,
 )
@@ -152,6 +154,80 @@ async def api_exportar_multiple_pdf(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/items-frecuentes")
+async def api_items_frecuentes(
+    usuario: dict = Depends(require_login),
+    cliente: str = Query(default=""),
+    proyecto: str = Query(default=""),
+    limit: int = Query(default=40),
+):
+    """Devuelve ítems del historial ordenados por frecuencia de aparición."""
+    es_admin = usuario.get("r") == "ADMIN"
+    username = None if es_admin else usuario["u"]
+    items = get_items_frecuentes_db(username, cliente.strip(), proyecto.strip(), limit)
+    return JSONResponse({"ok": True, "items": items})
+
+
+@router.get("/tendencias")
+async def api_tendencias(
+    usuario: dict = Depends(require_login),
+    cliente: str = Query(default=""),
+    cliente2: str = Query(default=""),
+    proyecto: str = Query(default=""),
+    q: str = Query(default=""),
+    tipo: List[str] = Query(default=[]),
+    galvanizado: List[str] = Query(default=[]),
+    ganancia: List[str] = Query(default=[]),
+    moneda: List[str] = Query(default=[]),
+):
+    """Devuelve series de precio unitario (S/) por ítem para graficar tendencias.
+
+    Acepta hasta 2 clientes (modo comparación) y los mismos filtros de tipo,
+    galvanizado, ganancia y moneda que usa la barra de filtros del historial.
+    """
+    from collections import defaultdict
+
+    es_admin = usuario.get("r") == "ADMIN"
+    username = None if es_admin else usuario["u"]
+
+    clientes_list = [c for c in [cliente.strip(), cliente2.strip()] if c]
+
+    series = []
+    if clientes_list:
+        rows = get_tendencias_items_db(
+            clientes=clientes_list,
+            proyecto=proyecto.strip(),
+            q=q.strip(),
+            username=username,
+            tipos=tipo if tipo else None,
+            galvanizados=galvanizado if galvanizado else None,
+            ganancias=ganancia if ganancia else None,
+            monedas=moneda if moneda else None,
+        )
+
+        grupos: dict = defaultdict(list)
+        cliente_labels: dict = {}
+        for row in rows:
+            key = (row["descripcion"], row["cliente_idx"])
+            grupos[key].append({
+                "fecha": (row["fecha"] or "")[:10],
+                "precio_soles": row["precio_soles"],
+                "cotizacion_id": row["cotizacion_id"],
+                "proyecto": row["proyecto"] or "",
+            })
+            cliente_labels[row["cliente_idx"]] = row["cliente_label"]
+
+        for (desc, cli_idx), puntos in sorted(grupos.items()):
+            series.append({
+                "descripcion": desc,
+                "cliente": cliente_labels.get(cli_idx, ""),
+                "cliente_idx": cli_idx,
+                "puntos": sorted(puntos, key=lambda p: p["fecha"]),
+            })
+
+    return JSONResponse({"ok": True, "series": series})
 
 
 @router.get("/{cotizacion_id}")
