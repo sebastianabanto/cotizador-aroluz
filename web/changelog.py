@@ -4,6 +4,15 @@
 
 VERSIONES = [
     {
+        "version": "2.9",
+        "fecha": "2026-06-03",
+        "titulo": "Edición de descripción y precio en carrito sin error de recálculo",
+        "cambios": [
+            ("corrección", "Editar solo la descripción o el precio de un ítem calculado ya no intenta recalcular — se guarda directamente sin error"),
+            ("mejora",     "El recálculo completo (motor) se activa solo cuando se cambia ganancia, espesor o con/sin tapa"),
+        ],
+    },
+    {
         "version": "2.8",
         "fecha": "2026-06-02",
         "titulo": "Selector de rango de fechas en tendencias + simplificación de filtros",

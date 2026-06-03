@@ -1670,6 +1670,8 @@ document.querySelectorAll('input[name="edit-con-tapa"]').forEach(r =>
 let _editandoTapaSep = false;
 // Precio original del ítem al abrir el modal (para detectar cambio manual)
 let _editPrecioOriginal = null;
+// Parámetros de cálculo originales (para detectar si el usuario los cambió)
+let _editCalcOrig = null;
 
 // Actualiza el textarea readonly de la tapa separada cuando cambia el espesor
 document.querySelectorAll('input[name="edit-esp-tapa"]').forEach(r =>
@@ -1819,6 +1821,22 @@ function abrirModalEditar(itemId) {
     progGroup.style.display = 'none';
     document.getElementById('edit-item-prog').value = '';
   }
+  // Guardar parámetros de cálculo originales para detectar si cambian
+  if (!esManual) {
+    const ganEl = document.querySelector('input[name="edit-ganancia"]:checked');
+    const ecEl  = document.querySelector('input[name="edit-esp-cuerpo"]:checked');
+    const etEl  = document.querySelector('input[name="edit-esp-tapa"]:checked');
+    const ctEl  = document.querySelector('input[name="edit-con-tapa"]:checked');
+    _editCalcOrig = {
+      ganancia:     ganEl ? ganEl.value : '30',
+      espCuerpo:    ecEl  ? ecEl.value  : '1.5',
+      espTapa:      etEl  ? etEl.value  : '1.5',
+      conTapa:      ctEl  ? ctEl.value  : 'si',
+    };
+  } else {
+    _editCalcOrig = null;
+  }
+
   document.getElementById('modal-editar').style.display = 'flex';
   setTimeout(() => document.getElementById('edit-desc').focus(), 50);
 }
@@ -1875,15 +1893,33 @@ async function guardarEdicion() {
     const conTapa   = document.querySelector('input[name="edit-con-tapa"]:checked')?.value || 'si';
     const und       = _leerUnidad();
     const precioActual = parseFloat(document.getElementById('edit-precio').value);
-    const precioOverride = (!isNaN(precioActual) && precioActual >= 0 && _editPrecioOriginal !== null
-      && Math.abs(precioActual - _editPrecioOriginal) > 0.001)
-      ? precioActual : null;
-    const fd = formData({
-      descripcion: desc, ganancia, espesor_cuerpo: espCuerpo, espesor_tapa: espTapa,
-      unidad: und, con_tapa: conTapa,
-      ...(precioOverride !== null ? { precio_override: precioOverride } : {}),
-    });
-    data = await apiFetch(`/api/carrito/recalcular/${itemId}`, { method: 'POST', body: fd });
+    const precioChanged = !isNaN(precioActual) && precioActual >= 0 && _editPrecioOriginal !== null
+      && Math.abs(precioActual - _editPrecioOriginal) > 0.001;
+
+    // Si ningún parámetro de cálculo cambió → solo actualizar desc/precio sin recalcular
+    const calcCambio = !_editCalcOrig
+      || ganancia  !== _editCalcOrig.ganancia
+      || espCuerpo !== _editCalcOrig.espCuerpo
+      || espTapa   !== _editCalcOrig.espTapa
+      || conTapa   !== _editCalcOrig.conTapa;
+
+    if (!calcCambio) {
+      const item = carritoMap.get(itemId);
+      const precioFinal = precioChanged
+        ? Math.ceil(precioActual * 100) / 100
+        : item?.precio_unitario ?? _editPrecioOriginal;
+      const fd = formData({ descripcion: desc, unidad: und, precio_unitario: precioFinal,
+        descripcion_calculada: item?.descripcion_calculada ?? '' });
+      data = await apiFetch(`/api/carrito/editar/${itemId}`, { method: 'POST', body: fd });
+    } else {
+      const precioOverride = precioChanged ? precioActual : null;
+      const fd = formData({
+        descripcion: desc, ganancia, espesor_cuerpo: espCuerpo, espesor_tapa: espTapa,
+        unidad: und, con_tapa: conTapa,
+        ...(precioOverride !== null ? { precio_override: precioOverride } : {}),
+      });
+      data = await apiFetch(`/api/carrito/recalcular/${itemId}`, { method: 'POST', body: fd });
+    }
   }
 
   btn.disabled = false; btn.textContent = 'Guardar';
