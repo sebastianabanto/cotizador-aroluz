@@ -382,6 +382,135 @@ async def api_reordenar_carrito(
     return JSONResponse({"ok": True, "carrito": get_carrito(usuario["u"])})
 
 
+def _item_payload(item_id, descripcion, unidad, galvanizado, ganancia,
+                  precio, peso, desc_calc, tipo, precio_manual) -> dict:
+    """Dict estándar de un ítem en las respuestas de /recalcular."""
+    return {
+        "id": item_id,
+        "descripcion": descripcion,
+        "unidad": unidad,
+        "tipo_galvanizado": galvanizado,
+        "porcentaje_ganancia": ganancia,
+        "precio_unitario": precio,
+        "peso_unitario": peso,
+        "descripcion_calculada": desc_calc,
+        "tipo": tipo,
+        "precio_manual": precio_manual,
+    }
+
+
+def _recalcular_manual(item, item_id, username, descripcion, unidad, precio_override):
+    """Ítems manuales o de catálogo (tipo_galvanizado N/A): solo texto/precio/unidad."""
+    precio_final = item["precio_unitario"]
+    precio_es_manual = bool(item.get("precio_manual", 0))
+    if precio_override is not None and abs(precio_override - float(item["precio_unitario"])) > 0.001:
+        precio_final = precio_override
+        precio_es_manual = True
+    updated = update_item_campos_carrito_db(
+        item_id, username, descripcion.strip(), unidad.strip(),
+        precio_final, item.get("descripcion_calculada"),
+    )
+    return JSONResponse({
+        "ok": updated,
+        "cuerpo": _item_payload(
+            item_id, descripcion.strip(), unidad.strip(),
+            item["tipo_galvanizado"], item["porcentaje_ganancia"],
+            precio_final, item.get("peso_unitario", 0),
+            item.get("descripcion_calculada"), item.get("tipo"), precio_es_manual,
+        ),
+    })
+
+
+def _recalcular_tapa_vinculada(item, carrito, config, item_id, username, espesor_tapa):
+    """Tapa separada (tapa_para_id): recalcular usando el cuerpo como referencia."""
+    cuerpo_item = next((i for i in carrito if i["id"] == item["tapa_para_id"]), None)
+    if not cuerpo_item:
+        return JSONResponse({"ok": False, "error": "Cuerpo del ítem no encontrado"}, status_code=404)
+    parsed_c = parsear_descripcion(cuerpo_item["descripcion"])
+    if not parsed_c.get("tipo"):
+        return JSONResponse({"ok": False, "error": "No se reconoció el tipo del cuerpo"}, status_code=400)
+    parsed_c["espesor_explicito"] = False  # forzar override del espesor
+    galvanizado_c = cuerpo_item["tipo_galvanizado"]
+    mm_vals_c = [float(m) for m in re.findall(r'(\d+\.\d+)MM', cuerpo_item["descripcion"].upper())]
+    _validos = {1.2, 1.5, 2.0}
+    esp_c = mm_vals_c[0] if mm_vals_c and mm_vals_c[0] in _validos else parsed_c.get("espesor", 1.5)
+    ganancia_c = cuerpo_item["porcentaje_ganancia"]  # bloqueada al cuerpo
+    ov_t = {
+        "galvanizado_global": galvanizado_c,
+        "espesor_cuerpo_global": esp_c,
+        "espesor_tapa_global": espesor_tapa,
+        "ganancia_global": ganancia_c,
+    }
+    es_ml_c = (cuerpo_item["unidad"] == "ML" and parsed_c.get("tipo") == "B")
+    res_t = calcular_precio_importado(
+        parsed_c, config, ov_t,
+        con_tapa=True,
+        es_metro_lineal=es_ml_c,
+        espesor_tapa_item=espesor_tapa,
+    )
+    if res_t is None or not res_t.get("tapa"):
+        return JSONResponse({"ok": False, "error": "No se pudo calcular el precio de la tapa"}, status_code=400)
+    td = res_t["tapa"]
+    updated = update_item_completo_carrito_db(
+        item_id, username,
+        td[2], item["unidad"],
+        round(td[0], 4), round(td[1], 6),
+        galvanizado_c, ganancia_c,
+        td[2],
+        precio_manual=False,
+    )
+    return JSONResponse({
+        "ok": updated,
+        "cuerpo": _item_payload(
+            item_id, td[2], item["unidad"], galvanizado_c, ganancia_c,
+            round(td[0], 4), round(td[1], 6), td[2], item.get("tipo"), False,
+        ),
+    })
+
+
+def _recalcular_tapa_independiente(item, parsed, config, item_id, username, descripcion,
+                                   unidad, ganancia, espesor_cuerpo, espesor_tapa, precio_override):
+    """Tapa sin tapa_para_id (agregada con 'tapa aparte ON'): devolver el cálculo de la tapa."""
+    galvanizado_t = item["tipo_galvanizado"] if not parsed.get("galvanizado_explicito") else parsed["galvanizado"]
+    ov_t = {
+        "galvanizado_global": galvanizado_t,
+        "espesor_cuerpo_global": espesor_cuerpo,
+        "espesor_tapa_global": espesor_tapa,
+        "ganancia_global": ganancia,
+    }
+    es_ml_t = (unidad == "ML" and parsed.get("tipo") == "B")
+    res_t = calcular_precio_importado(
+        parsed, config, ov_t,
+        con_tapa=True,
+        es_metro_lineal=es_ml_t,
+        espesor_tapa_item=espesor_tapa,
+    )
+    if res_t is None or not res_t.get("tapa"):
+        return JSONResponse({"ok": False, "error": "No se pudo calcular el precio de la tapa"}, status_code=400)
+    td = res_t["tapa"]
+    nueva_descripcion = _reemplazar_espesor(descripcion.strip(), espesor_tapa)
+    precio_tapa_final = round(td[0], 4)
+    precio_tapa_es_manual = False
+    if precio_override is not None and abs(precio_override - precio_tapa_final) > 0.001:
+        precio_tapa_final = precio_override
+        precio_tapa_es_manual = True
+    updated = update_item_completo_carrito_db(
+        item_id, username,
+        nueva_descripcion, unidad.strip(),
+        precio_tapa_final, round(td[1], 6),
+        galvanizado_t, ganancia,
+        td[2],
+        precio_manual=precio_tapa_es_manual,
+    )
+    return JSONResponse({
+        "ok": updated,
+        "cuerpo": _item_payload(
+            item_id, nueva_descripcion, unidad.strip(), galvanizado_t, ganancia,
+            precio_tapa_final, round(td[1], 6), td[2], item.get("tipo"), precio_tapa_es_manual,
+        ),
+    })
+
+
 @router.post("/recalcular/{item_id}")
 async def api_recalcular_item(
     item_id: int,
@@ -402,86 +531,13 @@ async def api_recalcular_item(
 
     # Items manuales o de catálogo: solo guardar texto/precio/unidad
     if item["tipo_galvanizado"] == "N/A":
-        precio_final = item["precio_unitario"]
-        precio_es_manual = bool(item.get("precio_manual", 0))
-        if precio_override is not None and abs(precio_override - float(item["precio_unitario"])) > 0.001:
-            precio_final = precio_override
-            precio_es_manual = True
-        updated = update_item_campos_carrito_db(
-            item_id, usuario["u"], descripcion.strip(), unidad.strip(),
-            precio_final, item.get("descripcion_calculada"),
-        )
-        return JSONResponse({
-            "ok": updated,
-            "cuerpo": {
-                "id": item_id,
-                "descripcion": descripcion.strip(),
-                "unidad": unidad.strip(),
-                "tipo_galvanizado": item["tipo_galvanizado"],
-                "porcentaje_ganancia": item["porcentaje_ganancia"],
-                "precio_unitario": precio_final,
-                "peso_unitario": item.get("peso_unitario", 0),
-                "descripcion_calculada": item.get("descripcion_calculada"),
-                "tipo": item.get("tipo"),
-                "precio_manual": precio_es_manual,
-            },
-        })
+        return _recalcular_manual(item, item_id, usuario["u"], descripcion, unidad, precio_override)
 
     config = cargar_config()
 
     # ── Tapa separada: recalcular usando el cuerpo como referencia ──
     if item.get("tapa_para_id"):
-        cuerpo_item = next((i for i in carrito if i["id"] == item["tapa_para_id"]), None)
-        if not cuerpo_item:
-            return JSONResponse({"ok": False, "error": "Cuerpo del ítem no encontrado"}, status_code=404)
-        parsed_c = parsear_descripcion(cuerpo_item["descripcion"])
-        if not parsed_c.get("tipo"):
-            return JSONResponse({"ok": False, "error": "No se reconoció el tipo del cuerpo"}, status_code=400)
-        parsed_c["espesor_explicito"] = False  # forzar override del espesor
-        galvanizado_c = cuerpo_item["tipo_galvanizado"]
-        mm_vals_c = [float(m) for m in re.findall(r'(\d+\.\d+)MM', cuerpo_item["descripcion"].upper())]
-        _validos = {1.2, 1.5, 2.0}
-        esp_c = mm_vals_c[0] if mm_vals_c and mm_vals_c[0] in _validos else parsed_c.get("espesor", 1.5)
-        ganancia_c = cuerpo_item["porcentaje_ganancia"]  # bloqueada al cuerpo
-        ov_t = {
-            "galvanizado_global": galvanizado_c,
-            "espesor_cuerpo_global": esp_c,
-            "espesor_tapa_global": espesor_tapa,
-            "ganancia_global": ganancia_c,
-        }
-        es_ml_c = (cuerpo_item["unidad"] == "ML" and parsed_c.get("tipo") == "B")
-        res_t = calcular_precio_importado(
-            parsed_c, config, ov_t,
-            con_tapa=True,
-            es_metro_lineal=es_ml_c,
-            espesor_tapa_item=espesor_tapa,
-        )
-        if res_t is None or not res_t.get("tapa"):
-            return JSONResponse({"ok": False, "error": "No se pudo calcular el precio de la tapa"}, status_code=400)
-        td = res_t["tapa"]
-        updated = update_item_completo_carrito_db(
-            item_id, usuario["u"],
-            td[2], item["unidad"],
-            round(td[0], 4), round(td[1], 6),
-            galvanizado_c, ganancia_c,
-            td[2],
-            precio_manual=False,
-        )
-        return JSONResponse({
-            "ok": updated,
-            "cuerpo": {
-                "id": item_id,
-                "descripcion": td[2],
-                "unidad": item["unidad"],
-                "tipo_galvanizado": galvanizado_c,
-                "porcentaje_ganancia": ganancia_c,
-                "precio_unitario": round(td[0], 4),
-                "peso_unitario": round(td[1], 6),
-                "descripcion_calculada": td[2],
-                "tipo": item.get("tipo"),
-                "precio_manual": False,
-            },
-        })
+        return _recalcular_tapa_vinculada(item, carrito, config, item_id, usuario["u"], espesor_tapa)
 
     parsed = parsear_descripcion(descripcion)
     if not parsed.get("tipo"):
@@ -496,52 +552,10 @@ async def api_recalcular_item(
     # El motor generó dos ítems separados; la tapa tiene tapa_para_id=None porque no pasó
     # por api_separar_tapas. Al recalcular, hay que devolver r[1] (tapa), no r[0] (cuerpo).
     if item.get("tapa_para_id") is None and bool(_ES_TAPA_IND_RE.search(descripcion)):
-        galvanizado_t = item["tipo_galvanizado"] if not parsed.get("galvanizado_explicito") else parsed["galvanizado"]
-        ov_t = {
-            "galvanizado_global": galvanizado_t,
-            "espesor_cuerpo_global": espesor_cuerpo,
-            "espesor_tapa_global": espesor_tapa,
-            "ganancia_global": ganancia,
-        }
-        es_ml_t = (unidad == "ML" and parsed.get("tipo") == "B")
-        res_t = calcular_precio_importado(
-            parsed, config, ov_t,
-            con_tapa=True,
-            es_metro_lineal=es_ml_t,
-            espesor_tapa_item=espesor_tapa,
+        return _recalcular_tapa_independiente(
+            item, parsed, config, item_id, usuario["u"], descripcion,
+            unidad, ganancia, espesor_cuerpo, espesor_tapa, precio_override,
         )
-        if res_t is None or not res_t.get("tapa"):
-            return JSONResponse({"ok": False, "error": "No se pudo calcular el precio de la tapa"}, status_code=400)
-        td = res_t["tapa"]
-        nueva_descripcion = _reemplazar_espesor(descripcion.strip(), espesor_tapa)
-        precio_tapa_final = round(td[0], 4)
-        precio_tapa_es_manual = False
-        if precio_override is not None and abs(precio_override - precio_tapa_final) > 0.001:
-            precio_tapa_final = precio_override
-            precio_tapa_es_manual = True
-        updated = update_item_completo_carrito_db(
-            item_id, usuario["u"],
-            nueva_descripcion, unidad.strip(),
-            precio_tapa_final, round(td[1], 6),
-            galvanizado_t, ganancia,
-            td[2],
-            precio_manual=precio_tapa_es_manual,
-        )
-        return JSONResponse({
-            "ok": updated,
-            "cuerpo": {
-                "id": item_id,
-                "descripcion": nueva_descripcion,
-                "unidad": unidad.strip(),
-                "tipo_galvanizado": galvanizado_t,
-                "porcentaje_ganancia": ganancia,
-                "precio_unitario": precio_tapa_final,
-                "peso_unitario": round(td[1], 6),
-                "descripcion_calculada": td[2],
-                "tipo": item.get("tipo"),
-                "precio_manual": precio_tapa_es_manual,
-            },
-        })
 
     incluir_tapa = (con_tapa == "si")
 
