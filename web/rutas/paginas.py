@@ -196,7 +196,7 @@ async def catalogo_page(request: Request, usuario: dict = Depends(require_login)
     config = cargar_config()
     if not _permiso_usuario(usuario, "ver_catalogo", config):
         return RedirectResponse("/cotizar?msg=nopermiso", status_code=303)
-    ruta_json = Path(__file__).resolve().parent.parent / "catalogo_productos.json"
+    ruta_json = Path(__file__).resolve().parent.parent.parent / "catalogo_productos.json"
     try:
         with open(ruta_json, encoding="utf-8") as f:
             catalogo_productos = json.load(f)

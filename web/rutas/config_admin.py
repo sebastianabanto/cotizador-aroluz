@@ -150,7 +150,7 @@ async def importar_excel(
     # Fallback: buscar la plantilla en la carpeta local
     if not ruta_excel:
         from pathlib import Path as _P
-        candidato = _P(__file__).parent.parent / "plantillas" / "COTIZACIÓN v1.2 12-07-2023.xlsm"
+        candidato = _P(__file__).parent.parent.parent / "plantillas" / "COTIZACIÓN v1.2 12-07-2023.xlsm"
         if candidato.exists():
             ruta_excel = str(candidato)
     try:
@@ -279,7 +279,7 @@ async def cfg_eliminar_atencion(nombre: str, usuario: dict = Depends(require_adm
 
 @router.get("/configuracion/catalogo", response_class=HTMLResponse)
 async def configuracion_catalogo_page(request: Request, usuario: dict = Depends(require_admin)):
-    ruta_json = Path(__file__).resolve().parent.parent / "catalogo_productos.json"
+    ruta_json = Path(__file__).resolve().parent.parent.parent / "catalogo_productos.json"
     try:
         with open(ruta_json, encoding="utf-8") as f:
             datos = json.load(f)
@@ -292,7 +292,7 @@ async def configuracion_catalogo_page(request: Request, usuario: dict = Depends(
 
 
 def _leer_catalogo_json() -> dict:
-    ruta = Path(__file__).resolve().parent.parent / "catalogo_productos.json"
+    ruta = Path(__file__).resolve().parent.parent.parent / "catalogo_productos.json"
     if not ruta.exists():
         return {"version": "1.0", "categorias": []}
     with open(ruta, encoding="utf-8") as f:
@@ -303,7 +303,7 @@ def _guardar_catalogo_json(datos: dict) -> bool:
     try:
         from datetime import date
         datos["ultima_actualizacion"] = date.today().isoformat()
-        ruta = Path(__file__).resolve().parent.parent / "catalogo_productos.json"
+        ruta = Path(__file__).resolve().parent.parent.parent / "catalogo_productos.json"
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump(datos, f, ensure_ascii=False, indent=2)
         return True
@@ -476,7 +476,7 @@ async def importar_json_endpoint(
     ruta_json: str = Form(""),
 ):
     if not ruta_json:
-        ruta_json = str(Path(__file__).resolve().parent / "data" / "catalogo_contactos.json")
+        ruta_json = str(Path(__file__).resolve().parent.parent / "data" / "catalogo_contactos.json")
     try:
         conteo = importar_catalogo_desde_json(ruta_json)
         return JSONResponse({"ok": True, "conteo": conteo})
@@ -527,7 +527,7 @@ async def descargar_catalogo_xlsx(usuario: dict = Depends(require_admin)):
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
 
-    ruta_json = Path(__file__).resolve().parent.parent / "catalogo_productos.json"
+    ruta_json = Path(__file__).resolve().parent.parent.parent / "catalogo_productos.json"
     if not ruta_json.exists():
         raise HTTPException(404, "catalogo_productos.json no encontrado")
     with open(ruta_json, encoding="utf-8") as f:
@@ -647,7 +647,7 @@ async def subir_catalogo_xlsx(
             ],
         }
 
-        ruta_json = Path(__file__).resolve().parent.parent / "catalogo_productos.json"
+        ruta_json = Path(__file__).resolve().parent.parent.parent / "catalogo_productos.json"
         with open(ruta_json, "w", encoding="utf-8") as f:
             json.dump(resultado, f, ensure_ascii=False, indent=2)
 
