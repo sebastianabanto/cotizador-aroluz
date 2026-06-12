@@ -4,6 +4,16 @@
 
 VERSIONES = [
     {
+        "version": "3.0",
+        "fecha": "2026-06-08",
+        "titulo": "Tendencias sin cliente: Más cotizados y gráfico globales",
+        "cambios": [
+            ("mejora",     "El panel 'Más cotizados' carga al abrir Tendencias sin necesidad de seleccionar cliente"),
+            ("mejora",     "Al hacer clic en un ítem de 'Más cotizados', el gráfico muestra la tendencia de precio para todos los clientes, con una línea por cliente en la leyenda"),
+            ("mejora",     "El rango de fechas se pre-llena por defecto con los últimos 3 meses al abrir el modal"),
+        ],
+    },
+    {
         "version": "2.9",
         "fecha": "2026-06-03",
         "titulo": "Edición de descripción y precio en carrito sin error de recálculo",

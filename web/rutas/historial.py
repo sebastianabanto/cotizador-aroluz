@@ -196,7 +196,7 @@ async def api_tendencias(
     clientes_list = [c for c in [cliente.strip(), cliente2.strip()] if c]
 
     series = []
-    if clientes_list:
+    if clientes_list or q.strip():
         rows = get_tendencias_items_db(
             clientes=clientes_list,
             proyecto=proyecto.strip(),
@@ -211,8 +211,15 @@ async def api_tendencias(
 
         grupos: dict = defaultdict(list)
         cliente_labels: dict = {}
+        # Sin cliente: agrupar por (descripcion, cliente_label) → una serie por cliente.
+        # Con cliente(s): agrupar por (descripcion, cliente_idx) como antes.
+        sin_cliente = not clientes_list
         for row in rows:
-            key = (row["descripcion"], row["cliente_idx"])
+            if sin_cliente:
+                key = (row["descripcion"], row["cliente_label"])
+            else:
+                key = (row["descripcion"], row["cliente_idx"])
+                cliente_labels[row["cliente_idx"]] = row["cliente_label"]
             grupos[key].append({
                 "fecha": (row["fecha"] or "")[:10],
                 "precio_soles": row["precio_soles"],
@@ -221,12 +228,18 @@ async def api_tendencias(
                 "espesor": row.get("espesor", ""),
                 "galvanizado": row.get("galvanizado", ""),
             })
-            cliente_labels[row["cliente_idx"]] = row["cliente_label"]
 
-        for (desc, cli_idx), puntos in sorted(grupos.items()):
+        for i, (key, puntos) in enumerate(sorted(grupos.items())):
+            desc = key[0]
+            if sin_cliente:
+                cli_label = key[1]
+                cli_idx   = i
+            else:
+                cli_idx   = key[1]
+                cli_label = cliente_labels.get(cli_idx, "")
             series.append({
                 "descripcion": desc,
-                "cliente": cliente_labels.get(cli_idx, ""),
+                "cliente": cli_label,
                 "cliente_idx": cli_idx,
                 "puntos": sorted(puntos, key=lambda p: p["fecha"]),
             })

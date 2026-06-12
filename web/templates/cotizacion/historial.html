@@ -689,7 +689,7 @@
       <div class="tend-chart-panel">
         <div id="tend-empty" class="tend-state-msg">
           <div style="font-size:2rem; margin-bottom:0.5rem; line-height:1;">📈</div>
-          <p style="margin:0; font-size:0.88rem;">Seleccioná un cliente para ver<br>las tendencias de precios</p>
+          <p style="margin:0; font-size:0.88rem;">Seleccioná un ítem o cliente<br>para ver las tendencias de precios</p>
         </div>
         <div id="tend-loading" class="tend-state-msg" style="display:none;">
           <p style="margin:0;">Cargando…</p>
@@ -1565,28 +1565,32 @@ async function abrirEstadisticas() {
   document.getElementById('modal-stats').style.display = 'flex';
   _buildTendClientes();
 
-  if (_tendCliActual[0]) {
-    // Cliente ya seleccionado de la vez anterior — recargar en paralelo
-    await Promise.all([cargarItemsFrecuentes(), cargarTendencias()]);
-    return;
+  // Rango por defecto: 3 meses hacia atrás (solo si los campos están vacíos)
+  const desdeFld = document.getElementById('tend-fecha-desde');
+  const hastaFld = document.getElementById('tend-fecha-hasta');
+  if (!desdeFld.value && !hastaFld.value) {
+    const hoy   = new Date();
+    const desde = new Date(hoy.getFullYear(), hoy.getMonth() - 3, hoy.getDate());
+    desdeFld.value = desde.toISOString().slice(0, 10);
+    hastaFld.value = hoy.toISOString().slice(0, 10);
   }
 
-  // Sin cliente: mostrar placeholder, intentar pre-llenar desde barra de filtros
-  document.getElementById('tend-items-lista').innerHTML =
-    '<div class="tend-items-placeholder">Seleccioná un cliente para ver los ítems</div>';
-
-  const filCli = (document.getElementById('fil-cliente').value || '').trim().toLowerCase();
-  if (filCli) {
-    const match = TEND_CLIENTES.find(c =>
-      c.nombre.toLowerCase().includes(filCli) || c.codigo.toLowerCase().includes(filCli)
-    );
-    if (match) {
-      document.getElementById('tend-c1-input').value = match.nombre;
-      _tendCliActual[0] = match.nombre;
-      await Promise.all([cargarItemsFrecuentes(), cargarTendencias()]);
+  // Intentar pre-llenar cliente desde barra de filtros
+  if (!_tendCliActual[0]) {
+    const filCli = (document.getElementById('fil-cliente').value || '').trim().toLowerCase();
+    if (filCli) {
+      const match = TEND_CLIENTES.find(c =>
+        c.nombre.toLowerCase().includes(filCli) || c.codigo.toLowerCase().includes(filCli)
+      );
+      if (match) {
+        document.getElementById('tend-c1-input').value = match.nombre;
+        _tendCliActual[0] = match.nombre;
+      }
     }
   }
-  // Si no hay cliente, el usuario selecciona uno y seleccionarTendCliente() dispara la carga
+
+  // Siempre cargar ítems frecuentes (con o sin cliente)
+  await Promise.all([cargarItemsFrecuentes(), cargarTendencias()]);
 }
 
 // ── Fetch y render ──
@@ -1606,7 +1610,7 @@ async function cargarTendencias() {
   const tendChartWrap = document.getElementById('tend-chart-wrap');
   const tendHint      = document.getElementById('tend-hint');
 
-  if (!cli1) {
+  if (!cli1 && !q) {
     tendEmpty.style.display     = '';
     tendLoading.style.display   = 'none';
     tendNoData.style.display    = 'none';
@@ -1695,7 +1699,10 @@ function _renderTendChart(series, cli1Label, cli2Label) {
   canvas.style.height  = '100%';
   void canvas.offsetHeight;  // forzar reflow para que Chart.js lea dimensiones correctas
 
-  const modoComp    = series.some(s => s.cliente_idx === 1);
+  // modoComp: activado por modo comparación explícito (cli2) o cuando no hay cliente
+  // y hay múltiples clientes en los datos (sin_cliente = !cli1Label)
+  const sinCliente  = !cli1Label;
+  const modoComp    = series.some(s => s.cliente_idx === 1) || sinCliente;
   const colorByDesc = new Map();
   let colorCounter  = 0;
 
@@ -1705,7 +1712,7 @@ function _renderTendChart(series, cli1Label, cli2Label) {
       colorByDesc.set(s.descripcion, TEND_PALETA[colorCounter++ % TEND_PALETA.length]);
     const color = colorByDesc.get(s.descripcion);
     const label = modoComp
-      ? `${s.descripcion} (${s.cliente || (esCli2 ? cli2Label : cli1Label)})`
+      ? `${s.descripcion}${s.cliente ? ' (' + s.cliente + ')' : (esCli2 ? ' (' + cli2Label + ')' : (cli1Label ? ' (' + cli1Label + ')' : ''))}`
       : s.descripcion;
 
     return {

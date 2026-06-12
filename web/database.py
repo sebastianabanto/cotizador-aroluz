@@ -1554,17 +1554,19 @@ def get_tendencias_items_db(
     conn.row_factory = sqlite3.Row
     results: List[Dict] = []
 
-    for idx, cli in enumerate(clientes):
+    # Si no se especificó ningún cliente, hacer una pasada sin filtro de cliente (idx=0)
+    iteracion = list(enumerate(clientes)) if clientes else [(0, "")]
+
+    for idx, cli in iteracion:
         cli = (cli or "").strip()
-        if not cli:
-            continue
 
         where_parts: List[str] = []
         params: List = []
 
-        like_cli = f"%{cli}%"
-        where_parts.append("(c.cliente LIKE ? OR c.cliente_nombre LIKE ?)")
-        params.extend([like_cli, like_cli])
+        if cli:
+            like_cli = f"%{cli}%"
+            where_parts.append("(c.cliente LIKE ? OR c.cliente_nombre LIKE ?)")
+            params.extend([like_cli, like_cli])
 
         if username:
             where_parts.append("c.username = ?")
@@ -1634,7 +1636,7 @@ def get_tendencias_items_db(
             d["espesor"] = _parse_espesor(d["descripcion"])
             d["galvanizado"] = d.get("tipo_galvanizado", "") or ""
             d["cliente_idx"] = idx
-            d["cliente_label"] = d["cliente_nombre"] or d["cliente"] or cli
+            d["cliente_label"] = d["cliente_nombre"] or d["cliente"] or cli or ""
             if espesores and d["espesor"] not in espesores:
                 continue
             results.append(d)
