@@ -16,7 +16,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,7 +57,8 @@ from web.asistencias.router import router as asistencias_router
 # Configurar app
 # ─────────────────────────────────────────────
 
-limiter = Limiter(key_func=get_remote_address)
+from web.limits import limiter
+from web.validators import validar_ruc
 
 app = FastAPI(
     title="AROLUZ Cotizador Web",
@@ -377,21 +378,30 @@ async def api_upload_adjunto(
     return JSONResponse({"ok": True, "id": adj_id, "filename": archivo.filename})
 
 
+def _servir_adjunto(adj_id: int, nombre: str, disposition: str, default_type: str) -> FileResponse:
+    info = get_adjunto_filepath(adj_id, nombre)
+    if not info:
+        raise HTTPException(404, "Adjunto no encontrado")
+    p = Path(info["filepath"]).resolve()
+    try:
+        if not p.is_relative_to(ADJUNTOS_DIR.resolve()):
+            raise HTTPException(404, "Adjunto no encontrado")
+    except ValueError:
+        raise HTTPException(404, "Adjunto no encontrado")
+    if not p.exists():
+        raise HTTPException(404, "Archivo no encontrado en disco")
+    return FileResponse(
+        p,
+        media_type=info.get("content_type") or default_type,
+        headers={"Content-Disposition": f'{disposition}; filename="{info["filename"]}"'},
+    )
+
+
 @app.get("/api/proyecto/{nombre}/adjunto/{adj_id}/descargar")
 async def api_descargar_adjunto(
     nombre: str, adj_id: int, usuario: dict = Depends(require_login),
 ):
-    info = get_adjunto_filepath(adj_id, nombre)
-    if not info:
-        raise HTTPException(404, "Adjunto no encontrado")
-    p = Path(info["filepath"])
-    if not p.exists():
-        raise HTTPException(404, "Archivo no encontrado en disco")
-    return StreamingResponse(
-        open(p, "rb"),
-        media_type=info.get("content_type") or "application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{info["filename"]}"'},
-    )
+    return _servir_adjunto(adj_id, nombre, "attachment", "application/octet-stream")
 
 
 @app.get("/api/proyecto/{nombre}/adjunto/{adj_id}/ver")
@@ -399,17 +409,7 @@ async def api_ver_adjunto_inline(
     nombre: str, adj_id: int, usuario: dict = Depends(require_login),
 ):
     """Sirve el adjunto inline (para visualizar en iframe sin forzar descarga)."""
-    info = get_adjunto_filepath(adj_id, nombre)
-    if not info:
-        raise HTTPException(404, "Adjunto no encontrado")
-    p = Path(info["filepath"])
-    if not p.exists():
-        raise HTTPException(404, "Archivo no encontrado en disco")
-    return StreamingResponse(
-        open(p, "rb"),
-        media_type=info.get("content_type") or "application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{info["filename"]}"'},
-    )
+    return _servir_adjunto(adj_id, nombre, "inline", "application/pdf")
 
 
 @app.delete("/api/proyecto/{nombre}/adjunto/{adj_id}")
@@ -777,9 +777,9 @@ async def cfg_agregar_cliente(
     ubicacion: str = Form(""),
     abreviacion: str = Form(""),
 ):
-    import re as _re
-    if ruc and not _re.fullmatch(r'\d{11}', ruc):
-        return JSONResponse({"ok": False, "error": "El RUC debe tener exactamente 11 dígitos numéricos"}, status_code=422)
+    err_ruc = validar_ruc(ruc)
+    if err_ruc:
+        return JSONResponse({"ok": False, "error": err_ruc}, status_code=422)
     ok = agregar_cliente(codigo, nombre, ruc, ubicacion, abreviacion)
     return JSONResponse({"ok": ok})
 
@@ -804,9 +804,9 @@ async def api_nuevo_cliente(
     ubicacion: str = Form(""),
     abreviacion: str = Form(""),
 ):
-    import re as _re
-    if ruc and not _re.fullmatch(r'\d{11}', ruc):
-        return JSONResponse({"ok": False, "error": "El RUC debe tener exactamente 11 dígitos numéricos"}, status_code=422)
+    err_ruc = validar_ruc(ruc)
+    if err_ruc:
+        return JSONResponse({"ok": False, "error": err_ruc}, status_code=422)
     # Si ya existe ese código, añadir sufijo numérico
     from web.database import obtener_catalogo as _cat
     codigos_existentes = {c["codigo"] for c in _cat()["clientes"]}
@@ -840,9 +840,9 @@ async def cfg_editar_cliente(
     ubicacion: str = Form(""),
     abreviacion: str = Form(""),
 ):
-    import re as _re
-    if ruc and not _re.fullmatch(r'\d{11}', ruc):
-        return JSONResponse({"ok": False, "error": "El RUC debe tener exactamente 11 dígitos numéricos"}, status_code=422)
+    err_ruc = validar_ruc(ruc)
+    if err_ruc:
+        return JSONResponse({"ok": False, "error": err_ruc}, status_code=422)
     ok = editar_cliente(codigo, nombre, ruc, ubicacion, abreviacion)
     return JSONResponse({"ok": ok})
 
@@ -1258,7 +1258,9 @@ async def subir_catalogo_xlsx(
 
 
 @app.post("/configuracion/usuario/crear")
+@limiter.limit("10/minute")
 async def cfg_crear_usuario(
+    request: Request,
     usuario: dict = Depends(require_admin),
     username: str = Form(...),
     password: str = Form(...),
@@ -1273,7 +1275,9 @@ async def cfg_crear_usuario(
 
 
 @app.post("/configuracion/usuario/cambiar_password")
+@limiter.limit("5/minute")
 async def cfg_cambiar_password(
+    request: Request,
     usuario: dict = Depends(require_admin),
     password_actual: str = Form(...),
     password_nuevo: str = Form(...),
@@ -1316,7 +1320,9 @@ async def cfg_eliminar_usuario(username: str, usuario: dict = Depends(require_ad
 
 
 @app.post("/configuracion/usuario/{username}/reset_password")
+@limiter.limit("5/minute")
 async def cfg_reset_password(
+    request: Request,
     username: str,
     usuario: dict = Depends(require_admin),
     password_nuevo: str = Form(...),
@@ -1362,7 +1368,9 @@ async def mi_config_guardar_planchas(
 
 
 @app.post("/mi-config/cambiar_password")
+@limiter.limit("5/minute")
 async def mi_config_cambiar_password(
+    request: Request,
     usuario: dict = Depends(require_login),
     password_actual: str = Form(...),
     password_nuevo: str = Form(...),
@@ -1407,6 +1415,7 @@ async def cuenta_page(request: Request, usuario: dict = Depends(require_login)):
 
 
 @app.post("/cuenta/cambiar_password")
+@limiter.limit("5/minute")
 async def cuenta_cambiar_password(
     request: Request,
     usuario: dict = Depends(require_login),

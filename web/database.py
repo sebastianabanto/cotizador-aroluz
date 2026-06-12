@@ -274,7 +274,8 @@ def init_db():
     # Crear usuario admin por defecto si no hay usuarios
     c.execute("SELECT COUNT(*) FROM usuarios")
     if c.fetchone()[0] == 0:
-        _crear_usuario(conn, "admin", "aroluz2024", "Administrador", "ADMIN")
+        _admin_pwd = os.environ.get("AROLUZ_ADMIN_PASSWORD") or "aroluz2024"
+        _crear_usuario(conn, "admin", _admin_pwd, "Administrador", "ADMIN")
         print("Usuario admin creado. Cambiá la contraseña en /cuenta")
 
     # Seed inicial desde JSON si las tablas de catálogo están vacías
@@ -468,8 +469,18 @@ def eliminar_usuario(username: str) -> bool:
 # Configuración
 # ─────────────────────────────────────────────
 
+# Cache en memoria del config: evita leer el JSON del disco en cada request.
+# Se invalida explícitamente en guardar_config(). Se devuelve siempre una copia
+# profunda para que los callers puedan mutar el dict sin corromper el cache.
+_config_cache: Optional[Dict] = None
+
+
 def cargar_config() -> Dict:
     """Carga configuración desde cotizador_config.json, mergeando con defaults."""
+    global _config_cache
+    import copy
+    if _config_cache is not None:
+        return copy.deepcopy(_config_cache)
     if CONFIG_PATH.exists():
         try:
             with open(CONFIG_PATH, encoding="utf-8") as f:
@@ -480,6 +491,7 @@ def cargar_config() -> Dict:
             if vd.get("espesor_tapa") == "1.2" and cfg.get("valores_defecto", {}).get("espesor_tapa") == "1.2":
                 vd["espesor_tapa"] = "1.5"
                 guardar_config(resultado)
+            _config_cache = copy.deepcopy(resultado)
             return resultado
         except Exception:
             pass
@@ -488,6 +500,7 @@ def cargar_config() -> Dict:
 
 def guardar_config(config: Dict) -> bool:
     """Guarda configuración en cotizador_config.json."""
+    global _config_cache
     try:
         backup = CONFIG_PATH.parent / "cotizador_config_backup.json"
         if CONFIG_PATH.exists():
@@ -495,8 +508,10 @@ def guardar_config(config: Dict) -> bool:
             shutil.copy2(CONFIG_PATH, backup)
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
+        _config_cache = None
         return True
     except Exception:
+        _config_cache = None
         return False
 
 
@@ -2336,6 +2351,46 @@ def fusionar_reporte_asistencia(
 
 # ── IMAP / correo electrónico ────────────────────────────────────────────────
 
+# La contraseña IMAP se guarda cifrada (Fernet) con prefijo "enc:". La clave se
+# deriva de AROLUZ_SECRET_KEY; sin esa env var se persiste una clave propia en
+# web/data/.imap_key para que el descifrado sobreviva reinicios.
+_ENC_PREFIX = "enc:"
+
+
+def _imap_fernet():
+    import base64 as _b64
+    import hashlib as _hashlib
+    from cryptography.fernet import Fernet
+    secret = os.environ.get("AROLUZ_SECRET_KEY")
+    if not secret:
+        key_file = DB_PATH.parent / ".imap_key"
+        if key_file.exists():
+            secret = key_file.read_text().strip()
+        else:
+            import secrets as _sec
+            secret = _sec.token_hex(32)
+            key_file.write_text(secret)
+    return Fernet(_b64.urlsafe_b64encode(_hashlib.sha256(secret.encode()).digest()))
+
+
+def _cifrar_imap_password(password: str) -> str:
+    if not password:
+        return ""
+    return _ENC_PREFIX + _imap_fernet().encrypt(password.encode()).decode()
+
+
+def _descifrar_imap_password(stored: str) -> str:
+    if not stored:
+        return ""
+    if not stored.startswith(_ENC_PREFIX):
+        return stored  # valor legacy en texto plano — se re-cifra al guardar
+    try:
+        return _imap_fernet().decrypt(stored[len(_ENC_PREFIX):].encode()).decode()
+    except Exception:
+        # Clave cambiada o token corrupto: forzar reconfiguración en Ajustes → Correo
+        return ""
+
+
 def get_email_imap_config() -> Optional[Dict]:
     """Devuelve la configuración IMAP guardada, o None si aún no está configurada."""
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -2344,7 +2399,9 @@ def get_email_imap_config() -> Optional[Dict]:
     conn.close()
     if not row or not row["host"]:
         return None
-    return dict(row)
+    cfg = dict(row)
+    cfg["password"] = _descifrar_imap_password(cfg.get("password") or "")
+    return cfg
 
 
 def save_email_imap_config(host: str, port: int, username: str, password: str,
@@ -2356,7 +2413,7 @@ def save_email_imap_config(host: str, port: int, username: str, password: str,
            ON CONFLICT(id) DO UPDATE SET
                host=excluded.host, port=excluded.port, username=excluded.username,
                password=excluded.password, folder=excluded.folder, days_back=excluded.days_back""",
-        (host, port, username, password, folder, days_back),
+        (host, port, username, _cifrar_imap_password(password), folder, days_back),
     )
     conn.commit()
     conn.close()

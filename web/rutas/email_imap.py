@@ -11,12 +11,13 @@ import unicodedata
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from web.auth import require_login, require_admin
+from web.limits import limiter
 from web.database import (
     ADJUNTOS_DIR,
     add_adjunto,
@@ -1471,7 +1472,8 @@ async def email_get_config(usuario: dict = Depends(require_admin)):
 
 
 @router.post("/config")
-async def email_save_config(body: ImapConfigBody, usuario: dict = Depends(require_admin)):
+@limiter.limit("10/minute")
+async def email_save_config(request: Request, body: ImapConfigBody, usuario: dict = Depends(require_admin)):
     if not body.host.strip() or not body.username.strip():
         return JSONResponse({"ok": False, "error": "Host y usuario son obligatorios."}, status_code=422)
     password = body.password
