@@ -1,6 +1,6 @@
 # ROADMAP — AROLUZ Cotizador
 
-> Última actualización: 2026-06-12 · Versión actual: **3.0** (ver `web/changelog.py`)
+> Última actualización: 2026-06-12 · Versión actual: **3.1** (ver `web/changelog.py`)
 > Docs relacionados: [`docs/mapa-archivos.md`](docs/mapa-archivos.md) · [`docs/auditoria-2026-06.md`](docs/auditoria-2026-06.md)
 
 ## Dónde estamos parados
@@ -41,18 +41,19 @@ Dos apps coexisten: **desktop** (`main.py`, Tkinter, congelada/estable) y **web*
 
 ### P2 — Eficiencia 🟠
 - [x] Cache en memoria de `cargar_config()` con invalidación al guardar *(jun 2026)*
-- [ ] Context manager `get_conn()` en el 100 % de accesos SQLite (~88 `conn.close()` sueltos) — se resuelve junto con el refactor 4a
+- [ ] Context manager `get_conn()` en el 100 % de accesos SQLite (~88 `conn.close()` sueltos, ahora repartidos en `web/db/*` — convertir módulo por módulo)
 - [ ] N+1 en sync IMAP: precargar `message_id`/`pdf_hash` existentes en un set antes del loop
 - [ ] Revisar índices SQLite para queries de tendencias (`cotizacion_items` por descripción/fecha)
 
 ### P3 — Refactor / Mantenibilidad 🟡
-- [ ] `web/database.py` (2 400+ líneas) → paquete `web/db/` con fachada retrocompatible
-- [ ] `web/main.py` (1 500 líneas) → routers (`paginas`, `config_admin`, `proyectos`)
-- [ ] Extraer JS inline a `web/static/` (carrito ~1 900, historial ~1 600, cotización ~880 líneas)
-- [ ] Unificar variables CSS: `home.css` y `asistencias.css` no deben redefinir `:root`
-- [ ] Dividir `api_recalcular_item` (`web/rutas/carrito.py`, 212 líneas) en funciones privadas
+- [x] `web/database.py` (2 400+ líneas) → paquete `web/db/` con fachada retrocompatible *(jun 2026)*
+- [x] `web/main.py` (1 500 líneas) → routers `paginas`, `config_admin`, `proyectos` + `web/plantillas.py` compartido *(jun 2026)*
+- [x] Extraer JS inline a `web/static/`: `carrito.js`, `historial.js`, `cotizacion.js` (datos Jinja vía `window.__X__`) *(jun 2026)*
+- [x] Dividir `api_recalcular_item` en `_recalcular_manual` / `_recalcular_tapa_vinculada` / `_recalcular_tapa_independiente` *(jun 2026)*
+- [x] Eliminar duplicados backend: `validar_ruc` → `web/validators.py` *(jun 2026)*
+- [ ] CSS: el `:root` de `asistencias.css` es una paleta propia intencional del módulo (y `home.css` no redefine `:root`). Pendiente decidir si asistencias debe adoptar la paleta global o mantener la suya — decisión de diseño del usuario, no deuda técnica automática
 - [ ] `web/rutas/email_imap.py` (1 600 líneas): **primero** tests de parseo de OC (S10/JEF/CLASEM) con PDFs fixtures, **después** refactor — el parsing es frágil
-- [ ] Eliminar duplicados: `validar_ruc` (usar `web/validators.py`), `toggleCat` en varios templates
+- [ ] Duplicado JS restante: `toggleCat` en `catalogo.html` y `configuracion_catalogo.html`
 
 ### P4 — UX / UI 🔵
 - [ ] Spinner/loading global reutilizable (hoy solo se deshabilitan botones con texto "⏳")

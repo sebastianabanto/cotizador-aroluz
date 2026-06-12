@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AROLUZ Cotizador is a Python + Tkinter desktop app for quoting structural cable tray products. A FastAPI web version was implemented in February 2026 and lives in `web/` within this same directory.
 
+**Docs de referencia** (mantener al día):
+- `ROADMAP.md` — estado actual + backlog priorizado (P1 seguridad … P5 funcionalidad)
+- `docs/mapa-archivos.md` — mapa por módulo: ruta, responsabilidad y tamaño de cada archivo (leer ANTES de explorar el repo; ahorra tokens)
+- `docs/auditoria-2026-06.md` — hallazgos de la auditoría jun 2026 con archivo:línea
+
 **Two apps coexist:**
 - `main.py` — desktop app (Tkinter, Windows only)
 - `web/main.py` — web app (FastAPI, any device on the network)
@@ -56,37 +61,40 @@ URL: `http://localhost:8000` — default login: `admin` / `aroluz2024`
 
 ### Web Architecture (added Feb 2026)
 
+> Estructura refactorizada en jun 2026 (v3.1). El detalle completo archivo por archivo está en `docs/mapa-archivos.md`.
+
 ```
 web/
-├── main.py          # FastAPI app — all page routes + mounts API routers
+├── main.py          # SOLO arma la app: middleware, static mount, includes de routers (~130 líneas)
+├── database.py      # FACHADA retrocompatible — re-exporta web/db/* y ejecuta init_db() al importar
+├── db/              # Acceso a datos SQLite (split de database.py, jun 2026)
+│   ├── core.py             # DB_PATH, init_db, migraciones, backups rotados, seed
+│   ├── usuarios.py / config.py / catalogo.py / carrito.py / historial.py
+│   └── proyectos.py / asistencias.py / email.py  # email: contraseña IMAP cifrada (Fernet)
 ├── motor.py         # Pure pricing engine — PricingConfig dataclass replaces logica.py globals
 ├── auth.py          # Signed session cookies (itsdangerous HMAC, 7-day expiry)
-├── database.py      # SQLite (web/data/aroluz.db) — users, clients (RUC/ubicación),
-│                    #   atenciones (email), monedas, carrito_items,
-│                    #   cotizaciones + cotizacion_items (historial snapshot)
+├── plantillas.py    # Jinja2 compartido: templates, ctx(), _permiso_usuario()
+├── limits.py        # Rate limiter slowapi compartido
+├── validators.py    # Validaciones compartidas (validar_ruc)
 ├── rutas/
+│   ├── paginas.py          # Rutas HTML: login, home, cotizar, carrito, historial, etc.
+│   ├── proyectos.py        # API kanban: estado, adjuntos, OC items
+│   ├── config_admin.py     # Configuración ADMIN: precios, catálogo, clientes, usuarios
 │   ├── cotizar.py          # POST /api/cotizar/{tipo} — calls motor.py, returns JSON
 │   ├── carrito.py          # GET/POST /api/carrito — SQLite-persisted cart per user
 │   ├── exportar.py         # POST /api/exportar/{pdf|xlsx} — streaming file download
-│   ├── historial.py        # GET /historial + export PDF/XLSX from saved quotes
+│   ├── historial.py        # API historial + tendencias
+│   ├── planchas.py / importar_pdf.py
 │   └── email_imap.py       # GET+POST /api/email/* — sync IMAP, parse OC PDFs, geocode
-├── templates/
-│   ├── base.html                   # Base layout (nav, session, messages)
-│   ├── login.html
-│   ├── cotizacion.html             # Main quoting form
-│   ├── cotizacion_pdf.html         # PDF preview template (ReportLab via HTML)
-│   ├── carrito.html                # Cart view + validez selector
-│   ├── catalogo.html               # Fixed-price catalog browser
-│   ├── configuracion.html          # Settings page (pricing config)
-│   ├── configuracion_catalogo.html # Catalog import from Excel
-│   ├── clientes.html               # Clients master-detail (JS vanilla)
-│   └── historial.html              # Quote history + filter bar
+├── templates/       # base.html + cotizacion/ + asistencias/ + admin pages
+│                    # cotizacion_pdf.html = plantilla oficial del PDF (diseño intocable)
 ├── static/
-│   ├── style.css                   # Full CSS — no external frameworks
-│   ├── cotizar-layout.js           # JS for quoting form UI behavior
-│   └── IMAGEN_LOGO_AROLUZEIRL_BARRITA.png
+│   ├── style.css / home.css / asistencias.css
+│   ├── carrito.js / historial.js / cotizacion.js   # JS extraído de los templates (jun 2026);
+│   │                                # los datos Jinja entran vía window.__X__ en un script inline corto
+│   └── importar.js / planchas.js / cotizar-layout.js / asistencias-dashboard.js
 └── data/
-    └── aroluz.db    # SQLite — auto-created on first run
+    └── aroluz.db    # SQLite — auto-created on first run (backups rotados en data/backups/)
 ```
 
 **Key design decisions:**
@@ -270,9 +278,14 @@ A backup is kept at `cotizador_config_backup.json`.
 | Archivo | Rol |
 |---------|-----|
 | `web/motor.py` | PricingConfig dataclass + 7 funciones `cotizar_*` |
-| `web/main.py` | FastAPI app + todas las rutas HTML |
+| `web/main.py` | Solo arma la app (middleware + includes); las rutas viven en `web/rutas/` |
 | `web/auth.py` | Sesiones firmadas (cookie HTTP-only, 7 días) |
-| `web/database.py` | SQLite: usuarios, clientes, atenciones, monedas + `cargar_config()` |
+| `web/database.py` | Fachada — el acceso a datos real vive en `web/db/*` |
+| `web/db/` | SQLite por dominio: core, usuarios, config, catalogo, carrito, historial, proyectos, asistencias, email |
+| `web/plantillas.py` | Jinja2 compartido: `templates`, `ctx()`, `_permiso_usuario()` |
+| `web/rutas/paginas.py` | Rutas HTML (login, home, cotizar, carrito, historial, etc.) |
+| `web/rutas/proyectos.py` | API kanban: estado, adjuntos, OC items |
+| `web/rutas/config_admin.py` | Configuración ADMIN: precios, catálogo, clientes, usuarios |
 | `web/rutas/cotizar.py` | 7 endpoints `POST /api/cotizar/{tipo}` |
 | `web/rutas/carrito.py` | Carrito SQLite persistente por usuario |
 | `web/rutas/exportar.py` | PDF + XLSX streaming download |

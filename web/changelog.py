@@ -4,6 +4,19 @@
 
 VERSIONES = [
     {
+        "version": "3.1",
+        "fecha": "2026-06-12",
+        "titulo": "Seguridad reforzada y reorganización interna del código",
+        "cambios": [
+            ("seguridad",   "La contraseña del correo IMAP ahora se guarda cifrada en la base de datos"),
+            ("seguridad",   "Límite de intentos al cambiar contraseñas, crear usuarios y guardar la config de correo"),
+            ("seguridad",   "Validación adicional al descargar adjuntos de proyectos"),
+            ("rendimiento", "La configuración de precios se cachea en memoria (antes se leía del disco en cada operación)"),
+            ("rendimiento", "Descargas de adjuntos más robustas (sin fugas de archivos abiertos)"),
+            ("mejora",      "Reorganización interna: base de datos y rutas divididas en módulos (sin cambios visibles)"),
+        ],
+    },
+    {
         "version": "3.0",
         "fecha": "2026-06-08",
         "titulo": "Tendencias sin cliente: Más cotizados y gráfico globales",
