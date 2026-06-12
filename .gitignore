@@ -13,3 +13,6 @@ temp/
 plantillas/
 *.xlsm
 .fly/
+.pytest_cache/
+test_*.pdf
+_nul
