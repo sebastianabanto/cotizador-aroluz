@@ -16,9 +16,6 @@ let _importarItems = [];
 // Ítems parseados del paso 1 (para poder re-procesar desde paso 2 sin volver)
 let _ultimoItemsParsed = [];
 
-// Modo activo en paso 1
-let _importarModo = 'tabla'; // 'tabla' | 'libre'
-
 // Parámetros globales configurados en el paso 0
 let _importarConfig = {
   galvanizado_global: 'GO',
@@ -29,11 +26,18 @@ let _importarConfig = {
   tapa_modo: 'junto',
 };
 
+// Flags: el usuario eligió ACTIVAMENTE estos controles en la barra del paso 2.
+// false = el radio está pre-seleccionado visualmente pero NO es un override activo.
+// true  = el usuario hizo click → se aplica a todos los ítems.
+let _p2SupOverride   = false;
+let _p2EspTapaOverride = false;
+
 // ── Encabezados reconocidos para auto-detección de columnas ──
 const _HEADER_RE = {
   descripcion: /DESCRIP|DETALLE|PRODUCTO|ITEM|C[ÓO]DIGO|NOMBRE/i,
   unidad:      /\bUND\b|\bUNIDAD\b|\bUN\/ML\b|\bUN\b|\bU\.M\.\b|\bUM\b|\bMTS\b|\bMT\b/i,
   cantidad:    /CANT|QTY|\bN[°º]\b|N[°]|CANTIDAD|METRADO/i,
+  precio:      /^P\.?\s*U\.?$|P[\s._]?UNIT|PRECIO[\s._]*U/i,
   // TOTAL se excluye adrede: en tablas de cotización TOTAL = precio total, no cantidad
 };
 
@@ -46,7 +50,6 @@ function abrirModalImportar() {
   document.getElementById('importar-paste').value = '';
   _importarItems = [];
   document.getElementById('modal-importar').style.display = 'flex';
-  setModoImportar('libre');
   setTimeout(() => document.getElementById('importar-paste').focus(), 50);
 }
 
@@ -65,16 +68,12 @@ function _leerConfigImportar() {
   const galv = document.querySelector('input[name="imp-galv"]:checked');
   const gan  = document.querySelector('input[name="imp-ganancia"]:checked');
   const espC = document.querySelector('input[name="imp-esp-cuerpo"]:checked');
-  const espT = document.querySelector('input[name="imp-esp-tapa"]:checked');
-  const sup  = document.querySelector('input[name="imp-superficie"]:checked');
 
   _importarConfig.galvanizado_global      = galv ? galv.value : 'GO';
   _importarConfig.ganancia_global         = gan  ? gan.value  : '30';
   _importarConfig.espesor_cuerpo_global   = espC ? parseFloat(espC.value) : 1.5;
-  // Libre: espesor tapa null → backend usa mismo espesor que cuerpo por defecto
-  _importarConfig.espesor_tapa_global     = _importarModo === 'libre' ? null : (espT ? parseFloat(espT.value) : 1.2);
-  // Libre: superficie null → backend usa RANURADA por defecto; per-ítem overrides desde desc
-  _importarConfig.superficie_global       = _importarModo === 'libre' ? null : (sup ? sup.value  : 'LISA');
+  _importarConfig.espesor_tapa_global     = null;  // null → backend usa mismo espesor que cuerpo
+  _importarConfig.superficie_global       = null;  // null → backend respeta la superficie de cada item
   const tapaModo = document.querySelector('input[name="imp-tapa-modo"]:checked');
   _importarConfig.tapa_modo              = tapaModo ? tapaModo.value : 'junto';
 }
@@ -95,6 +94,25 @@ function _actualizarBotonesComision() {
   }
 }
 
+// Actualiza el estilo visual de los botones Calcular/Manual y el hint
+function _actualizarBotonesModoPrecio() {
+  const lblAroluz = document.getElementById('imp-lbl-aroluz');
+  const lblManual = document.getElementById('imp-lbl-manual');
+  const hint      = document.getElementById('imp-modo-precio-hint');
+  const val = document.querySelector('input[name="imp-modo-precio"]:checked')?.value;
+  if (!lblAroluz || !lblManual) return;
+  const BASE = 'display:flex; align-items:center; gap:6px; cursor:pointer; padding:0.3rem 0.75rem; border-radius:6px; font-size:0.82rem; font-weight:600; transition:all .15s;';
+  if (val === 'aroluz') {
+    lblAroluz.style.cssText = BASE + 'border:2px solid #1a6fad; background:#e8f0fb; color:#1a6fad;';
+    lblManual.style.cssText = BASE + 'border:2px solid #d1d5db; background:#fff; color:#6b7280;';
+    if (hint) hint.style.display = 'none';
+  } else {
+    lblAroluz.style.cssText = BASE + 'border:2px solid #d1d5db; background:#fff; color:#6b7280;';
+    lblManual.style.cssText = BASE + 'border:2px solid #7c3aed; background:#f5f0ff; color:#7c3aed;';
+    if (hint) hint.style.display = '';
+  }
+}
+
 // Cerrar al hacer click en el overlay
 document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('modal-importar');
@@ -104,44 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
-
-// ──────────────────────────────────────────────────────────────
-// Cambiar modo del paso 1 (tabla / libre)
-// ──────────────────────────────────────────────────────────────
-
-function setModoImportar(modo) {
-  _importarModo = modo;
-
-  const btnTabla    = document.getElementById('btn-modo-tabla');
-  const btnLibre    = document.getElementById('btn-modo-libre');
-  const ayudaTabla  = document.getElementById('imp-ayuda-tabla');
-  const ayudaLibre  = document.getElementById('imp-ayuda-libre');
-  const textarea    = document.getElementById('importar-paste');
-  const btnProcesar = document.getElementById('btn-importar-procesar');
-
-  if (!btnTabla) return; // paso1 aún no está en DOM
-
-  // Estilos de tab: activo vs inactivo (se aplican directo para evitar conflicto con inline styles)
-  const _estiloActivo   = 'color:#2563eb; border-bottom:2px solid #2563eb; font-weight:600; margin-bottom:-2px;';
-  const _estiloInactivo = 'color:#6b7280; border-bottom:2px solid transparent; font-weight:normal; margin-bottom:-2px;';
-  const _base = 'padding:0.4rem 1rem; font-size:0.85rem; border:none; background:none; cursor:pointer; ';
-
-  if (modo === 'tabla') {
-    btnTabla.setAttribute('style', _base + _estiloActivo);
-    btnLibre.setAttribute('style', _base + _estiloInactivo);
-    ayudaTabla.style.display = 'block';
-    ayudaLibre.style.display = 'none';
-    textarea.placeholder = 'Pega aquí una tabla de Excel, lista de Word/PDF o texto:\n\nTUBO CONDUIT EMT 3/4   UND   20\nCURVA EMT GALVANIZADO 1/2   UND   15\n\nTambién se aceptan tablas con tabuladores, metrados y multi-columna.';
-    btnProcesar.textContent = 'Procesar tabla';
-  } else {
-    btnTabla.setAttribute('style', _base + _estiloInactivo);
-    btnLibre.setAttribute('style', _base + _estiloActivo);
-    ayudaTabla.style.display = 'none';
-    ayudaLibre.style.display = 'block';
-    textarea.placeholder = 'Escribe un producto por línea:\n5 und bandeja 500x100mm 1.5mm ct\n10 ml bandeja esc 400x100mm 1.5mm ct 1.2mm\n3 und bandeja lisa 300x100mm st\n8 und gc curva horizontal 300x100mm 1.5mm\n2 und curva vertical 400x100mm 1.2mm\n4 und tee 300x300x300x100mm\n6 und reduccion 600x400x100mm\n10 und caja de pase 50x30x10\n56 und caja 300x300x100mm 3/4\n# SIN COMISIÓN – GO (línea de config, se ignora como ítem)';
-    btnProcesar.textContent = 'Procesar texto';
-  }
-}
 
 // ──────────────────────────────────────────────────────────────
 // Parser texto libre: una línea por producto
@@ -519,7 +499,7 @@ function _parseTSV(text) {
   // Intentar detectar encabezados en la primera fila
   // Requiere ≥2 columnas reconocidas para no confundir "UND" en datos con un header
   const firstRow = lines[0];
-  let colDesc = 0, colUnd = -1, colCant = -1;
+  let colDesc = 0, colUnd = -1, colCant = -1, colPrecio = -1;
   let headerMatches = 0;
 
   for (let c = 0; c < firstRow.length; c++) {
@@ -527,6 +507,7 @@ function _parseTSV(text) {
     if (_HEADER_RE.descripcion.test(cell)) { colDesc = c; headerMatches++; }
     if (_HEADER_RE.unidad.test(cell))      { colUnd  = c; headerMatches++; }
     if (_HEADER_RE.cantidad.test(cell))    { colCant = c; headerMatches++; }
+    if (_HEADER_RE.precio.test(cell))      { colPrecio = c; }
   }
   const headersDetected = headerMatches >= 2;
 
@@ -596,16 +577,22 @@ function _parseTSV(text) {
     const desc = _normalizarDimensiones(row[colDesc] || '');
     if (!desc) continue;
 
-    // Normalizar unidad: MTS/MT → ML (metros lineales)
+    // Normalizar unidad
     let unidad = (colUnd >= 0 && row[colUnd]) ? row[colUnd].trim().toUpperCase() : 'UND';
     if (unidad === 'MTS' || unidad === 'MT') unidad = 'ML';
+    if (unidad === 'PZA' || unidad === 'PIEZAS') unidad = 'UND';
     let cantidad = 1;
     if (colCant >= 0 && row[colCant]) {
       // Acepta "5", "5.00", "5,00" (Excel puede exportar con decimales)
       const n = Math.round(parseFloat((row[colCant] || '').replace(',', '.')));
       if (!isNaN(n) && n > 0) cantidad = n;
     }
-    rows.push({ descripcion: desc, unidad: unidad || 'UND', cantidad });
+    let precio_excel = null;
+    if (colPrecio >= 0 && row[colPrecio]) {
+      const p = parseFloat((row[colPrecio] || '').replace(',', '.'));
+      if (!isNaN(p) && p > 0) precio_excel = p;
+    }
+    rows.push({ descripcion: desc, unidad: unidad || 'UND', cantidad, precio_excel });
   }
 
   // ── Safety check: si las descripciones son todas numéricas, la asignación
@@ -626,7 +613,7 @@ async function procesarTexto() {
   _leerConfigImportar();
   const text = document.getElementById('importar-paste').value.trim();
   if (!text) {
-    toast(_importarModo === 'libre' ? 'Escribe al menos un producto' : 'Pega primero una tabla', 'error');
+    toast('Pega primero el contenido o escribe productos', 'error');
     return;
   }
 
@@ -637,8 +624,32 @@ async function procesarTexto() {
     return;
   }
 
-  // Guardar items parseados para poder re-procesar desde el paso 2
   _ultimoItemsParsed = items;
+
+  const modoPrecio = document.querySelector('input[name="imp-modo-precio"]:checked')?.value ?? 'aroluz';
+
+  if (modoPrecio === 'manual') {
+    // Modo manual: omitir backend, ir directo al preview con ítems manuales
+    _importarItems = items.map(i => ({
+      descripcion:           i.descripcion,
+      unidad:                i.unidad,
+      cantidad:              i.cantidad,
+      reconocido:            false,
+      tipo:                  'MANUAL',
+      precio_unitario:       i.precio_excel ?? null,
+      peso_unitario:         null,
+      descripcion_calculada: null,
+      tipo_galvanizado:      _importarConfig.galvanizado_global,
+      porcentaje_ganancia:   _importarConfig.ganancia_global,
+      error:                 null,
+      es_manual_excel:       true,
+    }));
+    renderPreview(_importarItems);
+    _sincronizarP2Opciones();
+    document.getElementById('importar-paso1').style.display = 'none';
+    document.getElementById('importar-paso2').style.display = '';
+    return;
+  }
 
   const btn = document.getElementById('btn-importar-procesar');
   btn.disabled = true;
@@ -655,12 +666,12 @@ async function procesarTexto() {
   } catch (err) {
     toast('Error de red al procesar', 'error');
     btn.disabled = false;
-    btn.textContent = _importarModo === 'libre' ? 'Procesar texto' : 'Procesar tabla';
+    btn.textContent = 'Procesar';
     return;
   }
 
   btn.disabled = false;
-  btn.textContent = _importarModo === 'libre' ? 'Procesar texto' : 'Procesar tabla';
+  btn.textContent = 'Procesar';
 
   if (!data.ok) {
     toast(data.error || 'Error al procesar', 'error');
@@ -669,7 +680,6 @@ async function procesarTexto() {
 
   _importarItems = data.items;
   renderPreview(_importarItems);
-  // Sincronizar radios del paso 2 con la config actual
   _sincronizarP2Opciones();
   document.getElementById('importar-paso1').style.display = 'none';
   document.getElementById('importar-paso2').style.display = '';
@@ -687,14 +697,22 @@ function renderPreview(items) {
   const tbody = document.getElementById('importar-preview-tbody');
   tbody.innerHTML = items.map((item, idx) => {
     const esCatalogo = !!item.es_catalogo;
-    const checkedByDefault = item.reconocido; // no reconocidos → desmarcados por defecto
-    const icon   = item.reconocido ? (esCatalogo ? '📦' : '✅') : '🔴';
-    const precio = item.reconocido
-      ? `S/ ${Number(item.precio_unitario).toFixed(2)}`
-      : '<span style="color:#c0392b; font-size:0.78rem;">sin precio</span>';
-    const subtotal = item.reconocido
-      ? `<strong>S/ ${(Number(item.precio_unitario) * item.cantidad).toFixed(2)}</strong>`
-      : '—';
+    const tienePrecionManual = !item.reconocido && item.precio_unitario != null;
+    const checkedByDefault = item.reconocido || tienePrecionManual;
+    const icon = item.reconocido
+      ? (esCatalogo ? '📦' : '✅')
+      : (tienePrecionManual ? '📋' : '🔴');
+    let precio, subtotal;
+    if (item.reconocido) {
+      precio   = `S/ ${Number(item.precio_unitario).toFixed(2)}`;
+      subtotal = `<strong>S/ ${(Number(item.precio_unitario) * item.cantidad).toFixed(2)}</strong>`;
+    } else if (tienePrecionManual) {
+      precio   = `<span style="color:#7c3aed; font-size:0.85rem;">S/ ${Number(item.precio_unitario).toFixed(2)}</span>`;
+      subtotal = `<strong style="color:#7c3aed;">S/ ${(Number(item.precio_unitario) * item.cantidad).toFixed(2)}</strong>`;
+    } else {
+      precio   = '<span style="color:#c0392b; font-size:0.78rem;">sin precio</span>';
+      subtotal = '—';
+    }
     const descCorta = item.descripcion.length > 70
       ? item.descripcion.slice(0, 70) + '…'
       : item.descripcion;
@@ -742,9 +760,9 @@ function _actualizarTotalesImportar() {
     if (!chk.checked) return;
     const idx = parseInt(chk.dataset.idx, 10);
     const item = _importarItems[idx];
-    if (!item || !item.reconocido) return;
+    if (!item || item.precio_unitario == null) return;
     totalPrecio += Number(item.precio_unitario) * item.cantidad;
-    totalPeso   += Number(item.peso_unitario)   * item.cantidad;
+    totalPeso   += Number(item.peso_unitario || 0) * item.cantidad;
   });
   const div = document.getElementById('importar-totales');
   if (!div) return;
@@ -764,9 +782,16 @@ function _actualizarResumenSeleccion() {
   const checks   = document.querySelectorAll('.imp-chk-item');
   const seleccionados = Array.from(checks).filter(c => c.checked).length;
 
+  const esModomanual = _importarItems.some(i => i.es_manual_excel);
   let resumenTxt;
-  if (err > 0) {
-    resumenTxt = `${total} ítem(s) en total — ${ok} reconocidos, ${err} no identificados`;
+  if (esModomanual) {
+    const conPrecio = _importarItems.filter(i => i.precio_unitario != null).length;
+    const sinPrecio = total - conPrecio;
+    resumenTxt = `${total} ítem(s) importados como manuales`;
+    if (conPrecio) resumenTxt += ` — ${conPrecio} con precio del Excel`;
+    if (sinPrecio) resumenTxt += ` — ${sinPrecio} sin precio (completar en carrito)`;
+  } else if (err > 0) {
+    resumenTxt = `${total} ítem(s) — ${ok} reconocidos, ${err} no identificados`;
     if (seleccionados < total) resumenTxt += ` — ${seleccionados} seleccionados para agregar`;
   } else {
     resumenTxt = `${total} ítem(s) — todos con precio calculado`;
@@ -862,11 +887,10 @@ async function confirmarImportar() {
         if (item.descripcion_calculada) fd.append('descripcion_calculada', item.descripcion_calculada);
         await fetch('/api/carrito/agregar', { method: 'POST', body: fd });
       } else {
-        // No reconocido → agregar como manual con precio 0
         const fd = new FormData();
         fd.append('descripcion',     item.descripcion);
         fd.append('unidad',          item.unidad);
-        fd.append('precio_unitario', 0);
+        fd.append('precio_unitario', item.precio_unitario ?? 0);
         fd.append('peso_unitario',   0);
         fd.append('cantidad',        item.cantidad);
         await fetch('/api/carrito/agregar_manual', { method: 'POST', body: fd });
@@ -901,6 +925,10 @@ async function confirmarImportar() {
  * Se llama justo antes de mostrar el paso 2.
  */
 function _sincronizarP2Opciones() {
+  // Resetear flags de override — los controles son solo visuales hasta que el usuario los toque
+  _p2SupOverride     = false;
+  _p2EspTapaOverride = false;
+
   const gan = document.querySelector(`input[name="p2-ganancia"][value="${_importarConfig.ganancia_global || '30'}"]`);
   if (gan) gan.checked = true;
   const galv = document.querySelector(`input[name="p2-galv"][value="${_importarConfig.galvanizado_global || 'GO'}"]`);
@@ -931,8 +959,9 @@ function _leerConfigP2() {
   _importarConfig.ganancia_global       = gan  ? gan.value  : '30';
   _importarConfig.galvanizado_global    = galv ? galv.value : 'GO';
   _importarConfig.espesor_cuerpo_global = espC ? parseFloat(espC.value) : 1.5;
-  _importarConfig.espesor_tapa_global   = espT ? parseFloat(espT.value) : 1.5;
-  _importarConfig.superficie_global     = sup  ? sup.value  : 'RANURADA';
+  // Solo aplicar como override si el usuario los tocó activamente
+  _importarConfig.espesor_tapa_global   = _p2EspTapaOverride ? (espT ? parseFloat(espT.value) : null) : null;
+  _importarConfig.superficie_global     = _p2SupOverride     ? (sup  ? sup.value : null) : null;
   const tapaModoP2 = document.querySelector('input[name="p2-tapa-modo"]:checked');
   _importarConfig.tapa_modo             = tapaModoP2 ? tapaModoP2.value : 'junto';
 
@@ -943,10 +972,6 @@ function _leerConfigP2() {
   if (p1galv) p1galv.checked = true;
   const p1espC = document.querySelector(`input[name="imp-esp-cuerpo"][value="${_importarConfig.espesor_cuerpo_global.toFixed(1)}"]`);
   if (p1espC) p1espC.checked = true;
-  const p1espT = document.querySelector(`input[name="imp-esp-tapa"][value="${_importarConfig.espesor_tapa_global.toFixed(1)}"]`);
-  if (p1espT) p1espT.checked = true;
-  const p1sup = document.querySelector(`input[name="imp-superficie"][value="${_importarConfig.superficie_global}"]`);
-  if (p1sup) p1sup.checked = true;
 }
 
 /**
@@ -955,7 +980,10 @@ function _leerConfigP2() {
  * y muestra paso 2 con los precios actualizados. Si no, no hace nada.
  */
 async function _autoReprocesar() {
-  if (!_ultimoItemsParsed.length) return;  // aún no se ha procesado ningún texto
+  if (!_ultimoItemsParsed.length) return;
+  // En modo manual no hay nada que recalcular en el backend
+  const modoPrecio = document.querySelector('input[name="imp-modo-precio"]:checked')?.value ?? 'aroluz';
+  if (modoPrecio === 'manual') return;
   _leerConfigImportar();
   _sincronizarP2Opciones();
 
@@ -994,6 +1022,8 @@ async function _autoReprocesar() {
 async function p2ActualizarPreview() {
   _leerConfigP2();
   if (!_ultimoItemsParsed.length) return;
+  // En modo manual los precios no se recalculan con el backend
+  if (_importarItems.some(i => i.es_manual_excel)) return;
 
   const btnConf = document.getElementById('btn-importar-confirmar');
   if (btnConf) { btnConf.disabled = true; btnConf.textContent = 'Actualizando…'; }

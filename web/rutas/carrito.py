@@ -880,6 +880,25 @@ def _cargar_catalogo_plano() -> list:
     return productos
 
 
+# Diámetros nominales EMT en mm → token pulgadas equivalente del catálogo.
+# El catálogo usa notación en pulgadas; las listas de obra usan mm.
+# Orden: del más grande al más pequeño para que re.sub no confunda "100" con "10".
+_EMT_MM_A_PUL: dict[str, str] = {
+    "102": "4pul",       # 4"
+    "100": "4pul",       # 4"
+    "80":  "3pul",       # 3"
+    "76":  "3pul",       # 3"
+    "65":  "2_1_2pul",   # 2 1/2"
+    "50":  "2pul",       # 2"
+    "40":  "1_1_2pul",   # 1 1/2"  (nominal Perú)
+    "38":  "1_1_2pul",   # 1 1/2"
+    "32":  "1_1_4pul",   # 1 1/4"
+    "25":  "1pul",       # 1"
+    "20":  "3_4pul",     # 3/4"
+    "15":  "1_2pul",     # 1/2"
+}
+
+
 def _normalizar_para_match(texto: str) -> set:
     """Normaliza texto a conjunto de tokens para comparación fuzzy.
 
@@ -887,6 +906,7 @@ def _normalizar_para_match(texto: str) -> set:
     - Fracciones: "3/4" → "3_4" (token único para no confundir "3" y "4" por separado)
     - Pulgadas compuestas: '1 1/4"' → "1_1_4pul"
     - Pulgadas simples: '4"' → "4pul"
+    - mm EMT: "40mm" → "1_1_2pul" (via _EMT_MM_A_PUL)
     Esto evita que "tubo EMT 4\"" coincida con "tubo EMT 3/4\"" por el token "4".
     """
     # Quitar acentos (NFD → ASCII)
@@ -895,6 +915,16 @@ def _normalizar_para_match(texto: str) -> set:
     # Sinónimos: equiparar vocabulario de listas externas con el del catálogo
     ascii_str = re.sub(r'\btuberia\b', 'tubo', ascii_str)
     ascii_str = re.sub(r'\bconduit\b', 'emt', ascii_str)
+    ascii_str = re.sub(r'\bcurvas\b', 'curva', ascii_str)
+    ascii_str = re.sub(r'\babarzaderas?\b', 'abrazadera', ascii_str)   # typo frecuente
+    ascii_str = re.sub(r'\babrazaderas\b', 'abrazadera', ascii_str)
+    ascii_str = re.sub(r'\buniones\b', 'union', ascii_str)
+    ascii_str = re.sub(r'\bconectores\b', 'conector', ascii_str)
+    # Diámetros EMT en mm → token pulgadas equivalente (antes de procesar fracciones)
+    def _mm_a_pul(m: re.Match) -> str:
+        tok = _EMT_MM_A_PUL.get(m.group(1))
+        return f" {tok} " if tok else m.group(0)
+    ascii_str = re.sub(r'(\d+)\s*mm', _mm_a_pul, ascii_str)
     # Normalizar pulgadas compuestas antes de reemplazar chars especiales
     # Con comillas: "1 1/4\"" → "1_1_4pul"
     ascii_str = re.sub(r'(\d+)\s+(\d+)/(\d+)\s*"', r'\1_\2_\3pul', ascii_str)
@@ -911,6 +941,8 @@ def _normalizar_para_match(texto: str) -> set:
     tokens = set(limpio.split())
     # Quitar tokens de una sola letra que no sean medidas conocidas
     tokens = {t for t in tokens if len(t) > 1 or t in ("m",)}
+    # Stopwords: preposiciones vacías que crean falsos empates
+    tokens -= {"de", "del", "el", "la", "los", "las", "un", "una", "al"}
     return tokens
 
 
@@ -1139,11 +1171,11 @@ def calcular_precio_importado(
     else:
         galvanizado = parsed.get("galvanizado", "GO")
 
-    # Superficie: explícita en descripción > global override > default RANURADA
-    if parsed.get("superficie_explicita"):
-        superficie = parsed.get("superficie", "RANURADA")
-    elif ov.get("superficie_global"):
+    # Superficie: global override del bar (usuario lo eligió) > explícita en descripción > default RANURADA
+    if ov.get("superficie_global"):
         superficie = ov["superficie_global"]
+    elif parsed.get("superficie_explicita"):
+        superficie = parsed.get("superficie", "RANURADA")
     else:
         superficie = parsed.get("superficie", "RANURADA")
 
@@ -1297,8 +1329,10 @@ async def importar_procesar(
     for item in body.items:
         parsed = parsear_descripcion(item.descripcion)
         es_ml = item.unidad == "ML" and parsed.get("tipo") == "B"
-        # "C/TAPA" detectado en la descripción tiene prioridad si el ítem no trae con_tapa explícito
-        con_tapa_efectivo = item.con_tapa or parsed.get("con_tapa_desc", False)
+        # Todos los tipos que el motor cotiza con tapa incluyen la tapa en el precio del modal.
+        # "C/Tapa: Junto" combina cuerpo+tapa en una línea; "Separada" genera dos líneas.
+        tipo_soporta_tapa = parsed.get("tipo") in ("B", "CH", "CVE", "CVI", "T", "C", "R")
+        con_tapa_efectivo = tipo_soporta_tapa or item.con_tapa or parsed.get("con_tapa_desc", False)
 
         precio_data = calcular_precio_importado(
             parsed, config, overrides,

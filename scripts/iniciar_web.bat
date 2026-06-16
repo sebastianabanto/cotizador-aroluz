@@ -22,6 +22,10 @@ echo  ====================================================
 echo.
 
 cd /d "%~dp0.."
+
+rem Abre el navegador tras 2 segundos (el servidor ya estará listo)
+start "" /MIN cmd /c "timeout /t 2 /nobreak > nul & start http://localhost:8000"
+
 venv\Scripts\python.exe -m uvicorn web.main:app --host 0.0.0.0 --port 8000
 
 pause

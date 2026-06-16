@@ -4,6 +4,19 @@
 
 VERSIONES = [
     {
+        "version": "3.2",
+        "fecha": "2026-06-16",
+        "titulo": "Importar productos: controles del modal y parseo EMT por mm",
+        "cambios": [
+            ("corrección", "Cambiar espesor de tapa (1.2/1.5/2.0mm) en el modal de importar ahora modifica el precio de todos los ítems con tapa"),
+            ("corrección", "Cambiar Sup: Lisa/Ranurada/Escalerilla solo aplica cuando el usuario hace clic explícitamente (ya no fuerza RANURADA al tocar otros controles)"),
+            ("corrección", "C/Tapa: Separada genera filas independientes de tapa en el preview del modal"),
+            ("corrección", "Parseo de productos EMT escritos en mm: 40mm→1½\", 65mm→2½\", 100mm→4\", etc. (antes todo caía como TUBO 1/2\")"),
+            ("mejora",     "Sinónimos en el buscador de catálogo: TUBERIA→TUBO, CURVAS→CURVA, ABARZADERAS→ABRAZADERA"),
+            ("mejora",     "Stopwords (de, del, el, la...) excluidas del matching para evitar empates falsos entre tipos de producto"),
+        ],
+    },
+    {
         "version": "3.1",
         "fecha": "2026-06-12",
         "titulo": "Seguridad reforzada y reorganización interna del código",
